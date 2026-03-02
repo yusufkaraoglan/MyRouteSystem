@@ -463,6 +463,7 @@ html,body{height:100dvh;overflow:hidden;font-family:'Inter',system-ui,sans-serif
 <div class="page" id="page-dash">
   <div class="topbar">
     <div class="tb-title" style="flex:1">Özet</div>
+    <button onclick="exportDashReport()" style="height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);font-size:11px;font-weight:700;cursor:pointer;color:var(--sub);font-family:'Inter',sans-serif;white-space:nowrap;margin-right:6px" title="Rapor İndir">📥 Excel</button>
     <div class="period-tog" style="margin-right:8px">
       <button class="pt-btn on" id="dp-day" onclick="setDashPeriod('day')">Bugün</button>
       <button class="pt-btn" id="dp-month" onclick="setDashPeriod('month')">Ay</button>
@@ -504,6 +505,20 @@ html,body{height:100dvh;overflow:hidden;font-family:'Inter',system-ui,sans-serif
     <button onclick="openAddCat()" style="width:34px;height:34px;border-radius:8px;border:none;background:var(--text);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>
   </div>
   <div class="body" id="katBody" style="padding:12px"></div>
+</div>
+
+<!-- PAGE: MÜŞTERİ PROFİL -->
+<div class="page" id="page-profil">
+  <div class="topbar">
+    <button onclick="showPage(profilBack||'adresler')" style="border:none;background:none;font-size:18px;cursor:pointer;padding:4px 8px 4px 0;color:var(--sub)">←</button>
+    <div style="flex:1">
+      <div class="tb-title" id="profilTitle">—</div>
+      <div class="tb-sub" id="profilSub">—</div>
+    </div>
+    <button onclick="openStopCat(profilStopId)" style="height:34px;padding:0 10px;border-radius:8px;border:1px solid #E9D7FE;background:#FDF4FF;font-size:11px;font-weight:700;cursor:pointer;color:#53178F;font-family:'Inter',sans-serif;margin-right:6px">📋 Fiyat</button>
+    <button onclick="openEdit(profilStopId)" style="height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);font-size:11px;font-weight:700;cursor:pointer;color:var(--sub);font-family:'Inter',sans-serif">✏️ Düzenle</button>
+  </div>
+  <div class="body" id="profilBody"></div>
 </div>
 
 <!-- PLAN IMPORT MODAL -->
@@ -634,7 +649,24 @@ html,body{height:100dvh;overflow:hidden;font-family:'Inter',system-ui,sans-serif
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
     Katalog
   </button>
+  <button class="ni" id="nav-more" onclick="toggleMore(event)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+    Diğer
+  </button>
 </nav>
+
+<!-- MORE POPUP -->
+<div id="morePopup" style="display:none;position:fixed;bottom:calc(60px + env(safe-area-inset-bottom,0px));right:4px;z-index:1000">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 -4px 20px rgba(0,0,0,.12);overflow:hidden;min-width:170px">
+    <button onclick="showPage('adresler');closeMore()" style="display:flex;align-items:center;gap:10px;width:100%;padding:13px 16px;border:none;background:none;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);text-align:left">
+      <span style="font-size:15px">📍</span> Adresler
+    </button>
+    <div style="height:1px;background:var(--border);margin:0 12px"></div>
+    <button onclick="showPage('borclar');closeMore()" style="display:flex;align-items:center;gap:10px;width:100%;padding:13px 16px;border:none;background:none;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);text-align:left">
+      <span style="font-size:15px">💳</span> Borç Geçmişi
+    </button>
+  </div>
+</div>
 
 <!-- SUPABASE SETUP MODAL -->
 <div class="overlay" id="sbSetupOv" onclick="if(event.target===this)closeSbSetup()">
@@ -1235,6 +1267,7 @@ function pcClass(p){
 // ══════════════════════════════════════════════════════════════
 let curPage = 'map';
 function showPage(name){
+  closeMore();
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.getElementById('page-'+name).classList.add('on');
@@ -1247,7 +1280,22 @@ function showPage(name){
   if(name==='dash') renderDash();
   if(name==='borclar') renderBorclar();
   if(name==='katalog') renderKatalog();
+  if(name==='profil') renderProfil();
 }
+
+// MORE POPUP
+function toggleMore(e){
+  if(e) e.stopPropagation();
+  const p = document.getElementById('morePopup');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+function closeMore(){
+  const p = document.getElementById('morePopup');
+  if(p) p.style.display = 'none';
+}
+document.addEventListener('click', e => {
+  if(!e.target.closest('#morePopup') && !e.target.closest('#nav-more')) closeMore();
+});
 
 // ══════════════════════════════════════════════════════════════
 // MAP
@@ -1930,8 +1978,8 @@ function renderAdrList(){
         <div class="sc-num" style="border-color:${day?day.color:'var(--border2)'};color:${day?day.color:'var(--muted)'};background:transparent;width:26px;height:26px;font-size:9px">${s.id+1}</div>
         <div style="font-size:8px;color:${geoOk?'#12B76A':'#F04438'}" title="${geoOk?'Haritada':'Haritada yok'}">${geoOk?'📍':'❌'}</div>
       </div>
-      <div style="flex:1;min-width:0;padding-top:1px">
-        <div class="sname">${s.n}</div>
+      <div style="flex:1;min-width:0;padding-top:1px;cursor:pointer" onclick="openProfil(${s.id},'adresler')">
+        <div class="sname" style="color:#175CD3">${s.n}</div>
         <div class="saddr">${s.a}, ${s.c}</div>
         <div style="display:flex;align-items:center;gap:5px;margin-top:3px">
           <span class="spc ${pcClass(s.p)}">${s.p}</span>
@@ -3094,6 +3142,266 @@ function renderDash() {
   </div>`;
 
   document.getElementById('dashBody').innerHTML = h;
+}
+
+// ══════════════════════════════════════════════════════════════
+// MÜŞTERİ PROFİL SAYFASI
+// ══════════════════════════════════════════════════════════════
+let profilStopId = null;
+let profilBack = 'adresler';
+
+function openProfil(stopId, backPage) {
+  profilStopId = stopId;
+  profilBack = backPage || curPage || 'adresler';
+  showPage('profil');
+}
+
+function renderProfil() {
+  if (profilStopId === null) return;
+  const s = STOPS.find(x => x.id === profilStopId);
+  if (!s) return;
+
+  const dayId = S.assign[s.id];
+  const day = dayId ? getDay(dayId) : null;
+  const geoOk = !!S.geo[s.id];
+  const debt = S.debts[s.id] || 0;
+  const cnote = S.cnotes[s.id] || '';
+  const overrides = S.stopCatalog[s.id] || [];
+
+  document.getElementById('profilTitle').textContent = s.n;
+  document.getElementById('profilSub').textContent = `${s.a}, ${s.c} · ${s.p}`;
+
+  // Collect all orders for this stop
+  const allOrders = [];
+  Object.keys(S.orders).forEach(key => {
+    const parts = key.split('_');
+    const sid = parseInt(parts.slice(-1)[0]);
+    if (sid === s.id) {
+      const dateStr = parts.slice(0, -1).join('_');
+      allOrders.push({ date: dateStr, ord: S.orders[key] });
+    }
+  });
+  allOrders.sort((a, b) => b.date.localeCompare(a.date));
+
+  // Stats
+  let totalSpend = 0, totalCash = 0, totalBank = 0, totalUnpaid = 0;
+  const prodMap = {};
+  allOrders.forEach(({ ord }) => {
+    const tot = ord.items.reduce((sum, i) => sum + i.qty * i.price, 0);
+    totalSpend += tot;
+    if (ord.payMethod === 'cash') totalCash += parseFloat(ord.cashReceived || tot);
+    else if (ord.payMethod === 'bank') totalBank += tot;
+    else if (ord.payMethod === 'unpaid') totalUnpaid += tot;
+    (ord.items || []).forEach(item => {
+      if (!prodMap[item.name]) prodMap[item.name] = { qty: 0, revenue: 0 };
+      prodMap[item.name].qty += item.qty;
+      prodMap[item.name].revenue += item.qty * item.price;
+    });
+  });
+  const topProducts = Object.entries(prodMap)
+    .map(([name, st]) => ({ name, ...st }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 10);
+  const avgOrder = allOrders.length ? totalSpend / allOrders.length : 0;
+  const history = (S.debtHistory[s.id] || []).slice().reverse();
+
+  let h = '';
+
+  // Info card
+  h += `<div style="padding:16px;background:var(--card);border-bottom:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div class="sc-num" style="border-color:${day ? day.color : 'var(--border2)'};color:${day ? day.color : 'var(--muted)'};width:36px;height:36px;font-size:13px">${s.id + 1}</div>
+      <div style="flex:1">
+        <div style="font-size:10px;color:var(--muted)">${geoOk ? '📍 Haritada' : '❌ Konum yok'}</div>
+        <div style="display:flex;align-items:center;gap:5px;margin-top:3px">
+          <span class="spc ${pcClass(s.p)}">${s.p}</span>
+          ${day ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:${day.color}20;color:${day.color}">Hafta ${day.week} · ${day.label}</span>` : '<span style="font-size:9px;color:var(--muted)">Atanmamış</span>'}
+          ${overrides.length ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#FDF4FF;color:#53178F;border:1px solid #E9D7FE">${overrides.length} özel fiyat</span>` : ''}
+        </div>
+      </div>
+    </div>
+    ${cnote ? `<div style="background:#FFFAEB;border:1px solid #FEC84B;border-radius:8px;padding:8px 12px;font-size:11px;color:#B54708;cursor:pointer" onclick="openCnote(${s.id})">📌 ${cnote}</div>` : ''}
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button onclick="openAssign(STOPS.find(x=>x.id===${s.id}))" style="flex:1;height:34px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);font-size:11px;font-weight:700;cursor:pointer;color:var(--sub);font-family:'Inter',sans-serif">📅 Gün Ata</button>
+      <button onclick="openCnote(${s.id})" style="flex:1;height:34px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);font-size:11px;font-weight:700;cursor:pointer;color:var(--sub);font-family:'Inter',sans-serif">📌 Not</button>
+      ${geoOk ? `<button onclick="zoomTo(${s.id})" style="flex:1;height:34px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);font-size:11px;font-weight:700;cursor:pointer;color:var(--sub);font-family:'Inter',sans-serif">🗺 Harita</button>` : ''}
+    </div>
+  </div>`;
+
+  // Stats grid
+  h += `<div class="dash-section">
+    <div class="dash-sec-title">İstatistikler</div>
+    <div class="dash-grid">
+      <div class="dash-card"><div class="dash-card-val">${allOrders.length}</div><div class="dash-card-lbl">Toplam Sipariş</div></div>
+      <div class="dash-card"><div class="dash-card-val">${fmt(totalSpend)}</div><div class="dash-card-lbl">Toplam Harcama</div></div>
+      <div class="dash-card"><div class="dash-card-val">${fmt(avgOrder)}</div><div class="dash-card-lbl">Ortalama Sipariş</div></div>
+      <div class="dash-card ${debt > 0 ? 'amber' : 'green'}"><div class="dash-card-val">${fmt(debt)}</div><div class="dash-card-lbl">${debt > 0 ? '⚠️ Mevcut Borç' : '✅ Borç Yok'}</div></div>
+    </div>
+    <div class="dash-grid">
+      <div class="dash-card green"><div class="dash-card-val">${fmt(totalCash)}</div><div class="dash-card-lbl">💵 Cash</div></div>
+      <div class="dash-card blue"><div class="dash-card-val">${fmt(totalBank)}</div><div class="dash-card-lbl">🏦 Banka</div></div>
+    </div>
+  </div>`;
+
+  // Top products
+  if (topProducts.length) {
+    const maxRev = topProducts[0].revenue || 1;
+    h += `<div class="dash-section">
+      <div class="dash-sec-title">En Çok Alınan Ürünler</div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:2px 14px">
+        ${topProducts.map((p, i) => `
+          <div class="prod-row">
+            <div class="prod-rank">${i + 1}</div>
+            <div>
+              <div class="prod-name">${p.name}</div>
+              <div class="prod-bar"><div class="prod-bar-fill" style="width:${Math.round(p.revenue / maxRev * 100)}%"></div></div>
+            </div>
+            <div class="prod-stats">
+              <div class="prod-ciro">${fmt(p.revenue)}</div>
+              <div class="prod-qty">${p.qty} adet</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Order history
+  h += `<div class="dash-section">
+    <div class="dash-sec-title">Sipariş Geçmişi (${allOrders.length})</div>`;
+  if (!allOrders.length) {
+    h += '<div style="font-size:12px;color:var(--muted);padding:8px 0">Henüz sipariş kaydı yok.</div>';
+  } else {
+    allOrders.slice(0, 20).forEach(({ date, ord }) => {
+      const tot = ord.items.reduce((sum, i) => sum + i.qty * i.price, 0);
+      const payLabel = { cash: '💵 Cash', bank: '🏦 Banka', unpaid: '⏳ Ödenmedi' };
+      const payClass = { cash: 'pay-cash', bank: 'pay-bank', unpaid: 'pay-unpaid' };
+      h += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:11px;font-weight:700;color:var(--sub);font-family:'Inter',monospace">${date}</span>
+          <span style="font-size:14px;font-weight:800;font-family:'Inter',monospace">${fmt(tot)}</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+          <span class="pay-badge ${payClass[ord.payMethod] || 'pay-unpaid'}">${payLabel[ord.payMethod] || ord.payMethod}</span>
+          <span style="font-size:9px;color:var(--muted);font-weight:600">${ord.items.length} kalem</span>
+          ${ord.note ? `<span style="font-size:9px;color:var(--sub)">· ${ord.note}</span>` : ''}
+        </div>
+        <div style="margin-top:4px;font-size:10px;color:var(--muted)">${ord.items.map(i => `${i.name} x${i.qty}`).join(' · ')}</div>
+      </div>`;
+    });
+    if (allOrders.length > 20) {
+      h += `<div style="font-size:11px;color:var(--muted);text-align:center;padding:6px">… ve ${allOrders.length - 20} sipariş daha</div>`;
+    }
+  }
+  h += '</div>';
+
+  // Debt history
+  if (history.length) {
+    h += `<div class="dash-section" style="padding-bottom:16px">
+      <div class="dash-sec-title">Borç Geçmişi</div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px">
+        <div class="bdg-hist">
+          ${history.map(tx => `
+            <div class="bdg-hist-row">
+              <span class="bdg-hist-date">${tx.date}</span>
+              <span class="bdg-hist-desc">${tx.type === 'added' ? '➕ Borç eklendi' : '✅ Ödeme yapıldı'}${tx.note ? ' — ' + tx.note : ''}</span>
+              <span class="bdg-hist-amt ${tx.type === 'added' ? 'pos' : 'neg'}">${tx.type === 'added' ? '+' : '−'}${fmt(tx.amount)}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('profilBody').innerHTML = h;
+}
+
+// ══════════════════════════════════════════════════════════════
+// DASHBOARD EXCEL RAPOR EXPORT
+// ══════════════════════════════════════════════════════════════
+function exportDashReport() {
+  const wb = XLSX.utils.book_new();
+  const period = S.dashPeriod || 'day';
+  const week = S.dashWeek || 'A';
+  const periodLabel = period === 'day' ? todayKey() : new Date().toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
+
+  // 1. Özet sheet
+  const days = week === 'all' ? DAYS : DAYS.filter(d => d.week === week);
+  const periodOrders = getAllOrdersForPeriod(period);
+  const dayStopIds = new Set();
+  days.forEach(d => stopsForDay(d.id).forEach(s => dayStopIds.add(s.id)));
+  const filtered = period === 'day' ? periodOrders.filter(o => dayStopIds.has(o.stopId)) : periodOrders;
+
+  let totalCash = 0, totalBank = 0, totalUnpaid = 0, totalDebt = 0;
+  filtered.forEach(({ ord }) => {
+    const tot = ord.items.reduce((sum, i) => sum + i.qty * i.price, 0);
+    if (ord.payMethod === 'cash') totalCash += parseFloat(ord.cashReceived || tot);
+    else if (ord.payMethod === 'bank') totalBank += tot;
+    else if (ord.payMethod === 'unpaid') totalUnpaid += tot;
+  });
+  STOPS.forEach(s => { totalDebt += S.debts[s.id] || 0; });
+
+  const summaryRows = [
+    ['Costadoro Routes — Rapor'],
+    ['Dönem', periodLabel],
+    ['Hafta', week === 'all' ? 'Tümü' : 'Hafta ' + week],
+    [],
+    ['Metrik', 'Tutar'],
+    ['Toplam Ciro', (totalCash + totalBank + totalUnpaid).toFixed(2)],
+    ['Cash', totalCash.toFixed(2)],
+    ['Banka', totalBank.toFixed(2)],
+    ['Ödenmedi', totalUnpaid.toFixed(2)],
+    ['Toplam Borç', totalDebt.toFixed(2)],
+    ['Toplam Sipariş', filtered.length],
+  ];
+  const ws0 = XLSX.utils.aoa_to_sheet(summaryRows);
+  ws0['!cols'] = [{ wch: 20 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, ws0, 'Özet');
+
+  // 2. Ürün Bazlı sheet
+  const prodStats = buildProductStats(filtered);
+  const prodRows = [['Sıra', 'Ürün', 'Adet', 'Ciro']];
+  prodStats.forEach((p, i) => {
+    prodRows.push([i + 1, p.name, p.qty, p.revenue.toFixed(2)]);
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet(prodRows);
+  ws1['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 8 }, { wch: 12 }];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Ürün Satışları');
+
+  // 3. Müşteri Bazlı sheet
+  const custRows = [['#', 'Cafe', 'Adres', 'Posta Kodu', 'Atanmış Gün', 'Sipariş Sayısı', 'Toplam Harcama', 'Borç', 'Not']];
+  STOPS.forEach(s => {
+    const dayId = S.assign[s.id];
+    const day = dayId ? getDay(dayId) : null;
+    let orderCount = 0, spend = 0;
+    Object.keys(S.orders).forEach(key => {
+      if (parseInt(key.split('_').slice(-1)[0]) === s.id) {
+        orderCount++;
+        spend += S.orders[key].items.reduce((sum, i) => sum + i.qty * i.price, 0);
+      }
+    });
+    custRows.push([
+      s.id + 1, s.n, s.a + ', ' + s.c, s.p,
+      day ? 'Hafta ' + day.week + ' ' + day.label : '',
+      orderCount, spend.toFixed(2),
+      (S.debts[s.id] || 0).toFixed(2),
+      S.cnotes[s.id] || ''
+    ]);
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(custRows);
+  ws2['!cols'] = [{ wch: 4 }, { wch: 28 }, { wch: 30 }, { wch: 10 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 25 }];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Müşteriler');
+
+  // 4. Borçlar sheet
+  const debtRows = [['Cafe', 'Borç', 'Adres', 'Posta Kodu']];
+  STOPS.filter(s => (S.debts[s.id] || 0) > 0)
+    .sort((a, b) => (S.debts[b.id] || 0) - (S.debts[a.id] || 0))
+    .forEach(s => {
+      debtRows.push([s.n, (S.debts[s.id]).toFixed(2), s.a + ', ' + s.c, s.p]);
+    });
+  const ws3 = XLSX.utils.aoa_to_sheet(debtRows);
+  ws3['!cols'] = [{ wch: 28 }, { wch: 10 }, { wch: 32 }, { wch: 10 }];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Borçlar');
+
+  XLSX.writeFile(wb, `Costadoro_Rapor_${todayKey()}.xlsx`);
 }
 
 // ══════════════════════════════════════════════════════════════
