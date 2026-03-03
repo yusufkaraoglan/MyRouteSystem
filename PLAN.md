@@ -1,337 +1,500 @@
-# Uygulama Geliştirme Planı
+# Uygulama Geliştirme Planı v2
 
 ## Genel Özet
 
-4 ana değişiklik talep edildi:
-1. Plan + Rota birleştirme
-2. Bağımsız Sipariş sayfası oluşturma
-3. Müşteriye özel fiyatların sipariş akışına entegrasyonu
-4. Günlük teslimat raporlama sistemi (günlük/aylık/custom tarih)
+4 ana iş kalemi:
+
+| # | İş | Kısa Açıklama |
+|---|-----|---------------|
+| 1 | Plan + Rota birleştir | Plan sayfasını kaldır, tüm özelliklerini Rota'ya taşı |
+| 2 | Sipariş sayfası | Yeni `page-orders` — müşteri seç, katalogdan ürün ekle, fatura benzeri |
+| 3 | Müşteriye özel fiyat | Sipariş sayfası ve Rota'da özel fiyat entegrasyonu |
+| 4 | Raporlama sistemi | Günlük/aylık/custom tarih ile teslimat raporu |
+
+Uygulama sırası: **1 → 2 → 3 → 4**
 
 ---
 
-## AŞAMA 1: Plan ve Rota Birleştirme
+## AŞAMA 1: Plan + Rota Birleştirme
 
-### Mevcut Durum
-- **Rota** (`page-rota`, satır 384–413): Günlük ziyaret takibi. Hafta A/B, gün sekmeleri, arama, tik butonu (ziyaret), ↗ atama, ✏️ düzenleme, Excel export, haritada zoom, alt bar (ziyaret/toplam/kalan), sıfırla.
-- **Plan** (`page-plan`, satır 416–429): Sipariş/ödeme takibi. Hafta A/B, gün sekmeleri, sipariş/ödeme badge'leri, karta tıkla → sipariş modalı, gün özeti (cash/bank/ödenmedi/borç), sürükle-bırak sıralama, ↗ taşıma, import.
+### Neden?
+Rota ve Plan neredeyse aynı veriyi farklı şekilde gösteriyor. Kullanıcı iki sayfa arasında geçiş yapmak zorunda. Tek "Rota" sayfası altında birleştirilecek.
 
-### Yapılacaklar
+### Mevcut Farklılıklar
 
-#### 1.1 HTML Değişiklikleri
-- `page-plan` HTML bloğunu **tamamen kaldır** (satır 416–429)
-- `page-rota` bloğuna Plan'ın özelliklerini ekle:
-  - **Import butonu** (📂 Import) → topbar'a ekle (Excel butonunun yanına)
-  - `page-rota` topbar'da zaten Excel export ve Hafta A/B var, Import butonu da eklenmeli
-- Nav bar'dan **Plan butonunu kaldır** (satır 640–643, `nav-plan`)
-  - Nav 6 butondan 5'e düşecek: Harita, Rota, Özet, Katalog, Diğer
-  - Boşalan alana **Sipariş** butonu gelecek (Aşama 2)
+| Özellik | Rota (var) | Plan (var) | Birleşik Rota |
+|---------|:---:|:---:|:---:|
+| Hafta A/B toggle | ✓ | ✓ | ✓ |
+| Gün sekmeleri (tabs) | ✓ | ✓ | ✓ |
+| İlerleme çubuğu | ✓ | ✓ | ✓ |
+| Arama | ✓ | ✗ | ✓ |
+| Ziyaret tik (✓/○) | ✓ | ✓ | ✓ |
+| Gün atama (↗) | ✓ (assign) | ✓ (move) | ✓ (move) |
+| Düzenleme (✏️) | ✓ | ✗ | ✓ |
+| Haritada zoom | ✓ | ✗ | ✓ |
+| Sipariş/ödeme badge | ✗ | ✓ | ✓ |
+| Karta tıkla → sipariş | ✗ | ✓ | ✓ |
+| Borç uyarısı (sarı border) | ✗ | ✓ | ✓ |
+| Müşteri notu badge | ✗ | ✓ | ✓ |
+| Gün özeti (cash/bank/unpaid) | ✗ | ✓ | ✓ |
+| Sürükle-bırak sıralama | ✗ | ✓ | ✓ |
+| Import | ✗ | ✓ | ✓ |
+| Excel export | ✓ | ✗ | ✓ |
+| Alt bar (ziyaret/toplam/kalan) | ✓ | ✗ | ✓ |
+| Sıfırla butonu | ✓ | ✗ | ✓ |
+| Atanmamış/Plansız tab | ✓ | ✓ | ✓ |
 
-#### 1.2 JavaScript Değişiklikleri
+### 1.1 — HTML Değişiklikleri
 
-**Rota sayfasını genişlet — Plan'ın tüm özelliklerini Rota'ya taşı:**
+**Silinecek:**
+- `page-plan` bloğu (satır 416–429)
+- `nav-plan` butonu (satır 640–643)
 
-- `renderRotaBody()` içine Plan'ın kart yapısını entegre et:
-  - Her stop kartına **sipariş/ödeme badge'i** ekle (`payBadgeHtml()`)
-  - Karta tıklama → `openOrd(stopId, dayId)` sipariş modalını aç
-  - **Borç uyarısı** olan kartlarda sarı border
-  - **Sürükle-bırak sıralama** (grip icon + drag logic)
-  - **Taşıma butonu** (↗ → `openMove()`)
+**`page-rota` topbar'a eklenecek:**
+- Import butonu: `<button onclick="openPlanImport()">📂 Import</button>` (Excel butonunun soluna)
 
-- `renderRotaTabs()` üstüne **gün özeti** ekle (`renderDaySummary()`)
-  - Cash / Banka / Ödenmedi / Borç Ödendi toplamları
+### 1.2 — JavaScript: `renderRotaBody()` Yeniden Yazımı
 
-- Alt bar'ı genişlet:
-  - Mevcut: Ziyaret / Toplam / Kalan
-  - Ekle: Günün toplam cirosu
-
-- `renderRota()` fonksiyonuna `bindPlanEvents()` ve `initDrag()` çağrılarını ekle
-
-**Plan fonksiyonlarını temizle veya yeniden adlandır:**
-- `setPlanWeek()`, `setPlanDay()` → kaldır (artık `setRotaWeek/Day` kullanılacak)
-- `renderPlan()`, `renderPlanTabs()`, `renderPlanBody()`, `renderPlanUnsched()` → kaldır
-- `bindPlanEvents()` → mantığını `renderRotaBody()` sonuna taşı
-- `initDrag()`, `reorder()` → olduğu gibi kal (Rota'da kullanılacak)
-- `openMove()`, `execMove()`, `closeMove()` → olduğu gibi kal (Rota'da kullanılacak)
-- `renderDaySummary()`, `payBadgeHtml()` → olduğu gibi kal
-- `openPlanImport()` → olduğu gibi kal ama artık Rota sayfasından çağrılacak
-
-**showPage() güncelle:**
-- `if(name==='plan')` bloğunu kaldır
-- `if(name==='rota')` bloğunda `renderRota()` yeterli (zaten tüm özellikler burada olacak)
-
-**State temizliği:**
-- `S.planWeek`, `S.planDay` → kaldır, `S.rotaWeek/Day` kullanılacak
-- `lsSave('pWeek')`, `lsSave('pDay')` → kaldır
-- `execMove()` içindeki `S.planWeek/Day` referanslarını `S.rotaWeek/Day`'e çevir
-
-#### 1.3 Birleştirilmiş Rota Kartı Yapısı (Her Stop İçin)
+Mevcut `renderRotaBody()` (satır 1548–1598) yerine, Plan'ın kart yapısını ve Rota'nın özelliklerini birleştiren yeni versiyon:
 
 ```
-┌─────────────────────────────────────────────────┐
-│ [1]  ABBEY CAFE                          [✓][↗]│
-│      183 Abbey Wood Road, Abbey Wood     [✏️][≡]│
-│      SE2 9DZ                                    │
-│      [Cash £45.00] [2 kalem · £45.00]           │
-│      [⚠ Borç £12.50]                            │
-└─────────────────────────────────────────────────┘
+Her stop kartı:
+┌──────────────────────────────────────────────────────┐
+│ [1]  ABBEY CAFE                         [✓] [↗] [≡] │
+│      183 Abbey Wood Road, Abbey Wood          [✏️]   │
+│      SE2 9DZ                                         │
+│      ┌──────────────────────────────────────────┐    │
+│      │ Cash £45.00 │ 2 kalem · £45.00          │    │
+│      │ ⚠ Borç £12.50 │ 📌 Nakit ister         │    │
+│      └──────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────┘
 ```
 
-- Tıkla → sipariş modalı aç
-- ✓ → ziyaret işaretle
-- ↗ → başka güne taşı (move modal)
-- ✏️ → düzenle
-- ≡ → sürükle-bırak grip
+Kart tıklanınca → `openOrd(stopId, dayId)` (sipariş modalı)
+- `sc-body` `onclick` → `openOrd()` (Plan'daki gibi)
+- `zoomTo()` → sc-body'den kaldır (artık sipariş modalı açılacak)
+- Haritada zoom → ayrı küçük buton olarak eklenebilir (opsiyonel)
+
+**Kart HTML yapısı:**
+```js
+stops.forEach((s, i) => {
+  const isV = !!S.vis[dayId + '_' + s.id];
+  const hasDebt = (S.debts[s.id] || 0) > 0;
+  h += `<div class="sc${isV ? ' done' : ''}"
+         data-did="${dayId}" data-sid="${s.id}" data-idx="${i}"
+         style="${hasDebt ? 'border-color:#FEC84B' : ''};cursor:pointer"
+         onclick="openOrd(${s.id},'${dayId}')">
+    <div class="sc-num" style="...">${isV ? '✓' : (i+1)}</div>
+    <div class="sc-body">
+      <div class="sname">${s.n}</div>
+      <div class="saddr">${s.a}, ${s.c}</div>
+      <span class="spc ${pcClass(s.p)}">${s.p}</span>
+      ${payBadgeHtml(s.id)}
+    </div>
+    <div class="sc-right" onclick="event.stopPropagation()">
+      <button class="chk rchk" ...>${isV ? '✓' : '○'}</button>
+      <button class="asgn-btn" onclick="openMove('${dayId}',${s.id})">↗</button>
+      <button class="asgn-btn" onclick="openEdit(${s.id})">✏️</button>
+      <div class="grip" data-grip="1">≡</div>
+    </div>
+  </div>`;
+});
+```
+
+### 1.3 — Gün Özeti (renderDaySummary)
+
+`renderRotaBody()` içinde, progress bar'ın üstüne gün özetini ekle:
+```js
+h = renderDaySummary(S.rotaDay) + h;
+```
+Bu zaten mevcut fonksiyon — Cash / Banka / Ödenmedi / Borç Ödendi toplamlarını gösterir.
+
+### 1.4 — Sürükle-Bırak + Event Binding
+
+`renderRotaBody()` sonuna ekle:
+```js
+// Check butonları
+el.querySelectorAll('.rchk').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const key = btn.dataset.did + '_' + btn.dataset.sid;
+    S.vis[key] = !S.vis[key]; save.vis();
+    renderRota();
+  });
+});
+// Sürükle-bırak
+initDrag();
+```
+
+### 1.5 — Silinecek/Güncellenecek Fonksiyonlar
+
+**Silinecek fonksiyonlar:**
+- `setPlanWeek()`, `setPlanDay()`
+- `renderPlan()`, `renderPlanTabs()`, `renderPlanBody()`, `renderPlanUnsched()`
+- `bindPlanEvents()`
+
+**Güncellenecek fonksiyonlar:**
+- `execMove()` → `S.planWeek/Day` referanslarını `S.rotaWeek/Day`'e çevir
+- `saveStopCat()` → `renderPlan()` çağrısını `renderRota()` yap
+- `saveCnote()` → `renderPlan()` çağrısını `renderRota()` yap
+- `saveOrder()` → `renderPlan()` çağrısını `renderRota()` yap
+- `reorder()` → `renderPlan()` çağrısını `renderRota()` yap
+- `showPage()` → `if(name==='plan')` kaldır
+
+**Silinecek state:**
+- `S.planWeek`, `S.planDay`
+- `lsSave('pWeek')`, `lsSave('pDay')`
+
+### 1.6 — Alt Bar Güncelleme
+
+Mevcut alt bar'a günün toplam cirosunu ekle:
+```
+Ziyaret: 5 | Toplam: 12 | Kalan: 7 | Ciro: £234.50 | [↺ Sıfırla]
+```
+
+### 1.7 — Arama + Sürükle-Bırak Uyumu
+
+Arama aktifken kartlar filtreleniyor → sürükle-bırak ile sıralama tutarsız olabilir.
+**Çözüm:** Arama aktifken grip ikonunu gizle ve `data-idx`'i filtrelenmiş listeden al.
 
 ---
 
 ## AŞAMA 2: Sipariş Sayfası (`page-orders`)
 
 ### Konsept
-Rota'dan bağımsız, herhangi bir müşteriye sipariş oluşturma sayfası. Fatura benzeri görünüm.
+Rota'dan bağımsız, herhangi bir müşteriye sipariş oluşturma sayfası.
+- Mevcut sipariş modalını (`ordOv`) yeniden kullanır
+- Müşteri seç → sipariş modalını aç
 
-### 2.1 HTML — Yeni Sayfa
+### 2.1 — HTML: Yeni Sayfa
 
 ```html
 <div class="page" id="page-orders">
   <div class="topbar">
-    <div class="tb-title" style="flex:1">Sipariş</div>
+    <div style="flex:1">
+      <div class="tb-title">Siparişler</div>
+      <div class="tb-sub" id="ordPageSub"></div>
+    </div>
   </div>
-  <div class="body" id="ordersBody"></div>
+  <!-- Arama -->
+  <div class="sbar">
+    <div class="sbar-inner">
+      <svg>...</svg>
+      <input type="search" id="ordPageSearch" placeholder="Müşteri ara..."
+             oninput="onOrdPageSearch(this.value)">
+      <button class="sbar-clear" id="ordPageClear"
+              onclick="clearOrdPageSearch()">✕</button>
+    </div>
+  </div>
+  <div class="body" id="ordPageBody"></div>
 </div>
 ```
 
-### 2.2 Nav Bar
-- Plan butonunun yerine **Sipariş** butonu ekle
-- İkon: Alışveriş sepeti veya fatura ikonu
-- Sıralama: Harita, Rota, **Sipariş**, Özet, Katalog, Diğer
+### 2.2 — Nav Bar
 
-### 2.3 Sayfa Akışı
-
-```
-┌──────────────────────────────────────────┐
-│  Sipariş                                 │
-├──────────────────────────────────────────┤
-│  [🔍 Müşteri Ara...              ]       │
-│                                          │
-│  ► Seçilen: ABBEY CAFE                   │
-│    183 Abbey Wood Rd, SE2 9DZ            │
-│    📌 "Her zaman nakit ister"            │
-│                                          │
-├──────────────────────────────────────────┤
-│  📦 Ürünler           [📋 Katalogdan Seç]│
-│  ┌─────────────────────────────────────┐ │
-│  │ Costadoro Espresso 1kg  x2  £30.00 │ │
-│  │ Costadoro Filtre 250g   x1  £8.50  │ │
-│  └─────────────────────────────────────┘ │
-│  [Ürün adı] [Qty] [£] [+ Ekle]          │
-│                                          │
-├──────────────────────────────────────────┤
-│  Toplam: £38.50                          │
-│                                          │
-│  💳 Ödeme: [Cash] [Banka] [Ödenmedi]    │
-│  [Alınan Cash: ____]                     │
-│  [✓ Para üstü: £1.50]                   │
-│                                          │
-│  📝 Not: [_____________]                 │
-│                                          │
-│  [  Kaydet ✓  ]                          │
-└──────────────────────────────────────────┘
+Plan butonunun yerine Sipariş butonu:
+```html
+<button class="ni" id="nav-orders" onclick="showPage('orders')">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="16" y1="13" x2="8" y2="13"/>
+    <line x1="16" y1="17" x2="8" y2="17"/>
+    <polyline points="10 9 9 9 8 9"/>
+  </svg>
+  Sipariş
+</button>
 ```
 
-### 2.4 JavaScript — Yeni Fonksiyonlar
+Nav sırası: **Harita → Rota → Sipariş → Özet → Katalog → Diğer**
+
+### 2.3 — Sayfa Akışı
+
+Sayfa açıldığında müşteri listesi gösterilir. Müşteri aranır/seçilir → `openOrd(stopId, null)` çağrılır.
 
 ```js
-// State
-let orderPageStopId = null;
+let ordPageSearch = '';
 
-// Render
-renderOrders()          // Sayfa render
-renderOrderSearch()     // Müşteri arama listesi
-selectOrderStop(id)     // Müşteri seç
-renderOrderForm()       // Sipariş formu (items + payment + note)
-savePageOrder()         // Siparişi kaydet (S.orders'a)
+function renderOrders() {
+  const el = document.getElementById('ordPageBody');
+  let stops = [...STOPS];
 
-// Mevcut fonksiyonları yeniden kullan:
-// - addFromCatalog(), renderCatChips() → katalog chip'leri
-// - payBadgeHtml() → ödeme durumu
-// - fmt(), ordTotal() → format ve toplam
+  // Arama filtresi
+  if (ordPageSearch) {
+    stops = stops.filter(s =>
+      (s.n + s.a + s.c + s.p).toLowerCase().includes(ordPageSearch)
+    );
+  }
+
+  // Bugün siparişi olan müşteriler üstte
+  const withOrder = stops.filter(s => getOrd(s.id));
+  const without = stops.filter(s => !getOrd(s.id));
+
+  let h = '';
+
+  // Bugünün sipariş özeti
+  const todayOrders = Object.keys(S.orders)
+    .filter(k => k.startsWith(todayKey()))
+    .map(k => S.orders[k]);
+  const todayTotal = todayOrders.reduce((s, o) => s + ordTotal(o), 0);
+  const todayCount = todayOrders.length;
+
+  h += `<div style="padding:10px 12px;background:var(--card);border-bottom:1px solid var(--border)">
+    <div style="font-size:11px;color:var(--muted)">Bugün</div>
+    <div style="font-size:16px;font-weight:800">${todayCount} sipariş · ${fmt(todayTotal)}</div>
+  </div>`;
+
+  // Siparişi olanlar
+  if (withOrder.length) {
+    h += '<div style="padding:6px 12px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Bugün Sipariş Var</div>';
+    withOrder.forEach(s => {
+      const ord = getOrd(s.id);
+      h += renderOrderStopCard(s, ord);
+    });
+  }
+
+  // Siparişi olmayanlar
+  h += '<div style="padding:6px 12px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Tüm Müşteriler</div>';
+  without.forEach(s => {
+    h += renderOrderStopCard(s, null);
+  });
+
+  el.innerHTML = h;
+}
+
+function renderOrderStopCard(s, ord) {
+  const dayId = S.assign[s.id];
+  const day = dayId ? getDay(dayId) : null;
+  const hasDebt = (S.debts[s.id] || 0) > 0;
+
+  return `<div class="sc" style="margin:0 12px 6px;cursor:pointer;${hasDebt?'border-color:#FEC84B':''}"
+               onclick="openOrd(${s.id}, '${dayId || ''}')">
+    <div class="sc-body">
+      <div class="sname">${s.n}</div>
+      <div class="saddr">${s.a}, ${s.p}${day ? ' · ' + day.label + ' H' + day.week : ''}</div>
+      ${ord ? payBadgeHtml(s.id) : ''}
+    </div>
+    ${ord ? '<div style="color:#027A48;font-weight:700;font-size:12px">✓</div>' : ''}
+  </div>`;
+}
 ```
 
-### 2.5 Veri Kaydı
-- Aynı `S.orders` yapısı kullanılacak: `ordKey = "YYYY-MM-DD_stopId"`
-- `savePageOrder()` → `lsSave('orders', S.orders)` + Supabase sync
-- Sipariş kaydedildiğinde otomatik `S.vis[dayId_stopId] = true` (eğer o stop o gün atanmışsa)
+### 2.4 — `openOrd()` Güncelleme
 
-### 2.6 showPage() Güncelle
+`openOrd(stopId, dayId)` zaten modal açıyor. `dayId` `null` veya boş olabilir — bu durumda:
+- Modal başlığında gün bilgisi gösterilmez
+- `saveOrder()` içinde `S.vis` güncellenmez (çünkü gün atanmamış olabilir)
+- Sipariş key'i yine `todayKey() + '_' + stopId` olarak kalır
+
+### 2.5 — showPage() Güncelleme
+
 ```js
-if(name==='orders') renderOrders();
+if (name === 'orders') renderOrders();
 ```
 
 ---
 
-## AŞAMA 3: Müşteriye Özel Fiyatların Entegrasyonu
+## AŞAMA 3: Müşteriye Özel Fiyat Entegrasyonu
 
 ### Mevcut Durum
-- `S.stopCatalog[stopId]` → `[{name, price, globalPrice}]` zaten var
-- `stopCatOv` modalı ile müşteriye özel fiyat tanımlanabiliyor
-- Sipariş modalında `renderCatChips()` zaten özel fiyatlı chip'leri **mor** gösteriyor
+`S.stopCatalog` ve `stopCatOv` modalı zaten çalışıyor. Aşağıdaki iyileştirmeler yapılacak:
 
-### Yapılacaklar
+### 3.1 — Sipariş Modalında Otomatik Özel Fiyat
 
-#### 3.1 Sipariş Sayfasında Özel Fiyat Entegrasyonu
-- Müşteri seçildiğinde, o müşterinin `stopCatalog` override'ları otomatik uygulanmalı
-- Katalog chip'lerinde özel fiyat varsa **mor** renkte ve **özel fiyatla** gösterilmeli
-- "⚙️ Bu müşteriye özel fiyat ayarla →" linki sipariş sayfasında da olmalı
-
-#### 3.2 Özel Fiyat Göstergesi
-- Müşteri seçildiğinde, özel fiyatı olan ürünler için bilgi banner'ı göster:
+`openOrd()` açıldığında, eğer müşterinin `stopCatalog` override'ı varsa:
+- Katalog chip'leri otomatik açılsın (`catPickArea.style.display = 'block'`)
+- Bilgi banner'ı göster:
   ```
-  ℹ️ Bu müşteri için 3 ürüne özel fiyat tanımlı
+  ℹ️ Bu müşteri için X ürüne özel fiyat tanımlı
   ```
-- Fiyat farklarını göster: `Costadoro 1kg: £18.00 (global: £20.00)`
 
-#### 3.3 Mevcut Kod Dokunulmayacak
-- `openStopCat()`, `saveStopCat()`, `renderStopCatItems()` → olduğu gibi
-- `addFromCatalog()` → zaten stopCatalog'u kontrol ediyor
+### 3.2 — Sipariş Sayfasında Özel Fiyat Göstergesi
+
+`renderOrderStopCard()` içinde, eğer müşterinin özel fiyatı varsa:
+```html
+<span style="font-size:9px;color:#53178F;background:#FDF4FF;...">📋 Özel fiyat</span>
+```
+
+### 3.3 — Özel Fiyat Erişim Kolaylığı
+
+Birleştirilmiş Rota kartlarında da "📋 Fiyat" butonu ekle (profil sayfasındaki gibi).
+Veya kart sağ tarafına küçük bir "📋" ikonu → `openStopCat(stopId)` açar.
 
 ---
 
-## AŞAMA 4: Günlük Teslimat ve Raporlama Sistemi
+## AŞAMA 4: Raporlama Sistemi
 
-### Konsept
-Rota'daki müşterilere teslimat yapıldığında ödeme durumu seçilir. Dashboard'da günlük/aylık/custom tarih aralığında detaylı rapor görüntülenir.
+### 4.1 — Dashboard'a Custom Tarih Filtresi
 
-### 4.1 Teslimat Akışı (Rota'da — Aşama 1 ile entegre)
-- Zaten Aşama 1'de sipariş modalı Rota'ya entegre edilecek
-- Sipariş kaydedildiğinde `payMethod` seçilmiş olacak (cash/bank/unpaid)
-- Ek değişiklik gerekmez, Aşama 1 bunu kapsar
+**Mevcut toggle:** `Bugün | Ay`
+**Yeni toggle:** `Bugün | Ay | Özel`
 
-### 4.2 Dashboard Geliştirmesi — Custom Tarih Aralığı
-
-**Mevcut:** Bugün / Ay (2 period toggle)
-**Yeni:** Bugün / Ay / **Özel** (3 period toggle)
-
-- "Özel" seçildiğinde tarih aralığı seçici açılacak:
-  ```
-  ┌──────────────────────────────────┐
-  │  Başlangıç: [2026-02-01]        │
-  │  Bitiş:     [2026-02-28]        │
-  │  [Uygula]                       │
-  └──────────────────────────────────┘
-  ```
-
-- `getAllOrdersForPeriod()` fonksiyonunu güncelle:
-  - `period === 'custom'` → `startDate` ile `endDate` arasındaki siparişleri getir
-  - State'e ekle: `S.dashStart`, `S.dashEnd`
-
-### 4.3 Detaylı Satış Raporu Bölümü
-
-Dashboard'a yeni bir bölüm ekle: **"Teslimat Raporu"**
-
-```
-┌─────────────────────────────────────────────────────┐
-│ 📊 Teslimat Raporu — Bugün (2 Mart 2026)            │
-├─────────────────────────────────────────────────────┤
-│                                                      │
-│ 💰 Müşteri Ödemeleri                                │
-│ ┌─────────────────────────────────────────────────┐  │
-│ │ ABBEY CAFE     │ Cash   │ £45.00               │  │
-│ │ BEAN COUNTER   │ Banka  │ £32.00               │  │
-│ │ COSTA PLUS     │ Ödenmedi│ £28.50              │  │
-│ └─────────────────────────────────────────────────┘  │
-│                                                      │
-│ 📦 Ürün Bazlı Satış                                 │
-│ ┌─────────────────────────────────────────────────┐  │
-│ │ Costadoro Espresso 1kg  │  8 adet  │  £120.00  │  │
-│ │ Costadoro Filtre 250g   │  5 adet  │  £42.50   │  │
-│ │ Paper Cups (100lü)      │  3 adet  │  £15.00   │  │
-│ └─────────────────────────────────────────────────┘  │
-│                                                      │
-│ 📊 Toplam Özet                                       │
-│ ┌─────────────────────────────────────────────────┐  │
-│ │ Toplam Satış:    £177.50                        │  │
-│ │ Cash Toplanan:   £45.00                         │  │
-│ │ Banka Toplanan:  £32.00                         │  │
-│ │ Ödenmedi:        £28.50                         │  │
-│ │ Toplam Ürün:     16 adet                        │  │
-│ └─────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
+HTML değişikliği — `page-dash` topbar'a:
+```html
+<button class="pt-btn" id="dp-custom" onclick="setDashPeriod('custom')">Özel</button>
 ```
 
-### 4.4 JavaScript — Dashboard Güncellemeleri
+Custom seçildiğinde, topbar altında tarih aralığı göster:
+```html
+<div id="dashCustomRange" style="display:none;padding:8px 12px;...">
+  <input type="date" id="dashStart">
+  <span>—</span>
+  <input type="date" id="dashEnd">
+  <button onclick="applyCustomRange()">Uygula</button>
+</div>
+```
+
+### 4.2 — `getAllOrdersForPeriod()` Güncelleme
 
 ```js
-// Yeni state
-S.dashStart = lsGet('dStart', todayKey());  // custom başlangıç
-S.dashEnd   = lsGet('dEnd', todayKey());    // custom bitiş
-
-// Yeni fonksiyonlar
-setDashPeriod('custom')    // custom period seçildiğinde tarih inputları göster
-applyCustomRange()         // custom tarih aralığını uygula
-renderDeliveryReport()     // müşteri ödemeleri + ürün bazlı satış tablosu
-
-// Güncellenen fonksiyonlar
-getAllOrdersForPeriod(period) // 'custom' case ekle
-renderDash()                 // deliveryReport bölümünü ekle
+function getAllOrdersForPeriod(period) {
+  const today = todayKey();
+  const monthPrefix = today.slice(0, 7);
+  const all = [];
+  Object.keys(S.orders).forEach(key => {
+    const dateStr = key.split('_')[0];
+    if (period === 'day' && dateStr !== today) return;
+    if (period === 'month' && !dateStr.startsWith(monthPrefix)) return;
+    if (period === 'custom') {
+      if (dateStr < S.dashStart || dateStr > S.dashEnd) return;
+    }
+    const stopId = parseInt(key.split('_')[1]);
+    all.push({ key, stopId, date: dateStr, ord: S.orders[key] });
+  });
+  return all;
+}
 ```
 
-### 4.5 Rota Gün Bazlı Filtreleme
-Rota sayfasında aktif güne göre, o gündeki müşterilerin siparişleri otomatik filtrelenecek:
-- Gün sekmesine tıkla → o güne atanmış müşterilerin siparişleri ve ödemeleri görünür
-- Alt bar'da: Günün toplam cirosu, cash toplamı, ürün adedi
+### 4.3 — Teslimat Raporu: Müşteri Ödemeleri
+
+Dashboard'a yeni bölüm — seçilen periyottaki her müşterinin ödeme detayı:
+
+```
+💰 Müşteri Ödemeleri
+┌─────────────────────────────────────────────┐
+│ ABBEY CAFE       │ Cash    │ 2 kalem │ £45  │
+│ BEAN COUNTER     │ Banka   │ 3 kalem │ £32  │
+│ COSTA PLUS       │ Ödenmedi│ 1 kalem │ £28  │
+├─────────────────────────────────────────────┤
+│ Toplam: 3 müşteri · 6 kalem · £105         │
+└─────────────────────────────────────────────┘
+```
+
+```js
+function renderCustomerPayments(orderList) {
+  // orderList: getAllOrdersForPeriod() sonucu
+  // Her stopId için ödeme yöntemi ve toplam göster
+  const byStop = {};
+  orderList.forEach(({ stopId, ord }) => {
+    if (!byStop[stopId]) byStop[stopId] = { cash: 0, bank: 0, unpaid: 0, items: 0 };
+    const tot = ordTotal(ord);
+    byStop[stopId][ord.payMethod] += tot;
+    byStop[stopId].items += (ord.items || []).reduce((s, i) => s + i.qty, 0);
+  });
+  // HTML render...
+}
+```
+
+### 4.4 — Teslimat Raporu: Ürün Bazlı Satış
+
+Mevcut `buildProductStats()` zaten bunu yapıyor. Genişletilecek:
+
+```
+📦 Ürün Bazlı Satış
+┌──────────────────────────────────────────────┐
+│ #1  Costadoro Espresso 1kg │ 8 adet │ £120  │
+│     ████████████████████░░░  %54              │
+│ #2  Costadoro Filtre 250g  │ 5 adet │ £42   │
+│     ██████████░░░░░░░░░░░░  %19              │
+│ #3  Paper Cups (100lü)     │ 3 adet │ £15   │
+│     ████░░░░░░░░░░░░░░░░░░  %7               │
+├──────────────────────────────────────────────┤
+│ Toplam: 16 adet · £177.50                    │
+└──────────────────────────────────────────────┘
+```
+
+Bu zaten `renderDash()` içinde var (`prodStats` bölümü). Custom tarih filtresi çalışınca otomatik güncellenecek.
+
+### 4.5 — State Değişiklikleri
+
+```js
+// S objesine ekle:
+S.dashStart = lsGet('dStart', todayKey()),
+S.dashEnd = lsGet('dEnd', todayKey()),
+
+// save objesine ekle: (gerek yok, lsSave ile direkt kaydedilecek)
+```
+
+### 4.6 — Rota Alt Bar Ciro Bilgisi
+
+Rota alt bar'ında seçili günün ciro bilgisi:
+```js
+function updateRotaBar() {
+  // ... mevcut ziyaret/toplam/kalan hesabı ...
+  // Ek: Günün cirosu
+  const stops = stopsForDay(S.rotaDay);
+  let dayCiro = 0;
+  stops.forEach(s => {
+    const ord = getOrd(s.id);
+    if (ord) dayCiro += ordTotal(ord);
+  });
+  document.getElementById('rc').textContent = fmt(dayCiro); // yeni element
+}
+```
+
+Alt bar HTML'e yeni hücre:
+```html
+<div class="bs"><div class="bv" id="rc">£0</div><div class="bl">Ciro</div></div>
+```
 
 ---
 
-## UYGULAMA SIRASI
+## UYGULAMA SIRASI (Detaylı)
 
-```
-1. Aşama 1 — Plan + Rota birleştirme     (en büyük değişiklik, önce yapılmalı)
-2. Aşama 3 — Özel fiyat entegrasyonu     (Aşama 1 ile paralel düşünülmeli)
-3. Aşama 2 — Sipariş sayfası             (birleştirilmiş Rota'dan bağımsız)
-4. Aşama 4 — Dashboard raporlama         (en son, tüm veri akışı hazır olunca)
-```
+### Adım 1: Plan + Rota Birleştirme
+1. `page-plan` HTML bloğunu sil
+2. `nav-plan` butonunu sil
+3. `page-rota` topbar'a Import butonu ekle
+4. `renderRotaBody()` yeniden yaz (Plan kart yapısı + Rota özellikleri)
+5. `renderRotaTabs()` → gün özetini ekle
+6. Alt bar'a ciro hücresi ekle + `updateRotaBar()` güncelle
+7. Plan fonksiyonlarını sil, referansları güncelle
+8. `showPage()`, `execMove()`, `saveOrder()`, `saveCnote()`, `saveStopCat()`, `reorder()` güncelle
+9. State temizliği (`S.planWeek/Day` kaldır)
+10. Brace dengesi kontrolü
 
----
+### Adım 2: Sipariş Sayfası
+1. `page-orders` HTML bloğu ekle
+2. `nav-orders` butonu ekle (Plan'ın yerine)
+3. `renderOrders()`, `renderOrderStopCard()` fonksiyonları yaz
+4. `showPage()` → `orders` case ekle
+5. `openOrd()` → `dayId` null/boş kontrolü ekle
+6. `saveOrder()` → `dayId` yoksa `S.vis` güncelleme
+7. Brace dengesi kontrolü
 
-## ETKİLENEN DOSYALAR
+### Adım 3: Özel Fiyat Entegrasyonu
+1. `openOrd()` → stopCatalog varsa chip'leri otomatik aç + banner göster
+2. `renderOrderStopCard()` → özel fiyat badge ekle
+3. Brace dengesi kontrolü
 
-Sadece `index.html` (tek dosya mimarisi).
-
-### Silinecekler
-- `page-plan` HTML bloğu
-- `nav-plan` butonu
-- `setPlanWeek()`, `setPlanDay()`, `renderPlan()`, `renderPlanTabs()`, `renderPlanBody()`, `renderPlanUnsched()` fonksiyonları
-- `S.planWeek`, `S.planDay` state'leri
-
-### Eklenecekler
-- `page-orders` HTML bloğu
-- `nav-orders` butonu
-- Sipariş sayfası fonksiyonları (~150 satır JS)
-- Dashboard custom tarih aralığı (~50 satır JS + HTML)
-- Teslimat raporu bölümü (~80 satır JS)
-
-### Güncellenecekler
-- `renderRotaBody()` → Plan özelliklerini entegre et
-- `renderRotaTabs()` → gün özetini ekle
-- `showPage()` → `plan` kaldır, `orders` ekle
-- `getAllOrdersForPeriod()` → custom period ekle
-- `renderDash()` → custom tarih UI + teslimat raporu
-- `execMove()` → `S.planWeek/Day` referanslarını `S.rotaWeek/Day`'e çevir
-- Nav bar → Plan → Sipariş
-
-### Brace Dengesi Kontrolü
-Her aşama sonunda yapılacak:
-```python
-js_content.count('{') == js_content.count('}')
-```
+### Adım 4: Raporlama
+1. Dashboard topbar → "Özel" toggle butonu ekle
+2. Custom tarih aralığı HTML ekle
+3. `getAllOrdersForPeriod()` → `custom` case ekle
+4. `renderCustomerPayments()` fonksiyonu yaz
+5. `renderDash()` → müşteri ödemeleri bölümü ekle
+6. `setDashPeriod()` → `custom` case + tarih inputları göster/gizle
+7. State: `S.dashStart`, `S.dashEnd`
+8. Brace dengesi kontrolü
 
 ---
 
-## RİSKLER ve DİKKAT EDİLECEKLER
+## RİSKLER
 
-1. **Rota + Plan birleştirme karmaşık** — çok sayıda fonksiyon birbirine bağlı. Dikkatli test gerekir.
-2. **Mobil UX** — Birleştirilmiş Rota kartları daha uzun olacak, scroll performansı kontrol edilmeli.
-3. **State migration** — `S.planWeek/Day` kullanan eski localStorage verileri temizlenmeli.
-4. **openOrd() referansları** — Plan'dan çağrılan `openOrd()`, artık Rota'dan çağrılacak; `ordDayId` doğru geçmeli.
-5. **Arama + Sürükle-bırak çakışması** — Rota'da arama var, Plan'da yok. Arama filtresi aktifken sürükle-bırak devre dışı bırakılmalı.
+| Risk | Etki | Önlem |
+|------|------|-------|
+| Brace dengesi bozulması | Uygulama çöker | Her adım sonunda kontrol |
+| Plan→Rota referans kırılması | Fonksiyonlar hata verir | Tüm `renderPlan()` çağrılarını grep ile bul |
+| Arama + sürükle-bırak çakışması | Yanlış sıralama | Arama aktifken grip gizle |
+| openOrd() dayId null | Vis güncelleme hatası | null check ekle |
+| Eski localStorage state | S.planWeek/Day çöp veri | İlk yüklemede temizle |
