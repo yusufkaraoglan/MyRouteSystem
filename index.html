@@ -386,6 +386,7 @@ html,body{height:100dvh;overflow:hidden;font-family:'Inter',system-ui,sans-serif
     <div style="flex:1">
       <div class="tb-title">Rota</div>
     </div>
+    <button onclick="openPlanImport()" style="height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);font-size:11px;font-weight:700;cursor:pointer;color:var(--sub);font-family:'Inter',sans-serif;white-space:nowrap;margin-right:6px" title="Import">📂 Import</button>
     <button onclick="exportExcel()" style="height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);font-size:11px;font-weight:700;cursor:pointer;color:var(--sub);font-family:'Inter',sans-serif;white-space:nowrap;margin-right:6px" title="Excel İndir">📥 Excel</button>
     <div class="wtog">
       <button class="wb on" id="rWA" onclick="setRotaWeek('A')">Hafta A</button>
@@ -408,24 +409,28 @@ html,body{height:100dvh;overflow:hidden;font-family:'Inter',system-ui,sans-serif
     <div class="bdiv"></div>
     <div class="bs"><div class="bv" id="rr">—</div><div class="bl">Kalan</div></div>
     <div class="bdiv"></div>
+    <div class="bs"><div class="bv" id="rc">£0</div><div class="bl">Ciro</div></div>
+    <div class="bdiv"></div>
     <button class="reset-btn" onclick="resetRotaDay()">↺ Sıfırla</button>
   </div>
 </div>
 
-<!-- PAGE: PLAN -->
-<div class="page" id="page-plan">
+<!-- PAGE: SİPARİŞLER -->
+<div class="page" id="page-orders">
   <div class="topbar">
     <div style="flex:1">
-      <div class="tb-title">Günlük Plan</div>
-    </div>
-    <button onclick="openPlanImport()" style="height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);font-size:11px;font-weight:700;cursor:pointer;color:var(--sub);font-family:'Inter',sans-serif;margin-right:6px">📂 Import</button>
-    <div class="wtog">
-      <button class="wb on" id="pWA" onclick="setPlanWeek('A')">Hafta A</button>
-      <button class="wb" id="pWB" onclick="setPlanWeek('B')">Hafta B</button>
+      <div class="tb-title">Siparişler</div>
+      <div class="tb-sub" id="ordPageSub"></div>
     </div>
   </div>
-  <div class="dtabs" id="planTabs"></div>
-  <div class="body" id="planBody"></div>
+  <div class="sbar">
+    <div class="sbar-inner">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="6"/><path d="m15 15 3 3"/></svg>
+      <input type="search" id="ordPageSearch" placeholder="Müşteri ara…" autocomplete="off" autocorrect="off" spellcheck="false" oninput="onOrdPageSearch(this.value)">
+      <button class="sbar-clear" id="ordPageClear" onclick="clearOrdPageSearch()">✕</button>
+    </div>
+  </div>
+  <div class="body" id="ordPageBody"></div>
 </div>
 
 <!-- PAGE: ADRESLER -->
@@ -467,12 +472,25 @@ html,body{height:100dvh;overflow:hidden;font-family:'Inter',system-ui,sans-serif
     <div class="period-tog" style="margin-right:8px">
       <button class="pt-btn on" id="dp-day" onclick="setDashPeriod('day')">Bugün</button>
       <button class="pt-btn" id="dp-month" onclick="setDashPeriod('month')">Ay</button>
+      <button class="pt-btn" id="dp-custom" onclick="setDashPeriod('custom')">Özel</button>
     </div>
     <div class="wtog">
       <button class="wb on" id="dWA" onclick="setDashWeek('A')">Hafta A</button>
       <button class="wb" id="dWB" onclick="setDashWeek('B')">Hafta B</button>
       <button class="wb" id="dWall" onclick="setDashWeek('all')">Tümü</button>
     </div>
+  </div>
+  <!-- Custom tarih aralığı -->
+  <div id="dashCustomRange" style="display:none;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--border);display:none;gap:8px;align-items:center;flex-shrink:0">
+    <input type="date" id="dashStart" style="flex:1;border:1px solid var(--border2);border-radius:8px;padding:8px 10px;font-family:'Inter',monospace;font-size:13px;font-weight:600;background:var(--bg);outline:none;color:var(--text)">
+    <span style="font-size:12px;color:var(--muted);font-weight:700">—</span>
+    <input type="date" id="dashEnd" style="flex:1;border:1px solid var(--border2);border-radius:8px;padding:8px 10px;font-family:'Inter',monospace;font-size:13px;font-weight:600;background:var(--bg);outline:none;color:var(--text)">
+    <button onclick="applyCustomRange()" style="height:38px;padding:0 14px;border-radius:8px;border:none;background:var(--text);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap">Uygula</button>
+  </div>
+  <!-- Ürün filtresi -->
+  <div id="dashProductFilter" style="display:none;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0">
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Ürün Filtresi</div>
+    <div id="dashProdChips" class="cat-chips" style="margin-bottom:0"></div>
   </div>
   <div class="body" id="dashBody"></div>
 </div>
@@ -637,9 +655,9 @@ html,body{height:100dvh;overflow:hidden;font-family:'Inter',system-ui,sans-serif
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     Rota
   </button>
-  <button class="ni" id="nav-plan" onclick="showPage('plan')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="m16 8 2 2 4-4"/><path d="M1 20l4-4"/><path d="M1 20h8"/><path d="M9 20 5 16"/></svg>
-    Plan
+  <button class="ni" id="nav-orders" onclick="showPage('orders')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    Sipariş
   </button>
   <button class="ni" id="nav-dash" onclick="showPage('dash')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -1167,12 +1185,12 @@ async function syncFromSupabase() {
     S.stopCatalog = lsGet('stopCatalog', {});
     // Re-render — guard with try/catch so one broken render doesn't block others
     try { renderRota(); } catch {}
-    try { renderPlan(); } catch {}
     try { if (typeof refreshAllMarkers === 'function') refreshAllMarkers(); } catch {}
     if (curPage === 'dash') try { renderDash(); } catch {}
     if (curPage === 'adresler') try { renderAdresler(); } catch {}
     if (curPage === 'katalog') try { renderKatalog(); } catch {}
     if (curPage === 'borclar') try { renderBorclar(); } catch {}
+    if (curPage === 'orders') try { renderOrders(); } catch {}
     setSyncStatus('ok');
   } catch (e) {
     console.warn('Supabase sync error:', e.message);
@@ -1227,8 +1245,9 @@ const S = {
   stopCatalog: lsGet('stopCatalog',{}),
   rotaWeek: lsGet('rWeek','A'),
   rotaDay:  lsGet('rDay','wA0'),
-  planWeek: lsGet('pWeek','A'),
-  planDay:  lsGet('pDay','wA0'),
+  dashStart: lsGet('dStart', ''),
+  dashEnd:   lsGet('dEnd', ''),
+  dashProdFilter: [],
   mapFilter: lsGet('mFilter','all'),
   dashWeek: lsGet('dWeek','A'),
   dashPeriod: lsGet('dPeriod','day'),
@@ -1275,7 +1294,7 @@ function showPage(name){
   curPage = name;
   if(name==='map'){ setTimeout(()=>map&&map.invalidateSize(),80); renderMapLegend(); refreshAllMarkers(); }
   if(name==='rota') renderRota();
-  if(name==='plan') renderPlan();
+  if(name==='orders') renderOrders();
   if(name==='adresler') renderAdresler();
   if(name==='dash') renderDash();
   if(name==='borclar') renderBorclar();
@@ -1486,7 +1505,7 @@ function doAssign(stopId, dayId){
   }
   renderMapLegend();
   if(curPage==='rota') renderRota();
-  if(curPage==='plan') renderPlan();
+  if(curPage==='rota') renderRota();
 }
 
 function closeAssign(){
@@ -1550,36 +1569,40 @@ function renderRotaBody(){
   if(S.rotaDay==='uns'){ renderUnassigned(el); updateRotaBar(); return; }
   const day = getDay(S.rotaDay);
   if(!day) return;
-  let stops = stopsForDay(S.rotaDay);
+  const allStops = stopsForDay(S.rotaDay);
+  let stops = allStops.slice();
   if(rotaSearch) stops=stops.filter(s=>(s.n+s.a+s.c+s.p).toLowerCase().includes(rotaSearch));
 
-  const allStops = stopsForDay(S.rotaDay);
   const vis = allStops.filter(s=>S.vis[S.rotaDay+'_'+s.id]).length;
   const pct = allStops.length ? Math.round(vis/allStops.length*100) : 0;
 
   if(!stops.length){
-    el.innerHTML=`<div class="prog-wrap"><div class="prog-row"><span class="prog-label">${day.label} — Hafta ${day.week}</span><span class="prog-pct" style="color:${day.color}">${vis}/${allStops.length} · %${pct}</span></div><div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${day.color}"></div></div></div><div class="empty"><div class="empty-icon">📭</div><p>${rotaSearch?'Sonuç bulunamadı':'Bu güne henüz durak atanmamış'}</p></div>`;
+    el.innerHTML=renderDaySummary(S.rotaDay)+`<div class="prog-wrap"><div class="prog-row"><span class="prog-label">${day.label} — Hafta ${day.week}</span><span class="prog-pct" style="color:${day.color}">${vis}/${allStops.length} · %${pct}</span></div><div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${day.color}"></div></div></div><div class="empty"><div class="empty-icon">📭</div><p>${rotaSearch?'Sonuç bulunamadı':'Bu güne henüz durak atanmamış'}</p></div>`;
     updateRotaBar(); return;
   }
 
-  let h = `<div class="prog-wrap">
+  let h = renderDaySummary(S.rotaDay);
+  h += `<div class="prog-wrap">
     <div class="prog-row"><span class="prog-label">${day.label} — Hafta ${day.week}</span><span class="prog-pct" style="color:${day.color}">${vis}/${allStops.length} · %${pct}</span></div>
     <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${day.color}"></div></div>
-  </div><div class="slist">`;
+  </div><div class="slist" id="rotaList">`;
 
   stops.forEach((s,i)=>{
     const isV=!!S.vis[S.rotaDay+'_'+s.id];
-    h+=`<div class="sc${isV?' done':''}">
-      <div class="sc-num" style="border-color:${day.color};background:${isV?day.color:'transparent'};color:${isV?'#fff':day.color}">${isV?'✓':(i+1)}</div>
-      <div class="sc-body" onclick="zoomTo(${s.id})">
+    const hasDebt = (S.debts[s.id]||0) > 0;
+    h+=`<div class="sc${isV?' done':''}" data-did="${S.rotaDay}" data-sid="${s.id}" data-idx="${i}" style="${hasDebt?'border-color:#FEC84B':''}${';cursor:pointer'}" onclick="openOrd(${s.id},'${S.rotaDay}')">
+      <div class="sc-num" style="border-color:${day.color};background:${isV?day.color:'transparent'};color:${isV?'#fff':day.color};flex-shrink:0">${isV?'✓':(i+1)}</div>
+      <div class="sc-body" style="cursor:pointer">
         <div class="sname">${s.n}</div>
         <div class="saddr">${s.a}, ${s.c}</div>
         <span class="spc ${pcClass(s.p)}">${s.p}</span>
+        ${payBadgeHtml(s.id)}
       </div>
-      <div class="sc-right">
+      <div class="sc-right" onclick="event.stopPropagation()">
         <button class="chk rchk" data-did="${S.rotaDay}" data-sid="${s.id}" style="${isV?'background:'+day.color+';border-color:'+day.color+';color:#fff':''}">${isV?'✓':'○'}</button>
-        <button class="asgn-btn" onclick="event.stopPropagation();openAssign(STOPS.find(x=>x.id===${s.id}))">↗</button>
-        <button class="asgn-btn" onclick="event.stopPropagation();openEdit(${s.id})" style="padding:0 6px" title="Düzenle">✏️</button>
+        <button class="asgn-btn" onclick="openMove('${S.rotaDay}',${s.id})">↗</button>
+        <button class="asgn-btn" onclick="openEdit(${s.id})" style="padding:0 6px" title="Düzenle">✏️</button>
+        ${!rotaSearch?'<div class="grip" data-grip="1"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10M2 7h10M2 10h10"/></svg></div>':''}
       </div>
     </div>`;
   });
@@ -1593,9 +1616,10 @@ function renderRotaBody(){
       const key=btn.dataset.did+'_'+btn.dataset.sid;
       S.vis[key]=!S.vis[key]; save.vis();
       renderRota();
-      if(curPage==='plan') renderPlan();
     });
   });
+  // Drag-and-drop
+  if(!rotaSearch) initDrag();
 }
 
 function renderUnassigned(el){
@@ -1623,6 +1647,7 @@ function updateRotaBar(){
     document.getElementById('rv').textContent='—';
     document.getElementById('rt').textContent=cnt;
     document.getElementById('rr').textContent='—';
+    document.getElementById('rc').textContent='—';
     return;
   }
   const stops=stopsForDay(S.rotaDay);
@@ -1630,6 +1655,10 @@ function updateRotaBar(){
   document.getElementById('rv').textContent=vis;
   document.getElementById('rt').textContent=stops.length;
   document.getElementById('rr').textContent=stops.length-vis;
+  // Ciro
+  let dayCiro=0;
+  stops.forEach(s=>{ const ord=getOrd(s.id); if(ord) dayCiro+=ordTotal(ord); });
+  document.getElementById('rc').textContent=fmt(dayCiro);
 }
 
 function resetRotaDay(){
@@ -1646,42 +1675,6 @@ function zoomTo(stopId){
     map.setView([lat,lng],16,{animate:true});
     if(markers[stopId]) markers[stopId].openPopup();
   },120);
-}
-
-// ══════════════════════════════════════════════════════════════
-// PLAN PAGE
-// ══════════════════════════════════════════════════════════════
-function setPlanWeek(w){
-  S.planWeek=w; lsSave('pWeek',w);
-  S.planDay=DAYS.find(d=>d.week===w).id; lsSave('pDay',S.planDay);
-  document.getElementById('pWA').classList.toggle('on',w==='A');
-  document.getElementById('pWB').classList.toggle('on',w==='B');
-  renderPlan();
-}
-function setPlanDay(id){ S.planDay=id; lsSave('pDay',id); renderPlan(); }
-
-function renderPlan(){
-  document.getElementById('pWA').classList.toggle('on',S.planWeek==='A');
-  document.getElementById('pWB').classList.toggle('on',S.planWeek==='B');
-  renderPlanTabs();
-  renderPlanBody();
-}
-
-function renderPlanTabs(){
-  const days=DAYS.filter(d=>d.week===S.planWeek);
-  const unCnt=STOPS.filter(s=>!S.assign[s.id]).length;
-  document.getElementById('planTabs').innerHTML=
-    days.map(d=>{
-      const stops=stopsForDay(d.id);
-      const vis=stops.filter(s=>S.vis[d.id+'_'+s.id]).length;
-      return `<button class="dt${d.id===S.planDay?' on':''}" onclick="setPlanDay('${d.id}')">
-        <div class="dt-dot" style="background:${d.color}"></div>
-        ${d.label} <span class="dt-n">${vis}/${stops.length}</span>
-      </button>`;
-    }).join('') +
-    `<button class="dt${S.planDay==='puns'?' on':''}" onclick="setPlanDay('puns')">
-      Plansız <span class="dt-n">${unCnt}</span>
-    </button>`;
 }
 
 function todayKey(){ return new Date().toISOString().slice(0,10); }
@@ -1729,75 +1722,6 @@ function payBadgeHtml(stopId){
   </div>`;
 }
 
-function renderPlanBody(){
-  const el=document.getElementById('planBody');
-  if(S.planDay==='puns'){ renderPlanUnsched(el); return; }
-  const day=getDay(S.planDay); if(!day) return;
-  const stops=stopsForDay(S.planDay);
-  const vis=stops.filter(s=>S.vis[S.planDay+'_'+s.id]).length;
-  const pct=stops.length?Math.round(vis/stops.length*100):0;
-
-  if(!stops.length){
-    el.innerHTML=`<div class="prog-wrap"><div class="prog-row"><span class="prog-label">${day.label} — Hafta ${day.week}</span><span class="prog-pct">0/0</span></div><div class="prog-track"><div class="prog-fill" style="width:0%;background:${day.color}"></div></div></div><div class="empty"><div class="empty-icon">📭</div><p>Bu güne durak atanmamış.<br>Rota sayfasından ekleyin.</p></div>`;
-    return;
-  }
-
-  let h = renderDaySummary(S.planDay);
-  h += `<div class="prog-wrap">
-    <div class="prog-row"><span class="prog-label">${day.label} — Hafta ${day.week}</span><span class="prog-pct" style="color:${day.color}">${vis}/${stops.length} · %${pct}</span></div>
-    <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${day.color}"></div></div>
-  </div><div class="slist" id="planList">`;
-
-  stops.forEach((s,i)=>{
-    const isV=!!S.vis[S.planDay+'_'+s.id];
-    const ord = getOrd(s.id);
-    const hasDebt = (S.debts[s.id]||0) > 0;
-    const borderStyle = hasDebt ? 'border-color:#FEC84B' : (isV ? '' : '');
-    h+=`<div class="sc${isV?' done':''}" data-did="${S.planDay}" data-sid="${s.id}" data-idx="${i}" style="${borderStyle};cursor:pointer" onclick="openOrd(${s.id},'${S.planDay}')">
-      <div class="sc-num" style="border-color:${day.color};background:${isV?day.color:'transparent'};color:${isV?'#fff':day.color};flex-shrink:0">${isV?'✓':(i+1)}</div>
-      <div class="sc-body" style="cursor:pointer">
-        <div class="sname">${s.n}</div>
-        <div class="saddr">${s.a}, ${s.c}</div>
-        ${payBadgeHtml(s.id)}
-      </div>
-      <div class="sc-right" onclick="event.stopPropagation()">
-        <button class="chk pchk" data-did="${S.planDay}" data-sid="${s.id}" style="${isV?'background:'+day.color+';border-color:'+day.color+';color:#fff':''}">${isV?'✓':'○'}</button>
-        <button class="asgn-btn" onclick="openMove('${S.planDay}',${s.id})">↗</button>
-        <div class="grip" data-grip="1"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10M2 7h10M2 10h10"/></svg></div>
-      </div>
-    </div>`;
-  });
-  h+=`</div>`;
-  el.innerHTML=h;
-  bindPlanEvents();
-}
-
-function renderPlanUnsched(el){
-  const stops=STOPS.filter(s=>!S.assign[s.id]);
-  if(!stops.length){el.innerHTML=`<div class="empty"><div class="empty-icon">🎉</div><p>Tüm duraklar atandı!</p></div>`;return;}
-  let h=`<div class="ubanner"><h3>Plansız — ${stops.length} durak</h3><p>Rota sayfasından günlere atayın.</p></div>`;
-  stops.forEach((s,i)=>{
-    h+=`<div class="uc" onclick="openAssign(STOPS.find(x=>x.id===${s.id}))">
-      <div class="uc-num">${i+1}</div>
-      <div class="sc-body"><div class="sname">${s.n}</div><div class="saddr">${s.a}, ${s.c}</div><span class="spc ${pcClass(s.p)}">${s.p}</span></div>
-      <svg style="color:#B54708;flex-shrink:0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
-    </div>`;
-  });
-  el.innerHTML=h;
-}
-
-function bindPlanEvents(){
-  document.querySelectorAll('.pchk').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      e.stopPropagation();
-      const key=btn.dataset.did+'_'+btn.dataset.sid;
-      S.vis[key]=!S.vis[key]; save.vis();
-      renderPlan();
-      if(curPage==='rota') renderRota();
-    });
-  });
-  initDrag();
-}
 
 // MOVE MODAL
 let moveState=null;
@@ -1827,17 +1751,16 @@ function execMove(destId){
     S.assign[stopId]=destId;
     if(!S.order[destId]) S.order[destId]=[];
     S.order[destId].push(stopId);
-    S.planWeek=destId.startsWith('wA')?'A':'B';
-    S.planDay=destId;
-    lsSave('pWeek',S.planWeek); lsSave('pDay',S.planDay);
+    S.rotaWeek=destId.startsWith('wA')?'A':'B';
+    S.rotaDay=destId;
+    lsSave('rWeek',S.rotaWeek); lsSave('rDay',S.rotaDay);
   }
   save.assign(); save.order(); save.vis();
   closeMove();
   const stop=STOPS.find(s=>s.id===stopId);
   if(stop&&S.geo[stop.id]) addOrUpdateMarker(stop);
   renderMapLegend();
-  renderPlan();
-  if(curPage==='rota') renderRota();
+  renderRota();
 }
 function closeMove(){ document.getElementById('moveOv').classList.remove('on'); moveState=null; }
 
@@ -1897,7 +1820,7 @@ function reorder(dayId,from,to){
   const stops=stopsForDay(dayId);
   const [mv]=stops.splice(from,1); stops.splice(to,0,mv);
   S.order[dayId]=stops.map(s=>s.id); save.order();
-  renderPlan();
+  renderRota();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1930,7 +1853,7 @@ function saveEdit(){
   if(S.geo[s.id]) addOrUpdateMarker(s);
   renderMapLegend();
   if(curPage==='rota') renderRota();
-  if(curPage==='plan') renderPlan();
+  if(curPage==='rota') renderRota();
 }
 function closeEdit(){ document.getElementById('editOv').classList.remove('on'); editId=null; }
 
@@ -2055,7 +1978,7 @@ function confirmDel(){
   renderAdresler();
   renderMapLegend();
   if(curPage==='rota') renderRota();
-  if(curPage==='plan') renderPlan();
+  if(curPage==='rota') renderRota();
 }
 
 // ── EXCEL EXPORT (Adresler) ──
@@ -2336,7 +2259,7 @@ function saveCnote() {
   else delete S.cnotes[cnoteStopId];
   save.cnotes();
   closeCnote();
-  if (curPage === 'plan') renderPlan();
+  if (curPage === 'rota') renderRota();
   if (curPage === 'adresler') renderAdresler();
 }
 
@@ -2501,13 +2424,15 @@ function saveOrder() {
   };
   save.orders();
 
-  const key = ordDayId + '_' + ordStopId;
-  S.vis[key] = true;
-  save.vis();
+  if (ordDayId) {
+    const key = ordDayId + '_' + ordStopId;
+    S.vis[key] = true;
+    save.vis();
+  }
 
   closeOrd();
-  renderPlan();
-  if (curPage === 'rota') renderRota();
+  renderRota();
+  if (curPage === 'orders') renderOrders();
   if (curPage === 'dash') renderDash();
 }
 
@@ -2814,7 +2739,7 @@ function saveStopCat() {
   }
   save.stopCatalog();
   closeStopCat();
-  if (curPage === 'plan') renderPlan();
+  if (curPage === 'rota') renderRota();
   if (curPage === 'adresler') renderAdresler();
 }
 
@@ -2947,9 +2872,99 @@ function applyPlanImport() {
   });
   save.assign(); save.order();
   closePlanImport();
-  renderRota(); renderPlan();
+  renderRota();
   refreshAllMarkers();
   alert(`✅ ${applied} durak atandı.`);
+}
+
+// ══════════════════════════════════════════════════════════════
+// SİPARİŞ SAYFASI (Orders Page)
+// ══════════════════════════════════════════════════════════════
+let ordPageSearchTerm = '';
+
+function onOrdPageSearch(v) {
+  ordPageSearchTerm = v.toLowerCase();
+  document.getElementById('ordPageClear').classList.toggle('show', v.length > 0);
+  renderOrders();
+}
+function clearOrdPageSearch() {
+  document.getElementById('ordPageSearch').value = '';
+  ordPageSearchTerm = '';
+  document.getElementById('ordPageClear').classList.remove('show');
+  renderOrders();
+}
+
+function renderOrders() {
+  const el = document.getElementById('ordPageBody');
+  let stops = STOPS.slice().sort((a, b) => a.n.localeCompare(b.n));
+  if (ordPageSearchTerm) {
+    stops = stops.filter(s => (s.n + s.a + s.c + s.p).toLowerCase().includes(ordPageSearchTerm));
+  }
+
+  // Bugünün sipariş özeti
+  const todayOrders = [];
+  Object.keys(S.orders).forEach(k => {
+    if (k.startsWith(todayKey() + '_')) todayOrders.push(S.orders[k]);
+  });
+  const todayTotal = todayOrders.reduce((s, o) => s + ordTotal(o), 0);
+  const todayCount = todayOrders.length;
+
+  // Siparişi olan müşteriler
+  const withOrder = stops.filter(s => getOrd(s.id));
+  const without = stops.filter(s => !getOrd(s.id));
+
+  let h = `<div style="padding:10px 12px;background:var(--card);border-bottom:1px solid var(--border)">
+    <div style="font-size:11px;color:var(--muted)">Bugün · ${todayKey()}</div>
+    <div style="font-size:16px;font-weight:800">${todayCount} sipariş · ${fmt(todayTotal)}</div>
+  </div>`;
+
+  if (withOrder.length) {
+    h += '<div style="padding:6px 12px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Bugün Sipariş Var</div>';
+    withOrder.forEach(s => { h += renderOrderStopCard(s, true); });
+  }
+
+  if (without.length) {
+    h += '<div style="padding:6px 12px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Tüm Müşteriler</div>';
+    without.forEach(s => { h += renderOrderStopCard(s, false); });
+  }
+
+  if (!stops.length) {
+    h += '<div class="empty"><div class="empty-icon">🔍</div><p>Sonuç bulunamadı</p></div>';
+  }
+
+  document.getElementById('ordPageSub').textContent = `${STOPS.length} müşteri`;
+  el.innerHTML = h;
+}
+
+function renderOrderStopCard(s, hasOrd) {
+  const dayId = S.assign[s.id];
+  const day = dayId ? getDay(dayId) : null;
+  const hasDebt = (S.debts[s.id] || 0) > 0;
+  const overrides = (S.stopCatalog[s.id] || []).length;
+  const ord = hasOrd ? getOrd(s.id) : null;
+
+  // Son sipariş bilgisi
+  let lastOrderInfo = '';
+  const allOrdKeys = Object.keys(S.orders).filter(k => parseInt(k.split('_').slice(-1)[0]) === s.id);
+  if (allOrdKeys.length > 0) {
+    const sorted = allOrdKeys.sort().reverse();
+    const lastDate = sorted[0].split('_')[0];
+    if (lastDate !== todayKey()) lastOrderInfo = `Son: ${lastDate}`;
+  }
+
+  return `<div class="sc" style="margin:0 12px 6px;cursor:pointer;${hasDebt ? 'border-color:#FEC84B' : ''}" onclick="openOrd(${s.id},'${dayId || ''}')">
+    <div class="sc-body">
+      <div class="sname">${s.n}</div>
+      <div class="saddr">${s.a}, ${s.p}${day ? ' · ' + day.label + ' H' + day.week : ''}${lastOrderInfo ? ' · ' + lastOrderInfo : ''}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px">
+        <span class="spc ${pcClass(s.p)}">${s.p}</span>
+        ${overrides ? '<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:#FDF4FF;color:#53178F;border:1px solid #E9D7FE">Özel fiyat</span>' : ''}
+        ${hasDebt ? `<span class="pay-badge pay-debt">⚠ Borç ${fmt(S.debts[s.id])}</span>` : ''}
+      </div>
+      ${ord ? payBadgeHtml(s.id) : ''}
+    </div>
+    ${ord ? '<div style="color:#027A48;font-weight:700;font-size:16px;flex-shrink:0">✓</div>' : '<div style="color:var(--border2);font-size:16px;flex-shrink:0">+</div>'}
+  </div>`;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2969,21 +2984,88 @@ function setDashPeriod(p) {
   dashPeriod = p;
   S.dashPeriod = p;
   lsSave('dPeriod', p);
-  ['day','month'].forEach(x => document.getElementById('dp-' + x)?.classList.toggle('on', x === p));
+  ['day', 'month', 'custom'].forEach(x => document.getElementById('dp-' + x)?.classList.toggle('on', x === p));
+
+  // Custom tarih aralığı göster/gizle
+  const customEl = document.getElementById('dashCustomRange');
+  if (p === 'custom') {
+    customEl.style.display = 'flex';
+    if (!S.dashStart) {
+      const today = todayKey();
+      const monthStart = today.slice(0, 7) + '-01';
+      document.getElementById('dashStart').value = monthStart;
+      document.getElementById('dashEnd').value = today;
+      S.dashStart = monthStart;
+      S.dashEnd = today;
+    } else {
+      document.getElementById('dashStart').value = S.dashStart;
+      document.getElementById('dashEnd').value = S.dashEnd;
+    }
+  } else {
+    customEl.style.display = 'none';
+  }
+
+  // Ürün filtresi göster
+  document.getElementById('dashProductFilter').style.display = (p === 'custom') ? 'block' : 'none';
+  if (p === 'custom') renderDashProdChips();
+
+  renderDash();
+}
+
+function applyCustomRange() {
+  S.dashStart = document.getElementById('dashStart').value;
+  S.dashEnd = document.getElementById('dashEnd').value;
+  lsSave('dStart', S.dashStart);
+  lsSave('dEnd', S.dashEnd);
+  renderDash();
+}
+
+function renderDashProdChips() {
+  // Tüm ürün isimlerini topla
+  const allNames = new Set();
+  Object.values(S.orders).forEach(ord => {
+    (ord.items || []).forEach(item => allNames.add(item.name));
+  });
+  S.catalog.forEach(c => allNames.add(c.name));
+  const names = [...allNames].sort();
+  const el = document.getElementById('dashProdChips');
+  if (!names.length) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--muted)">Henüz ürün verisi yok</div>';
+    return;
+  }
+  el.innerHTML = `<button class="cat-chip${S.dashProdFilter.length === 0 ? ' stop-override' : ''}" onclick="toggleDashProdFilter('__all__')" style="font-size:10px">Tümü</button>` +
+    names.map(name => {
+      const sel = S.dashProdFilter.includes(name);
+      return `<button class="cat-chip${sel ? ' stop-override' : ''}" onclick="toggleDashProdFilter('${name.replace(/'/g, "\\'")}')" style="font-size:10px">${name}</button>`;
+    }).join('');
+}
+
+function toggleDashProdFilter(name) {
+  if (name === '__all__') {
+    S.dashProdFilter = [];
+  } else {
+    const idx = S.dashProdFilter.indexOf(name);
+    if (idx >= 0) S.dashProdFilter.splice(idx, 1);
+    else S.dashProdFilter.push(name);
+  }
+  renderDashProdChips();
   renderDash();
 }
 
 function getAllOrdersForPeriod(period) {
-  // period: 'day' = today, 'month' = current month
   const today = todayKey();
-  const monthPrefix = today.slice(0, 7); // 'YYYY-MM'
+  const monthPrefix = today.slice(0, 7);
   const all = [];
   Object.keys(S.orders).forEach(key => {
     const dateStr = key.split('_')[0];
     if (period === 'day' && dateStr !== today) return;
     if (period === 'month' && !dateStr.startsWith(monthPrefix)) return;
+    if (period === 'custom') {
+      if (!S.dashStart || !S.dashEnd) return;
+      if (dateStr < S.dashStart || dateStr > S.dashEnd) return;
+    }
     const stopId = parseInt(key.split('_')[1]);
-    all.push({ key, stopId, ord: S.orders[key] });
+    all.push({ key, stopId, date: dateStr, ord: S.orders[key] });
   });
   return all;
 }
@@ -3002,12 +3084,110 @@ function buildProductStats(orderList) {
     .sort((a, b) => b.revenue - a.revenue);
 }
 
+// ── Müşteri Ödemeleri Raporu ──
+function renderCustomerPaymentsHtml(orderList) {
+  if (!orderList.length) return '';
+  const byStop = {};
+  orderList.forEach(({ stopId, ord }) => {
+    if (!byStop[stopId]) byStop[stopId] = { cash: 0, bank: 0, unpaid: 0, items: 0, total: 0 };
+    const tot = ordTotal(ord);
+    byStop[stopId].total += tot;
+    if (ord.payMethod === 'cash') byStop[stopId].cash += parseFloat(ord.cashReceived || tot);
+    else if (ord.payMethod === 'bank') byStop[stopId].bank += tot;
+    else byStop[stopId].unpaid += tot;
+    byStop[stopId].items += (ord.items || []).reduce((s, i) => s + i.qty, 0);
+  });
+  const entries = Object.entries(byStop)
+    .map(([sid, data]) => ({ stop: STOPS.find(s => s.id === parseInt(sid)), ...data }))
+    .filter(e => e.stop)
+    .sort((a, b) => b.total - a.total);
+  if (!entries.length) return '';
+
+  let h = `<div class="dash-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="dash-sec-title" style="margin:0">💰 Müşteri Ödemeleri</div>
+      <span style="font-size:10px;font-weight:600;color:var(--muted)">${entries.length} müşteri</span>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden">`;
+  entries.forEach(e => {
+    const payBadge = e.cash > 0 ? `<span class="pay-badge pay-cash">Cash ${fmt(e.cash)}</span>` : '';
+    const bankBadge = e.bank > 0 ? `<span class="pay-badge pay-bank">Banka ${fmt(e.bank)}</span>` : '';
+    const unpaidBadge = e.unpaid > 0 ? `<span class="pay-badge pay-unpaid">Ödenmedi ${fmt(e.unpaid)}</span>` : '';
+    h += `<div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer" onclick="openProfil(${e.stop.id},'dash')">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.stop.n}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:2px">${payBadge}${bankBadge}${unpaidBadge}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:14px;font-weight:800;font-family:'Inter',monospace">${fmt(e.total)}</div>
+        <div style="font-size:9px;color:var(--muted)">${e.items} kalem</div>
+      </div>
+    </div>`;
+  });
+  h += '</div></div>';
+  return h;
+}
+
+// ── Ürün Filtresi Detay Raporu ──
+function renderFilteredProductDetail(orderList, prodFilter) {
+  if (!prodFilter.length || !orderList.length) return '';
+  // Sadece filtrelenen ürünleri hesapla
+  let totalQty = 0, totalRevenue = 0, totalCash = 0, totalBank = 0, totalUnpaid = 0;
+  const byCustomer = {};
+  orderList.forEach(({ stopId, ord }) => {
+    (ord.items || []).forEach(item => {
+      if (!prodFilter.includes(item.name)) return;
+      const qty = item.qty;
+      const rev = item.qty * item.price;
+      totalQty += qty;
+      totalRevenue += rev;
+      if (!byCustomer[stopId]) byCustomer[stopId] = { qty: 0, revenue: 0, payMethod: ord.payMethod };
+      byCustomer[stopId].qty += qty;
+      byCustomer[stopId].revenue += rev;
+    });
+    // Ödeme toplamları (sipariş bazında)
+    const hasFilteredItem = (ord.items || []).some(i => prodFilter.includes(i.name));
+    if (hasFilteredItem) {
+      const filteredTotal = (ord.items || []).filter(i => prodFilter.includes(i.name)).reduce((s, i) => s + i.qty * i.price, 0);
+      if (ord.payMethod === 'cash') totalCash += filteredTotal;
+      else if (ord.payMethod === 'bank') totalBank += filteredTotal;
+      else totalUnpaid += filteredTotal;
+    }
+  });
+
+  const customers = Object.entries(byCustomer)
+    .map(([sid, data]) => ({ stop: STOPS.find(s => s.id === parseInt(sid)), ...data }))
+    .filter(e => e.stop)
+    .sort((a, b) => b.qty - a.qty);
+
+  let h = `<div class="dash-section">
+    <div class="dash-sec-title">🔍 Seçilen Ürünler: ${prodFilter.join(', ')}</div>
+    <div class="dash-grid">
+      <div class="dash-card"><div class="dash-card-val">${totalQty}</div><div class="dash-card-lbl">Toplam Adet</div></div>
+      <div class="dash-card"><div class="dash-card-val">${fmt(totalRevenue)}</div><div class="dash-card-lbl">Toplam Ciro</div></div>
+      <div class="dash-card green"><div class="dash-card-val">${fmt(totalCash)}</div><div class="dash-card-lbl">💵 Cash</div></div>
+      <div class="dash-card blue"><div class="dash-card-val">${fmt(totalBank)}</div><div class="dash-card-lbl">🏦 Banka</div></div>
+    </div>
+    ${customers.length ? `
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Bu ürünleri alan müşteriler</div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      ${customers.map(c => `
+        <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer" onclick="openProfil(${c.stop.id},'dash')">
+          <div style="flex:1;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.stop.n}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);font-family:'Inter',monospace;flex-shrink:0">${c.qty} adet</div>
+          <div style="font-size:13px;font-weight:800;font-family:'Inter',monospace;flex-shrink:0">${fmt(c.revenue)}</div>
+        </div>`).join('')}
+    </div>` : ''}
+  </div>`;
+  return h;
+}
+
 // ── Override original renderDash with upgraded version ──
 function renderDash() {
   dashWeek = S.dashWeek || 'A';
   dashPeriod = S.dashPeriod || 'day';
   ['A','B','all'].forEach(x => document.getElementById('dW'+x)?.classList.toggle('on', x===dashWeek));
-  ['day','month'].forEach(x => document.getElementById('dp-'+x)?.classList.toggle('on', x===dashPeriod));
+  ['day','month','custom'].forEach(x => document.getElementById('dp-'+x)?.classList.toggle('on', x===dashPeriod));
 
   const days = dashWeek === 'all' ? DAYS : DAYS.filter(d => d.week === dashWeek);
   const periodOrders = getAllOrdersForPeriod(dashPeriod);
@@ -3015,9 +3195,17 @@ function renderDash() {
   // Only consider orders for stops in selected week/days
   const dayStopIds = new Set();
   days.forEach(d => stopsForDay(d.id).forEach(s => dayStopIds.add(s.id)));
-  const filtered = dashPeriod === 'day'
+  let filtered = dashPeriod === 'day'
     ? periodOrders.filter(o => dayStopIds.has(o.stopId))
-    : periodOrders; // monthly: all stops
+    : periodOrders; // monthly/custom: all stops
+
+  // Ürün filtresi
+  const prodFilter = S.dashProdFilter || [];
+  if (prodFilter.length > 0) {
+    filtered = filtered.filter(o =>
+      (o.ord.items || []).some(item => prodFilter.includes(item.name))
+    );
+  }
 
   let totalCash = 0, totalBank = 0, totalUnpaid = 0, totalOrders = 0, totalVisits = 0, totalStops = 0, totalDebt = 0;
 
@@ -3051,7 +3239,7 @@ function renderDash() {
     .sort((a,b)=>(S.debts[b.id]||0)-(S.debts[a.id]||0)).slice(0,5);
 
   const visitPct = totalStops ? Math.round(totalVisits/totalStops*100) : 0;
-  const periodLabel = dashPeriod==='day' ? 'Bugün' : new Date().toLocaleDateString('tr-TR',{month:'long',year:'numeric'});
+  const periodLabel = dashPeriod==='day' ? 'Bugün' : dashPeriod==='custom' ? `${S.dashStart||''} — ${S.dashEnd||''}` : new Date().toLocaleDateString('tr-TR',{month:'long',year:'numeric'});
 
   let h = `
   <div class="dash-hero">
@@ -3113,6 +3301,10 @@ function renderDash() {
       }).join('')}
     </div>
   </div>
+
+  ${renderCustomerPaymentsHtml(filtered)}
+
+  ${prodFilter.length > 0 ? renderFilteredProductDetail(filtered, prodFilter) : ''}
 
   ${topDebtors.length ? `
   <div class="dash-section">
@@ -3321,7 +3513,7 @@ function exportDashReport() {
   const wb = XLSX.utils.book_new();
   const period = S.dashPeriod || 'day';
   const week = S.dashWeek || 'A';
-  const periodLabel = period === 'day' ? todayKey() : new Date().toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
+  const periodLabel = period === 'day' ? todayKey() : period === 'custom' ? `${S.dashStart||''} — ${S.dashEnd||''}` : new Date().toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
 
   // 1. Özet sheet
   const days = week === 'all' ? DAYS : DAYS.filter(d => d.week === week);
@@ -3471,7 +3663,6 @@ async function testSbConnection() {
 // ══════════════════════════════════════════════════════════════
 initMap();
 renderRota();
-renderPlan();
 
 // Supabase sync — map tamamen hazır olduktan sonra başlat
 setTimeout(() => {
