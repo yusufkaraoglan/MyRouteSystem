@@ -254,6 +254,17 @@ a{text-decoration:none;color:inherit}
 .order-item-row .input{flex:1}
 .order-item-row .btn-icon-sm{flex-shrink:0}
 
+/* === SEARCHABLE SELECT === */
+.search-select{position:relative}
+.search-select input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:16px;background:var(--card)}
+.search-select input:focus{outline:none;border-color:var(--primary)}
+.search-select-list{position:absolute;top:100%;left:0;right:0;background:var(--card);border:1.5px solid var(--border);border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm);max-height:200px;overflow-y:auto;z-index:10;display:none;box-shadow:var(--shadow-md)}
+.search-select-list.open{display:block}
+.search-select-item{padding:10px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid var(--border)}
+.search-select-item:last-child{border-bottom:none}
+.search-select-item:active{background:var(--primary-light)}
+.search-select-item .ss-sub{font-size:11px;color:var(--text-sec)}
+
 /* === SYNC STATUS === */
 .sync-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:6px}
 .sync-dot.ok{background:var(--success)}
@@ -272,22 +283,13 @@ a{text-decoration:none;color:inherit}
 <div class="page" id="page-profile"></div>
 <div class="page" id="page-reports"></div>
 <div class="page" id="page-settings"></div>
+<div class="page" id="page-map"></div>
 
 <!-- ═══ MODAL ═══ -->
 <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
   <div class="modal-sheet" id="modal-content"></div>
 </div>
 
-<!-- ═══ MAP MODAL ═══ -->
-<div class="modal-overlay" id="modal-map" onclick="if(event.target===this)closeMapModal()" style="align-items:stretch">
-  <div class="modal-sheet" id="modal-map-content" style="max-height:100vh;border-radius:0;display:flex;flex-direction:column">
-    <div class="flex-between" style="padding:12px 16px;border-bottom:1px solid var(--border)">
-      <h3 style="font-size:17px;font-weight:700">Map</h3>
-      <button class="btn-ghost" onclick="closeMapModal()" style="font-size:20px">&times;</button>
-    </div>
-    <div id="map-container" class="map-container" style="flex:1"></div>
-  </div>
-</div>
 
 <!-- ═══ BOTTOM NAV ═══ -->
 <nav class="bottom-nav" id="main-nav">
@@ -570,6 +572,7 @@ function loadState() {
   S.reportStart = '';
   S.reportEnd = '';
   S.reportProducts = [];
+  S.mapFilter = 'all';
 }
 
 // Save helpers
@@ -668,7 +671,7 @@ function showPage(name) {
   curPage = name;
   document.querySelectorAll('.nav-btn').forEach(b => {
     const pg = b.dataset.page;
-    b.classList.toggle('active', pg === name || (name === 'profile' && pg === 'customers'));
+    b.classList.toggle('active', pg === name || (name === 'profile' && pg === 'customers') || (name === 'map' && pg === 'settings'));
   });
   renderCurrentPage();
 }
@@ -681,6 +684,7 @@ function renderCurrentPage() {
     case 'profile': renderProfile(); break;
     case 'reports': renderReports(); break;
     case 'settings': renderSettings(); break;
+    case 'map': renderMapPage(); break;
   }
 }
 
@@ -983,9 +987,9 @@ function renderOrders() {
       const stop = getStop(o.customerId);
       const total = calcOrderTotal(o);
       html += `
-        <div class="order-card" onclick="${o.status === 'pending' ? `showDeliveryFromOrder('${o.id}')` : `showProfile(${o.customerId})`}">
+        <div class="order-card">
           <div class="order-card-head">
-            <div>
+            <div onclick="showProfile(${o.customerId})" style="cursor:pointer">
               <div class="order-card-name">${stop ? escHtml(stop.n) : 'Unknown'}</div>
               <div class="order-card-date">${formatDateTime(o.createdAt)}</div>
             </div>
@@ -995,6 +999,13 @@ function renderOrders() {
           <div class="order-card-footer">
             <span class="order-card-total">${formatCurrency(total)}</span>
             ${o.status === 'delivered' ? `<span class="text-muted" style="font-size:12px">${o.payMethod || ''} &middot; ${formatDate(o.deliveredAt)}</span>` : ''}
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+            ${o.status === 'pending' ? `
+              <button class="btn btn-success btn-sm" style="flex:1" onclick="showDeliveryFromOrder('${o.id}')">Deliver</button>
+              <button class="btn btn-outline btn-sm" style="flex:1" onclick="showEditOrderModal('${o.id}')">Edit</button>
+            ` : ''}
+            <button class="btn btn-sm" style="flex:1;color:var(--danger);border:1px solid var(--danger)" onclick="deleteOrderFromList('${o.id}')">Remove</button>
           </div>
         </div>`;
     });
@@ -1013,17 +1024,35 @@ function showDeliveryFromOrder(orderId) {
   if (order) showDeliveryModal(order.customerId);
 }
 
-function showNewOrderModal(preCustomerId) {
-  tempOrderItems = [{ name: '', qty: 1, price: 0 }];
-  tempOrderCustomerId = preCustomerId || null;
-
-  renderNewOrderModal();
+function deleteOrderFromList(orderId) {
+  if (!confirm('Remove this order?')) return;
+  delete S.orders[orderId];
+  save.orders();
+  renderOrders();
 }
 
-function renderNewOrderModal() {
-  const custOptions = STOPS.map(s =>
-    `<option value="${s.id}" ${tempOrderCustomerId == s.id ? 'selected' : ''}>${escHtml(s.n)}</option>`
-  ).join('');
+let editingOrderId = null;
+
+function showNewOrderModal(preCustomerId) {
+  editingOrderId = null;
+  tempOrderItems = [{ name: '', qty: 1, price: 0 }];
+  tempOrderCustomerId = preCustomerId || null;
+  renderOrderFormModal('New Order');
+}
+
+function showEditOrderModal(orderId) {
+  const order = S.orders[orderId];
+  if (!order) return;
+  editingOrderId = orderId;
+  tempOrderCustomerId = order.customerId;
+  tempOrderItems = order.items.map(i => ({ ...i }));
+  if (tempOrderItems.length === 0) tempOrderItems = [{ name: '', qty: 1, price: 0 }];
+  renderOrderFormModal('Edit Order', order.note || '');
+}
+
+function renderOrderFormModal(title, existingNote) {
+  const selectedStop = tempOrderCustomerId ? getStop(tempOrderCustomerId) : null;
+  const custDisabled = editingOrderId ? 'disabled' : '';
 
   const catOptions = S.catalog.map(c => `<option value="${escHtml(c.name)}">${escHtml(c.name)} (${c.unit || ''} - ${formatCurrency(c.price)})</option>`).join('');
 
@@ -1047,13 +1076,16 @@ function renderNewOrderModal() {
 
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">New Order</div>
+    <div class="modal-title">${title}</div>
     <div class="form-group">
       <label class="form-label">Customer</label>
-      <select class="select" onchange="tempOrderCustomerId=parseInt(this.value);updateOrderPrices()" id="order-customer-select">
-        <option value="">Select customer...</option>
-        ${custOptions}
-      </select>
+      <div class="search-select" id="cust-search-wrap">
+        <input class="input" id="cust-search-input" placeholder="Search customer..."
+               value="${selectedStop ? escHtml(selectedStop.n) : ''}"
+               oninput="filterCustomerList(this.value)"
+               onfocus="openCustomerList()" ${custDisabled}>
+        <div class="search-select-list" id="cust-search-list"></div>
+      </div>
     </div>
     <div class="form-group">
       <label class="form-label">Items</label>
@@ -1066,9 +1098,9 @@ function renderNewOrderModal() {
     </div>
     <div class="form-group">
       <label class="form-label">Note (optional)</label>
-      <textarea class="textarea" id="order-note" rows="2" style="min-height:50px"></textarea>
+      <textarea class="textarea" id="order-note" rows="2" style="min-height:50px">${existingNote !== undefined ? escHtml(existingNote) : ''}</textarea>
     </div>
-    <button class="btn btn-primary btn-block" onclick="saveOrder()">Save Order</button>
+    <button class="btn btn-primary btn-block" onclick="saveOrder()">${editingOrderId ? 'Update Order' : 'Save Order'}</button>
   `);
 
   // Set selected values for product dropdowns
@@ -1077,7 +1109,47 @@ function renderNewOrderModal() {
     tempOrderItems.forEach((item, idx) => {
       if (selects[idx] && item.name) selects[idx].value = item.name;
     });
+    // Close customer list when clicking outside
+    document.addEventListener('click', closeCustListOnClickOutside);
   }, 50);
+}
+
+function filterCustomerList(query) {
+  const list = document.getElementById('cust-search-list');
+  if (!list) return;
+  const q = query.toLowerCase().trim();
+  let filtered = STOPS;
+  if (q) filtered = STOPS.filter(s => s.n.toLowerCase().includes(q) || s.c.toLowerCase().includes(q) || s.p.toLowerCase().includes(q));
+  filtered = filtered.slice(0, 20);
+  list.innerHTML = filtered.map(s =>
+    `<div class="search-select-item" onmousedown="selectCustomerFromList(${s.id})">
+      ${escHtml(s.n)}<div class="ss-sub">${escHtml(s.c)} &middot; ${escHtml(s.p)}</div>
+    </div>`
+  ).join('');
+  list.classList.add('open');
+}
+
+function openCustomerList() {
+  const input = document.getElementById('cust-search-input');
+  if (input) filterCustomerList(input.value);
+}
+
+function selectCustomerFromList(stopId) {
+  tempOrderCustomerId = stopId;
+  const stop = getStop(stopId);
+  const input = document.getElementById('cust-search-input');
+  if (input && stop) input.value = stop.n;
+  const list = document.getElementById('cust-search-list');
+  if (list) list.classList.remove('open');
+  updateOrderPrices();
+}
+
+function closeCustListOnClickOutside(e) {
+  const wrap = document.getElementById('cust-search-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const list = document.getElementById('cust-search-list');
+    if (list) list.classList.remove('open');
+  }
 }
 
 function updateOrderItem(idx, field, value) {
@@ -1087,7 +1159,7 @@ function updateOrderItem(idx, field, value) {
     const price = tempOrderCustomerId ? getPrice(tempOrderCustomerId, value) : (S.catalog.find(c => c.name === value)?.price || 0);
     tempOrderItems[idx].price = price;
   }
-  renderNewOrderModal();
+  renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
 }
 
 function updateOrderPrices() {
@@ -1096,18 +1168,18 @@ function updateOrderPrices() {
       item.price = tempOrderCustomerId ? getPrice(tempOrderCustomerId, item.name) : (S.catalog.find(c => c.name === item.name)?.price || 0);
     }
   });
-  renderNewOrderModal();
+  renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
 }
 
 function addOrderItem() {
   tempOrderItems.push({ name: '', qty: 1, price: 0 });
-  renderNewOrderModal();
+  renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
 }
 
 function removeOrderItem(idx) {
   tempOrderItems.splice(idx, 1);
   if (tempOrderItems.length === 0) tempOrderItems.push({ name: '', qty: 1, price: 0 });
-  renderNewOrderModal();
+  renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
 }
 
 function saveOrder() {
@@ -1116,19 +1188,30 @@ function saveOrder() {
   if (items.length === 0) { alert('Please add at least one item.'); return; }
 
   const note = document.getElementById('order-note')?.value || '';
-  const id = uid();
-  S.orders[id] = {
-    id: id,
-    customerId: parseInt(tempOrderCustomerId),
-    items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
-    note: note,
-    status: 'pending',
-    payMethod: null,
-    createdAt: new Date().toISOString(),
-    deliveredAt: null
-  };
+
+  if (editingOrderId && S.orders[editingOrderId]) {
+    // Update existing order
+    const order = S.orders[editingOrderId];
+    order.items = items.map(i => ({ name: i.name, qty: i.qty, price: i.price }));
+    order.note = note;
+  } else {
+    // Create new order
+    const id = uid();
+    S.orders[id] = {
+      id: id,
+      customerId: parseInt(tempOrderCustomerId),
+      items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
+      note: note,
+      status: 'pending',
+      payMethod: null,
+      createdAt: new Date().toISOString(),
+      deliveredAt: null
+    };
+  }
+  editingOrderId = null;
   save.orders();
   closeModal();
+  document.removeEventListener('click', closeCustListOnClickOutside);
   if (curPage === 'orders') renderOrders();
   else if (curPage === 'profile') renderProfile();
   else if (curPage === 'route') renderRoute();
@@ -2041,27 +2124,39 @@ function resetAllData() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// MAP
+// MAP PAGE
 // ══════════════════════════════════════════════════════════════
-function showMapModal() {
-  document.getElementById('modal-map').classList.add('active');
-  document.body.style.overflow = 'hidden';
-  setTimeout(() => {
-    if (!leafletMap) {
-      leafletMap = L.map('map-container').setView([51.45, 0.05], 10);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap'
-      }).addTo(leafletMap);
-    } else {
-      leafletMap.invalidateSize();
-    }
-    refreshMapMarkers();
-  }, 200);
-}
+let mapAssignStopId = null;
 
-function closeMapModal() {
-  document.getElementById('modal-map').classList.remove('active');
-  document.body.style.overflow = '';
+function showMapModal() { showPage('map'); }
+function closeMapModal() { showPage('settings'); }
+
+function renderMapPage() {
+  let html = `
+    <header class="topbar">
+      <button class="btn-ghost" onclick="showPage('settings')" style="font-size:18px;padding:8px">&larr;</button>
+      <h1 style="flex:1;text-align:center;font-size:16px">Map</h1>
+      <div style="width:36px"></div>
+    </header>
+    <div class="chip-group" style="padding:8px 16px;background:var(--card);border-bottom:1px solid var(--border);margin:0">
+      <button class="chip ${S.mapFilter==='all'?'active':''}" onclick="S.mapFilter='all';refreshMapMarkers()">All</button>
+      <button class="chip ${S.mapFilter==='A'?'active':''}" onclick="S.mapFilter='A';refreshMapMarkers()">Week A</button>
+      <button class="chip ${S.mapFilter==='B'?'active':''}" onclick="S.mapFilter='B';refreshMapMarkers()">Week B</button>
+      <button class="chip ${S.mapFilter==='none'?'active':''}" onclick="S.mapFilter='none';refreshMapMarkers()">Unassigned</button>
+    </div>
+    <div id="map-container" style="flex:1;min-height:0"></div>`;
+  document.getElementById('page-map').innerHTML = html;
+
+  setTimeout(() => {
+    const container = document.getElementById('map-container');
+    if (!container) return;
+    if (leafletMap) { leafletMap.remove(); leafletMap = null; }
+    leafletMap = L.map(container).setView([51.45, 0.05], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(leafletMap);
+    refreshMapMarkers();
+  }, 150);
 }
 
 function refreshMapMarkers() {
@@ -2069,32 +2164,91 @@ function refreshMapMarkers() {
   mapMarkers.forEach(m => leafletMap.removeLayer(m));
   mapMarkers = [];
 
-  STOPS.forEach(stop => {
-    const geo = S.geo[stop.id];
-    if (geo && geo.lat && geo.lng) {
-      const dayId = S.assign[stop.id];
-      const dayObj = dayId ? getDayObj(dayId) : null;
-      const color = dayObj ? dayObj.color : '#999';
-
-      const icon = L.divIcon({
-        className: '',
-        html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>`,
-        iconSize: [12, 12],
-        iconAnchor: [6, 6]
-      });
-
-      const marker = L.marker([geo.lat, geo.lng], { icon })
-        .bindPopup(`<b>${escHtml(stop.n)}</b><br>${escHtml(stop.c)}<br>${escHtml(stop.p)}`)
-        .addTo(leafletMap);
-      mapMarkers.push(marker);
-    }
+  // Update filter chip visuals
+  document.querySelectorAll('#page-map .chip').forEach(c => {
+    const filter = c.textContent.trim();
+    const val = filter === 'All' ? 'all' : filter === 'Week A' ? 'A' : filter === 'Week B' ? 'B' : 'none';
+    c.classList.toggle('active', val === S.mapFilter);
   });
 
-  // Fit bounds if markers exist
+  STOPS.forEach(stop => {
+    const geo = S.geo[stop.id];
+    if (!geo || !geo.lat || !geo.lng) return;
+
+    const dayId = S.assign[stop.id];
+    const dayObj = dayId ? getDayObj(dayId) : null;
+
+    // Apply filter
+    if (S.mapFilter === 'A' && (!dayId || !dayId.startsWith('wA'))) return;
+    if (S.mapFilter === 'B' && (!dayId || !dayId.startsWith('wB'))) return;
+    if (S.mapFilter === 'none' && dayId) return;
+
+    const color = dayObj ? dayObj.color : '#999';
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7]
+    });
+
+    const dayLabel = dayObj ? `Week ${dayObj.week} - ${dayObj.label}` : 'Unassigned';
+    const popupHtml = `<div style="min-width:160px">
+      <b>${escHtml(stop.n)}</b><br>
+      <span style="font-size:12px;color:#666">${escHtml(stop.c)} &middot; ${escHtml(stop.p)}</span><br>
+      <span style="font-size:12px;color:${color}">${dayLabel}</span><br>
+      <button onclick="showMapAssignModal(${stop.id})" style="margin-top:6px;padding:4px 10px;font-size:12px;background:${color};color:#fff;border:none;border-radius:6px;cursor:pointer">Assign Day</button>
+      <button onclick="showProfile(${stop.id})" style="margin-top:6px;padding:4px 10px;font-size:12px;background:#eee;color:#333;border:none;border-radius:6px;cursor:pointer;margin-left:4px">Profile</button>
+    </div>`;
+
+    const marker = L.marker([geo.lat, geo.lng], { icon }).bindPopup(popupHtml).addTo(leafletMap);
+    mapMarkers.push(marker);
+  });
+
   if (mapMarkers.length > 0) {
     const group = L.featureGroup(mapMarkers);
     leafletMap.fitBounds(group.getBounds().pad(0.1));
   }
+}
+
+function showMapAssignModal(stopId) {
+  mapAssignStopId = stopId;
+  const stop = getStop(stopId);
+  if (!stop) return;
+  const currentDay = S.assign[stop.id];
+
+  let html = `<div class="modal-handle"></div>
+    <div class="modal-title">Assign - ${escHtml(stop.n)}</div>`;
+
+  ['A', 'B'].forEach(week => {
+    html += `<div style="font-size:13px;font-weight:600;color:var(--text-sec);margin:12px 0 6px">Week ${week}</div>`;
+    DAYS.filter(d => d.week === week).forEach(d => {
+      const isActive = currentDay === d.id;
+      html += `<button class="btn ${isActive ? 'btn-primary' : 'btn-outline'} btn-block mb-1"
+        style="${!isActive ? 'border-color:'+d.color+'40;color:'+d.color : 'background:'+d.color}"
+        onclick="mapAssignDay('${d.id}')">
+        ${d.label}
+      </button>`;
+    });
+  });
+
+  if (currentDay) {
+    html += `<button class="btn btn-danger btn-block mt-2" onclick="mapUnassignDay()">Remove from Route</button>`;
+  }
+  openModal(html);
+}
+
+function mapAssignDay(dayId) {
+  S.assign[mapAssignStopId] = dayId;
+  save.assign();
+  closeModal();
+  refreshMapMarkers();
+}
+
+function mapUnassignDay() {
+  delete S.assign[mapAssignStopId];
+  save.assign();
+  closeModal();
+  refreshMapMarkers();
 }
 
 // ══════════════════════════════════════════════════════════════
