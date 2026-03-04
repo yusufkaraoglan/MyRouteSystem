@@ -1940,30 +1940,30 @@ function renderReports() {
           if (report.rows.length === 0) return '<p class="text-muted" style="font-size:13px">No matching orders for this period</p>';
           let t = `<div class="card" style="padding:0;overflow:hidden">
             <table class="report-table">
-              <thead><tr><th>Customer</th><th>Payment</th><th>Products</th><th class="text-right">Total</th></tr></thead>
+              <thead><tr><th>Customer</th><th>Payment</th><th>Products</th></tr></thead>
               <tbody>`;
           report.rows.forEach(r => {
+            const pColor = r.payDisplay.type === 'cash' ? 'var(--success)' : r.payDisplay.type === 'bank' ? 'var(--info)' : 'var(--danger)';
             t += `<tr>
               <td>${escHtml(r.name)}</td>
-              <td><span class="badge ${r.payMethod==='cash'?'badge-success':r.payMethod==='bank'?'badge-info':'badge-danger'}" style="font-size:10px">${r.payMethod}</span></td>
+              <td style="font-weight:600;color:${pColor};font-size:13px">${r.payDisplay.text}</td>
               <td style="font-size:12px">${r.productsSummary}</td>
-              <td class="text-right" style="font-weight:600">${formatCurrency(r.total)}</td>
             </tr>`;
           });
           t += `<tr style="background:var(--bg);font-weight:700">
-              <td>TOTAL</td>
-              <td>
-                <span style="color:var(--success);font-size:11px">Cash ${formatCurrency(report.totalCash)}</span><br>
-                <span style="color:var(--info);font-size:11px">Bank ${formatCurrency(report.totalBank)}</span><br>
-                <span style="color:var(--danger);font-size:11px">Unpaid ${formatCurrency(report.totalUnpaid)}</span>
+              <td>TOTAL (${report.rows.length})</td>
+              <td style="font-size:11px">
+                <span style="color:var(--success)">Cash ${formatCurrency(report.totalCash)}</span><br>
+                <span style="color:var(--info)">Bank ${formatCurrency(report.totalBank)}</span><br>
+                <span style="color:var(--danger)">Unpaid ${formatCurrency(report.totalUnpaid)}</span>
               </td>
               <td style="font-size:12px">${report.productTotals}</td>
-              <td class="text-right">${formatCurrency(report.grandTotal)}</td>
             </tr>`;
           t += `</tbody></table></div>
-          <button class="btn btn-primary btn-block mt-2" onclick="exportProductReportPDF()">
-            Download PDF
-          </button>`;
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn btn-primary" style="flex:1" onclick="exportProductReportPDF()">PDF</button>
+            <button class="btn btn-outline" style="flex:1" onclick="exportProductReportExcel()">Excel</button>
+          </div>`;
           return t;
         })()}
       </div>
@@ -2091,9 +2091,19 @@ function calcProductSalesReport() {
       custTotal += calcOrderTotal(o);
     });
 
-    // Dominant payment method
-    const pmEntries = Object.entries(data.payMethods);
-    const dominantPM = pmEntries.sort((a, b) => b[1] - a[1])[0]?.[0] || 'unpaid';
+    // Payment display per customer: cash shows amount, bank shows "Bank", unpaid shows "Not Paid"
+    const payDisplay = (() => {
+      if (data.payMethods.cash && !data.payMethods.bank && !data.payMethods.unpaid) return { text: formatCurrency(data.payMethods.cash), type: 'cash' };
+      if (data.payMethods.bank && !data.payMethods.cash && !data.payMethods.unpaid) return { text: 'Bank', type: 'bank' };
+      if (data.payMethods.unpaid && !data.payMethods.cash && !data.payMethods.bank) return { text: 'Not Paid', type: 'unpaid' };
+      // Mixed payments
+      const parts = [];
+      if (data.payMethods.cash) parts.push(formatCurrency(data.payMethods.cash));
+      if (data.payMethods.bank) parts.push('Bank');
+      if (data.payMethods.unpaid) parts.push('Not Paid');
+      const dominantType = data.payMethods.cash >= (data.payMethods.bank || 0) && data.payMethods.cash >= (data.payMethods.unpaid || 0) ? 'cash' : data.payMethods.bank >= (data.payMethods.unpaid || 0) ? 'bank' : 'unpaid';
+      return { text: parts.join(' + '), type: dominantType };
+    })();
 
     const productsSummary = Object.entries(prodMap).map(([n, q]) => `${q} ${n}`).join(', ');
 
@@ -2104,7 +2114,7 @@ function calcProductSalesReport() {
 
     rows.push({
       name: stop.n,
-      payMethod: dominantPM,
+      payDisplay,
       productsSummary,
       total: custTotal
     });
@@ -2116,31 +2126,32 @@ function calcProductSalesReport() {
   return { rows, totalCash, totalBank, totalUnpaid, grandTotal, productTotals };
 }
 
+function getReportDateLabel() {
+  if (S.reportRange === 'custom') return `${S.reportStart} to ${S.reportEnd}`;
+  return `${S.reportStart} to ${S.reportEnd}`;
+}
+
 function exportProductReportPDF() {
   const report = calcProductSalesReport();
   if (report.rows.length === 0) { alert('No data to export.'); return; }
 
-  const dateLabel = S.reportRange === 'custom'
-    ? `${S.reportStart} to ${S.reportEnd}`
-    : S.reportRange === 'today' ? todayStr()
-    : S.reportRange === 'week' ? `${S.reportStart} to ${S.reportEnd}`
-    : `${S.reportStart} to ${S.reportEnd}`;
+  const dateLabel = getReportDateLabel();
   const exportDate = new Date().toLocaleString('en-GB');
   const productsLabel = S.reportProducts.join(', ');
 
   let tableRows = '';
   report.rows.forEach(r => {
+    const pColor = r.payDisplay.type === 'cash' ? '#12B76A' : r.payDisplay.type === 'bank' ? '#2E90FA' : '#F04438';
     tableRows += `<tr>
       <td>${escHtml(r.name)}</td>
-      <td style="text-align:center"><span style="padding:2px 8px;border-radius:10px;font-size:11px;background:${r.payMethod==='cash'?'#ECFDF3;color:#12B76A':r.payMethod==='bank'?'#EFF8FF;color:#2E90FA':'#FEF3F2;color:#F04438'}">${r.payMethod}</span></td>
+      <td style="color:${pColor};font-weight:600">${r.payDisplay.text}</td>
       <td>${r.productsSummary}</td>
-      <td style="text-align:right;font-weight:600">${formatCurrency(r.total)}</td>
     </tr>`;
   });
 
   const html = `<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
-    <title>Product Sales Report</title>
+    <title>Product Sales Report - ${exportDate}</title>
     <style>
       body{font-family:'Inter',Arial,sans-serif;font-size:12px;color:#111;padding:20px;max-width:800px;margin:0 auto}
       h1{font-size:18px;margin-bottom:4px}
@@ -2150,7 +2161,7 @@ function exportProductReportPDF() {
       td{padding:8px;border-bottom:1px solid #eee}
       .total-row{background:#f5f5f7;font-weight:700}
       .total-row td{border-top:2px solid #ddd}
-      @media print{body{padding:10px}button{display:none!important}}
+      @media print{body{padding:10px}.no-print{display:none!important}}
     </style>
   </head><body>
     <h1>Costadoro Delivery - Product Sales Report</h1>
@@ -2160,7 +2171,7 @@ function exportProductReportPDF() {
       Generated: ${exportDate}
     </div>
     <table>
-      <thead><tr><th>Customer</th><th style="text-align:center">Payment</th><th>Products</th><th style="text-align:right">Total</th></tr></thead>
+      <thead><tr><th>Customer</th><th>Payment</th><th>Products</th></tr></thead>
       <tbody>
         ${tableRows}
         <tr class="total-row">
@@ -2171,11 +2182,10 @@ function exportProductReportPDF() {
             <span style="color:#F04438">Unpaid ${formatCurrency(report.totalUnpaid)}</span>
           </td>
           <td>${report.productTotals}</td>
-          <td style="text-align:right">${formatCurrency(report.grandTotal)}</td>
         </tr>
       </tbody>
     </table>
-    <button onclick="window.print()" style="padding:10px 24px;background:#E85D3A;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer">
+    <button class="no-print" onclick="window.print()" style="padding:10px 24px;background:#E85D3A;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer">
       Save as PDF
     </button>
   </body></html>`;
@@ -2183,6 +2193,28 @@ function exportProductReportPDF() {
   const win = window.open('', '_blank');
   win.document.write(html);
   win.document.close();
+}
+
+function exportProductReportExcel() {
+  const report = calcProductSalesReport();
+  if (report.rows.length === 0) { alert('No data to export.'); return; }
+
+  const data = [['Customer', 'Payment', 'Products']];
+  report.rows.forEach(r => {
+    data.push([r.name, r.payDisplay.text, r.productsSummary]);
+  });
+  data.push([]);
+  data.push(['TOTAL', '', report.productTotals]);
+  data.push(['Cash', formatCurrency(report.totalCash)]);
+  data.push(['Bank', formatCurrency(report.totalBank)]);
+  data.push(['Unpaid', formatCurrency(report.totalUnpaid)]);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  // Set column widths
+  ws['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 40 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Product Report');
+  XLSX.writeFile(wb, 'product_report_' + todayStr() + '.xlsx');
 }
 
 // ══════════════════════════════════════════════════════════════
