@@ -1411,7 +1411,7 @@ function renderOrderFormModal(title, existingNote) {
       <div class="order-item-card">
         <div class="order-item-card-info">
           <div class="order-item-card-name">${escHtml(item.name)}</div>
-          <div class="order-item-card-price">${formatCurrency(item.price)} / adet</div>
+          <div class="order-item-card-price">${formatCurrency(item.price)} each</div>
         </div>
         <div class="order-item-card-controls">
           <button class="qty-btn" onclick="changeOrderItemQty(${idx},-1)">−</button>
@@ -1430,30 +1430,30 @@ function renderOrderFormModal(title, existingNote) {
     <div class="modal-handle"></div>
     <div class="modal-title">${title}</div>
     <div class="form-group">
-      <label class="form-label">Müşteri</label>
+      <label class="form-label">Customer</label>
       <div class="input" id="cust-display"
            onclick="${editingOrderId ? '' : 'openCustomerPicker()'}"
            style="cursor:${editingOrderId ? 'default' : 'pointer'};color:${selectedStop ? 'var(--text)' : 'var(--text-muted)'};${editingOrderId ? 'opacity:0.6' : ''}">
-        ${selectedStop ? escHtml(selectedStop.n) : 'Müşteri seçmek için dokun...'}
+        ${selectedStop ? escHtml(selectedStop.n) : 'Tap to select customer...'}
       </div>
     </div>
     <div class="form-group">
-      <label class="form-label">Ürünler${itemCount > 0 ? ' (' + itemCount + ')' : ''}</label>
-      <div id="order-items-list">${itemsHtml || '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:13px">Henüz ürün eklenmedi</div>'}</div>
+      <label class="form-label">Items${itemCount > 0 ? ' (' + itemCount + ')' : ''}</label>
+      <div id="order-items-list">${itemsHtml || '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:13px">No items added yet</div>'}</div>
       <button class="btn btn-outline btn-block mt-1" onclick="openProductPicker()" style="gap:6px">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Ürün Ekle
+        Add Item
       </button>
     </div>
     <div class="flex-between mb-2" style="padding:12px;background:var(--bg);border-radius:var(--radius-sm)">
-      <span style="font-weight:700;font-size:16px">Toplam</span>
+      <span style="font-weight:700;font-size:16px">Total</span>
       <span style="font-weight:700;font-size:18px;color:var(--primary)" id="order-total">${formatCurrency(total)}</span>
     </div>
     <div class="form-group">
-      <label class="form-label">Not (opsiyonel)</label>
+      <label class="form-label">Note (optional)</label>
       <textarea class="textarea" id="order-note" rows="2" style="min-height:50px">${existingNote !== undefined ? escHtml(existingNote) : ''}</textarea>
     </div>
-    <button class="btn btn-primary btn-block" onclick="saveOrder()" style="margin-top:8px">${editingOrderId ? 'Siparişi Güncelle' : 'Siparişi Kaydet'}</button>
+    <button class="btn btn-primary btn-block" onclick="saveOrder()" style="margin-top:8px">${editingOrderId ? 'Update Order' : 'Save Order'}</button>
   `);
 }
 
@@ -1472,7 +1472,7 @@ function openProductPicker() {
   overlay.innerHTML = `
     <div class="ppick-header">
       <button class="btn-ghost" onclick="closeProductPicker()" style="font-size:20px;padding:4px">&larr;</button>
-      <input type="text" id="ppick-search" placeholder="Ürün ara..." autofocus
+      <input type="text" id="ppick-search" placeholder="Search product..." autofocus
              oninput="filterProductPicker(this.value)">
     </div>
     <div class="ppick-list" id="ppick-list"></div>
@@ -1500,7 +1500,7 @@ function filterProductPicker(q) {
     return `<div class="ppick-item${isSelected ? ' selected' : ''}" onclick="toggleProductInOrder('${escHtml(c.name)}')">
       <div class="ppick-item-info">
         <div class="ppick-item-name">${escHtml(c.name)}</div>
-        <div class="ppick-item-detail">${escHtml(c.unit || 'Birim yok')}</div>
+        <div class="ppick-item-detail">${escHtml(c.unit || 'No unit')}</div>
       </div>
       <div class="ppick-item-price">${formatCurrency(tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, c.name) : c.price)}</div>
       <div class="ppick-item-check">${isSelected ? '✓' : ''}</div>
@@ -1508,7 +1508,7 @@ function filterProductPicker(q) {
   }).join('');
 
   if (filtered.length === 0) {
-    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">Ürün bulunamadı</div>';
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">No products found</div>';
   }
 }
 
@@ -2901,24 +2901,24 @@ function renderCatalog() {
   let html = `
     <header class="topbar">
       <button class="btn-ghost" onclick="showPage('settings')" style="font-size:18px;padding:8px">&larr;</button>
-      <h1 style="flex:1;text-align:center;font-size:16px">Ürün Kataloğu</h1>
-      <span class="badge badge-outline">${S.catalog.length} ürün</span>
+      <h1 style="flex:1;text-align:center;font-size:16px">Product Catalog</h1>
+      <span class="badge badge-outline">${S.catalog.length} products</span>
     </header>
     <div class="page-body">
       <div class="card" style="margin-bottom:12px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Ürün Ekle</div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Add Product</div>
         <div style="display:flex;gap:8px;margin-bottom:8px">
-          <input class="input" id="cat-name" placeholder="Ürün adı" style="flex:1;min-width:0">
+          <input class="input" id="cat-name" placeholder="Product name" style="flex:1;min-width:0">
         </div>
         <div style="display:flex;gap:8px">
-          <input class="input" id="cat-unit" placeholder="Birim" style="flex:1;min-width:0">
+          <input class="input" id="cat-unit" placeholder="Unit" style="flex:1;min-width:0">
           <input class="input" id="cat-price" placeholder="£0.00" type="number" step="0.01" style="flex:1;min-width:0">
-          <button class="btn btn-primary" onclick="addCatalogItem()" style="flex-shrink:0;padding:10px 20px">Ekle</button>
+          <button class="btn btn-primary" onclick="addCatalogItem()" style="flex-shrink:0;padding:10px 20px">Add</button>
         </div>
       </div>`;
 
   if (S.catalog.length === 0) {
-    html += `<div class="empty-state"><p><b>Henüz ürün yok</b></p><p>Yukarıdan ürün ekleyin</p></div>`;
+    html += `<div class="empty-state"><p><b>No products yet</b></p><p>Add products above</p></div>`;
   } else {
     S.catalog.forEach((c, i) => {
       const isEditing = editingCatalogIdx === i;
@@ -2927,7 +2927,7 @@ function renderCatalog() {
           <div class="catalog-card-row">
             <div class="catalog-card-info">
               <div class="catalog-card-name">${escHtml(c.name)}</div>
-              <div class="catalog-card-unit">${escHtml(c.unit || 'Birim yok')}</div>
+              <div class="catalog-card-unit">${escHtml(c.unit || 'No unit')}</div>
             </div>
             <div class="catalog-card-price">${formatCurrency(c.price)}</div>
             <div class="catalog-card-actions">
@@ -2939,10 +2939,10 @@ function renderCatalog() {
           </div>
           ${isEditing ? `
           <div class="catalog-edit-form">
-            <input class="input" id="cat-edit-name-${i}" value="${escHtml(c.name)}" placeholder="Ürün adı" style="flex:2;min-width:100px">
-            <input class="input" id="cat-edit-unit-${i}" value="${escHtml(c.unit || '')}" placeholder="Birim" style="flex:1;min-width:60px">
-            <input class="input" id="cat-edit-price-${i}" value="${c.price}" type="number" step="0.01" placeholder="Fiyat" style="flex:1;min-width:70px">
-            <button class="btn btn-primary btn-sm" onclick="saveCatalogEdit(${i})" style="flex-shrink:0">Kaydet</button>
+            <input class="input" id="cat-edit-name-${i}" value="${escHtml(c.name)}" placeholder="Product name" style="flex:2;min-width:100px">
+            <input class="input" id="cat-edit-unit-${i}" value="${escHtml(c.unit || '')}" placeholder="Unit" style="flex:1;min-width:60px">
+            <input class="input" id="cat-edit-price-${i}" value="${c.price}" type="number" step="0.01" placeholder="Price" style="flex:1;min-width:70px">
+            <button class="btn btn-primary btn-sm" onclick="saveCatalogEdit(${i})" style="flex-shrink:0">Save</button>
           </div>` : ''}
         </div>`;
     });
@@ -2960,9 +2960,9 @@ function saveCatalogEdit(idx) {
   const name = document.getElementById('cat-edit-name-' + idx).value.trim();
   const unit = document.getElementById('cat-edit-unit-' + idx).value.trim();
   const price = parseFloat(document.getElementById('cat-edit-price-' + idx).value) || 0;
-  if (!name) { appAlert('Ürün adı gerekli.'); return; }
+  if (!name) { appAlert('Product name is required.'); return; }
   const oldName = S.catalog[idx].name;
-  if (name !== oldName && S.catalog.some(c => c.name === name)) { appAlert('Bu isimde bir ürün zaten var.'); return; }
+  if (name !== oldName && S.catalog.some(c => c.name === name)) { appAlert('Product already exists.'); return; }
   S.catalog[idx] = { name, unit, price };
   save.catalog();
   editingCatalogIdx = -1;
