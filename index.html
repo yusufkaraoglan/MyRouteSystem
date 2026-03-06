@@ -1340,7 +1340,7 @@ let editingOrderId = null;
 function showNewOrderModal(preCustomerId) {
   editingOrderId = null;
   tempOrderItems = [{ name: '', qty: 1, price: 0 }];
-  tempOrderCustomerId = preCustomerId || null;
+  tempOrderCustomerId = preCustomerId != null ? preCustomerId : null;
   renderOrderFormModal('New Order');
 }
 
@@ -1355,7 +1355,7 @@ function showEditOrderModal(orderId) {
 }
 
 function renderOrderFormModal(title, existingNote) {
-  const selectedStop = tempOrderCustomerId ? getStop(tempOrderCustomerId) : null;
+  const selectedStop = tempOrderCustomerId !== null && tempOrderCustomerId !== undefined ? getStop(tempOrderCustomerId) : null;
   const custDisabled = editingOrderId ? 'disabled' : '';
 
   const catOptions = S.catalog.map(c => `<option value="${escHtml(c.name)}">${escHtml(c.name)} (${c.unit || ''} - ${formatCurrency(c.price)})</option>`).join('');
@@ -1466,7 +1466,7 @@ function updateOrderItem(idx, field, value) {
   if (!tempOrderItems[idx]) return;
   tempOrderItems[idx][field] = value;
   if (field === 'name' && value) {
-    const price = tempOrderCustomerId ? getPrice(tempOrderCustomerId, value) : (S.catalog.find(c => c.name === value)?.price || 0);
+    const price = tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, value) : (S.catalog.find(c => c.name === value)?.price || 0);
     tempOrderItems[idx].price = price;
   }
   renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
@@ -1475,7 +1475,7 @@ function updateOrderItem(idx, field, value) {
 function updateOrderPrices() {
   tempOrderItems.forEach(item => {
     if (item.name) {
-      item.price = tempOrderCustomerId ? getPrice(tempOrderCustomerId, item.name) : (S.catalog.find(c => c.name === item.name)?.price || 0);
+      item.price = tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, item.name) : (S.catalog.find(c => c.name === item.name)?.price || 0);
     }
   });
   renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
@@ -1493,7 +1493,7 @@ function removeOrderItem(idx) {
 }
 
 function saveOrder() {
-  if (!tempOrderCustomerId) { appAlert('Please select a customer.'); return; }
+  if (tempOrderCustomerId == null) { appAlert('Please select a customer.'); return; }
   const items = tempOrderItems.filter(i => i.name && i.qty > 0);
   if (items.length === 0) { appAlert('Please add at least one item.'); return; }
 
