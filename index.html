@@ -298,9 +298,13 @@ a{text-decoration:none;color:inherit}
   .day-tab{min-width:50px;padding:8px 4px;font-size:12px}
   .chip-group{gap:4px}
   .chip{padding:5px 10px;font-size:12px}
-  .order-item-row{flex-wrap:wrap}
-  .order-item-row .select{flex:1 1 100%;min-width:0}
-  .order-item-row .input{flex:1 1 45%;min-width:60px}
+  .order-item-card{padding:8px 10px;gap:8px}
+  .order-item-card-name{font-size:13px}
+  .order-item-card-total{min-width:48px;font-size:13px}
+  .qty-btn{width:28px;height:28px;font-size:14px}
+  .qty-value{font-size:14px;min-width:20px}
+  .catalog-edit-form{gap:4px}
+  .catalog-edit-form .input{font-size:14px;padding:8px}
   .action-bar{padding:8px 12px;gap:6px}
   .action-btn{padding:8px 10px;min-width:62px;font-size:10px}
   .card{padding:10px}
@@ -313,6 +317,46 @@ a{text-decoration:none;color:inherit}
   .custom-dates input{padding:6px;font-size:14px}
   .page-body{padding:10px 12px 12px}
 }
+
+/* === PRODUCT PICKER OVERLAY (order modal) === */
+.product-picker-overlay{position:fixed;inset:0;background:var(--bg);z-index:260;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.product-picker-overlay .ppick-header{padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center}
+.product-picker-overlay .ppick-header input{flex:1;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:16px;background:var(--card)}
+.product-picker-overlay .ppick-header input:focus{outline:none;border-color:var(--primary)}
+.product-picker-overlay .ppick-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 0}
+.ppick-item{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.ppick-item:active{background:var(--primary-light)}
+.ppick-item.selected{background:var(--primary-light);border-left:3px solid var(--primary)}
+.ppick-item-info{flex:1;min-width:0}
+.ppick-item-name{font-size:15px;font-weight:600}
+.ppick-item-detail{font-size:12px;color:var(--text-sec);margin-top:2px}
+.ppick-item-price{font-size:15px;font-weight:700;color:var(--primary);flex-shrink:0;margin-left:12px}
+.ppick-item-check{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:12px;color:transparent;transition:all .15s}
+.ppick-item.selected .ppick-item-check{background:var(--primary);border-color:var(--primary);color:#fff}
+
+/* === ORDER ITEM CARD (new design) === */
+.order-item-card{background:var(--bg);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.order-item-card-info{flex:1;min-width:0}
+.order-item-card-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.order-item-card-price{font-size:12px;color:var(--text-sec);margin-top:2px}
+.order-item-card-controls{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.qty-btn{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--text);background:var(--card);transition:all .15s}
+.qty-btn:active{background:var(--primary-light);border-color:var(--primary)}
+.qty-value{font-size:16px;font-weight:700;min-width:24px;text-align:center}
+.order-item-card-total{font-size:14px;font-weight:700;min-width:55px;text-align:right;flex-shrink:0}
+.order-item-card-remove{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px;flex-shrink:0;transition:color .15s}
+.order-item-card-remove:active{color:var(--danger)}
+
+/* === CATALOG EDIT === */
+.catalog-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:8px;transition:all .15s}
+.catalog-card-row{display:flex;align-items:center;gap:10px}
+.catalog-card-info{flex:1;min-width:0}
+.catalog-card-name{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catalog-card-unit{font-size:12px;color:var(--text-sec);margin-top:2px}
+.catalog-card-price{font-size:16px;font-weight:700;flex-shrink:0}
+.catalog-card-actions{display:flex;gap:4px;flex-shrink:0}
+.catalog-edit-form{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.catalog-edit-form .input{flex:1;min-width:0}
 
 /* === SYNC STATUS === */
 .sync-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:6px}
@@ -1356,63 +1400,133 @@ function showEditOrderModal(orderId) {
 
 function renderOrderFormModal(title, existingNote) {
   const selectedStop = tempOrderCustomerId !== null && tempOrderCustomerId !== undefined ? getStop(tempOrderCustomerId) : null;
-  const custDisabled = editingOrderId ? 'disabled' : '';
-
-  const catOptions = S.catalog.map(c => `<option value="${escHtml(c.name)}">${escHtml(c.name)} (${c.unit || ''} - ${formatCurrency(c.price)})</option>`).join('');
 
   let itemsHtml = '';
   let total = 0;
   tempOrderItems.forEach((item, idx) => {
-    total += (item.qty || 0) * (item.price || 0);
+    if (!item.name) return;
+    const lineTotal = (item.qty || 0) * (item.price || 0);
+    total += lineTotal;
     itemsHtml += `
-      <div class="order-item-row">
-        <select class="select" onchange="updateOrderItem(${idx},'name',this.value)" style="font-size:16px">
-          <option value="">Select product...</option>
-          ${catOptions}
-        </select>
-        <input type="number" class="input" value="${item.qty}" min="1" style="width:60px;flex:none"
-               onchange="updateOrderItem(${idx},'qty',parseInt(this.value)||1)">
-        <input type="number" class="input" value="${item.price}" step="0.01" style="width:70px;flex:none"
-               onchange="updateOrderItem(${idx},'price',parseFloat(this.value)||0)">
-        <button class="btn-icon-sm" style="color:var(--danger)" onclick="removeOrderItem(${idx})">&#10005;</button>
+      <div class="order-item-card">
+        <div class="order-item-card-info">
+          <div class="order-item-card-name">${escHtml(item.name)}</div>
+          <div class="order-item-card-price">${formatCurrency(item.price)} / adet</div>
+        </div>
+        <div class="order-item-card-controls">
+          <button class="qty-btn" onclick="changeOrderItemQty(${idx},-1)">−</button>
+          <span class="qty-value">${item.qty}</span>
+          <button class="qty-btn" onclick="changeOrderItemQty(${idx},1)">+</button>
+        </div>
+        <div class="order-item-card-total">${formatCurrency(lineTotal)}</div>
+        <button class="order-item-card-remove" onclick="removeOrderItem(${idx})">&#10005;</button>
       </div>`;
   });
+
+  const hasEmptyItems = tempOrderItems.some(i => !i.name);
+  const itemCount = tempOrderItems.filter(i => i.name).length;
 
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">${title}</div>
     <div class="form-group">
-      <label class="form-label">Customer</label>
+      <label class="form-label">Müşteri</label>
       <div class="input" id="cust-display"
            onclick="${editingOrderId ? '' : 'openCustomerPicker()'}"
            style="cursor:${editingOrderId ? 'default' : 'pointer'};color:${selectedStop ? 'var(--text)' : 'var(--text-muted)'};${editingOrderId ? 'opacity:0.6' : ''}">
-        ${selectedStop ? escHtml(selectedStop.n) : 'Tap to select customer...'}
+        ${selectedStop ? escHtml(selectedStop.n) : 'Müşteri seçmek için dokun...'}
       </div>
     </div>
     <div class="form-group">
-      <label class="form-label">Items</label>
-      <div id="order-items-list">${itemsHtml}</div>
-      <button class="btn btn-outline btn-sm mt-1" onclick="addOrderItem()">+ Add Item</button>
+      <label class="form-label">Ürünler${itemCount > 0 ? ' (' + itemCount + ')' : ''}</label>
+      <div id="order-items-list">${itemsHtml || '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:13px">Henüz ürün eklenmedi</div>'}</div>
+      <button class="btn btn-outline btn-block mt-1" onclick="openProductPicker()" style="gap:6px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Ürün Ekle
+      </button>
     </div>
-    <div class="flex-between mb-2">
-      <span style="font-weight:700;font-size:16px">Total</span>
-      <span style="font-weight:700;font-size:16px" id="order-total">${formatCurrency(total)}</span>
+    <div class="flex-between mb-2" style="padding:12px;background:var(--bg);border-radius:var(--radius-sm)">
+      <span style="font-weight:700;font-size:16px">Toplam</span>
+      <span style="font-weight:700;font-size:18px;color:var(--primary)" id="order-total">${formatCurrency(total)}</span>
     </div>
     <div class="form-group">
-      <label class="form-label">Note (optional)</label>
+      <label class="form-label">Not (opsiyonel)</label>
       <textarea class="textarea" id="order-note" rows="2" style="min-height:50px">${existingNote !== undefined ? escHtml(existingNote) : ''}</textarea>
     </div>
-    <button class="btn btn-primary btn-block" onclick="saveOrder()">${editingOrderId ? 'Update Order' : 'Save Order'}</button>
+    <button class="btn btn-primary btn-block" onclick="saveOrder()" style="margin-top:8px">${editingOrderId ? 'Siparişi Güncelle' : 'Siparişi Kaydet'}</button>
   `);
+}
 
-  // Set selected values for product dropdowns
-  setTimeout(() => {
-    const selects = document.querySelectorAll('#order-items-list select');
-    tempOrderItems.forEach((item, idx) => {
-      if (selects[idx] && item.name) selects[idx].value = item.name;
-    });
-    // Product dropdowns set
-  }, 50);
+function changeOrderItemQty(idx, delta) {
+  if (!tempOrderItems[idx]) return;
+  const newQty = (tempOrderItems[idx].qty || 1) + delta;
+  if (newQty < 1) return;
+  tempOrderItems[idx].qty = newQty;
+  renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
+}
+
+function openProductPicker() {
+  const overlay = document.createElement('div');
+  overlay.className = 'product-picker-overlay';
+  overlay.id = 'product-picker';
+  overlay.innerHTML = `
+    <div class="ppick-header">
+      <button class="btn-ghost" onclick="closeProductPicker()" style="font-size:20px;padding:4px">&larr;</button>
+      <input type="text" id="ppick-search" placeholder="Ürün ara..." autofocus
+             oninput="filterProductPicker(this.value)">
+    </div>
+    <div class="ppick-list" id="ppick-list"></div>
+  `;
+  document.body.appendChild(overlay);
+  filterProductPicker('');
+}
+
+function closeProductPicker() {
+  const el = document.getElementById('product-picker');
+  if (el) el.remove();
+}
+
+function filterProductPicker(q) {
+  const list = document.getElementById('ppick-list');
+  if (!list) return;
+  const query = q.toLowerCase().trim();
+  let filtered = S.catalog;
+  if (query) filtered = S.catalog.filter(c => c.name.toLowerCase().includes(query));
+
+  const selectedNames = tempOrderItems.filter(i => i.name).map(i => i.name);
+
+  list.innerHTML = filtered.map(c => {
+    const isSelected = selectedNames.includes(c.name);
+    return `<div class="ppick-item${isSelected ? ' selected' : ''}" onclick="toggleProductInOrder('${escHtml(c.name)}')">
+      <div class="ppick-item-info">
+        <div class="ppick-item-name">${escHtml(c.name)}</div>
+        <div class="ppick-item-detail">${escHtml(c.unit || 'Birim yok')}</div>
+      </div>
+      <div class="ppick-item-price">${formatCurrency(tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, c.name) : c.price)}</div>
+      <div class="ppick-item-check">${isSelected ? '✓' : ''}</div>
+    </div>`;
+  }).join('');
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">Ürün bulunamadı</div>';
+  }
+}
+
+function toggleProductInOrder(productName) {
+  const existingIdx = tempOrderItems.findIndex(i => i.name === productName);
+  if (existingIdx >= 0) {
+    tempOrderItems.splice(existingIdx, 1);
+    if (tempOrderItems.length === 0) tempOrderItems.push({ name: '', qty: 1, price: 0 });
+  } else {
+    const price = tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, productName) : (S.catalog.find(c => c.name === productName)?.price || 0);
+    const emptyIdx = tempOrderItems.findIndex(i => !i.name);
+    if (emptyIdx >= 0) {
+      tempOrderItems[emptyIdx] = { name: productName, qty: 1, price };
+    } else {
+      tempOrderItems.push({ name: productName, qty: 1, price });
+    }
+  }
+  filterProductPicker(document.getElementById('ppick-search')?.value || '');
 }
 
 function openCustomerPicker() {
@@ -1482,8 +1596,7 @@ function updateOrderPrices() {
 }
 
 function addOrderItem() {
-  tempOrderItems.push({ name: '', qty: 1, price: 0 });
-  renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
+  openProductPicker();
 }
 
 function removeOrderItem(idx) {
@@ -2782,45 +2895,78 @@ function renderSettings() {
   document.getElementById('page-settings').innerHTML = html;
 }
 
+let editingCatalogIdx = -1;
+
 function renderCatalog() {
   let html = `
     <header class="topbar">
       <button class="btn-ghost" onclick="showPage('settings')" style="font-size:18px;padding:8px">&larr;</button>
-      <h1 style="flex:1;text-align:center;font-size:16px">Product Catalog</h1>
-      <span class="badge badge-outline">${S.catalog.length} products</span>
+      <h1 style="flex:1;text-align:center;font-size:16px">Ürün Kataloğu</h1>
+      <span class="badge badge-outline">${S.catalog.length} ürün</span>
     </header>
     <div class="page-body">
-      <div class="card">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Add Product</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <input class="input" id="cat-name" placeholder="Product name" style="flex:2;min-width:120px">
-          <input class="input" id="cat-unit" placeholder="Unit" style="flex:1;min-width:60px">
-          <input class="input" id="cat-price" placeholder="£0.00" type="number" step="0.01" style="width:80px;flex:none">
-          <button class="btn btn-primary btn-sm" onclick="addCatalogItem()">Add</button>
+      <div class="card" style="margin-bottom:12px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Ürün Ekle</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input class="input" id="cat-name" placeholder="Ürün adı" style="flex:1;min-width:0">
+        </div>
+        <div style="display:flex;gap:8px">
+          <input class="input" id="cat-unit" placeholder="Birim" style="flex:1;min-width:0">
+          <input class="input" id="cat-price" placeholder="£0.00" type="number" step="0.01" style="flex:1;min-width:0">
+          <button class="btn btn-primary" onclick="addCatalogItem()" style="flex-shrink:0;padding:10px 20px">Ekle</button>
         </div>
       </div>`;
 
   if (S.catalog.length === 0) {
-    html += `<div class="empty-state"><p><b>No products yet</b></p><p>Add products above</p></div>`;
+    html += `<div class="empty-state"><p><b>Henüz ürün yok</b></p><p>Yukarıdan ürün ekleyin</p></div>`;
   } else {
     S.catalog.forEach((c, i) => {
+      const isEditing = editingCatalogIdx === i;
       html += `
-        <div class="card" style="margin-bottom:8px">
-          <div class="flex-between">
-            <div>
-              <div style="font-weight:600">${escHtml(c.name)}</div>
-              <div class="text-muted" style="font-size:12px">${escHtml(c.unit || 'No unit')}</div>
+        <div class="catalog-card">
+          <div class="catalog-card-row">
+            <div class="catalog-card-info">
+              <div class="catalog-card-name">${escHtml(c.name)}</div>
+              <div class="catalog-card-unit">${escHtml(c.unit || 'Birim yok')}</div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-weight:700">${formatCurrency(c.price)}</span>
-              <button class="btn-icon-sm" style="color:var(--danger);font-size:14px" onclick="removeCatalogItem(${i})">&#10005;</button>
+            <div class="catalog-card-price">${formatCurrency(c.price)}</div>
+            <div class="catalog-card-actions">
+              <button class="btn-icon-sm" style="color:var(--info);font-size:14px" onclick="toggleCatalogEdit(${i})">
+                ${isEditing ? '&#10005;' : '&#9998;'}
+              </button>
+              <button class="btn-icon-sm" style="color:var(--danger);font-size:14px" onclick="removeCatalogItem(${i})">&#128465;</button>
             </div>
           </div>
+          ${isEditing ? `
+          <div class="catalog-edit-form">
+            <input class="input" id="cat-edit-name-${i}" value="${escHtml(c.name)}" placeholder="Ürün adı" style="flex:2;min-width:100px">
+            <input class="input" id="cat-edit-unit-${i}" value="${escHtml(c.unit || '')}" placeholder="Birim" style="flex:1;min-width:60px">
+            <input class="input" id="cat-edit-price-${i}" value="${c.price}" type="number" step="0.01" placeholder="Fiyat" style="flex:1;min-width:70px">
+            <button class="btn btn-primary btn-sm" onclick="saveCatalogEdit(${i})" style="flex-shrink:0">Kaydet</button>
+          </div>` : ''}
         </div>`;
     });
   }
   html += `</div>`;
   document.getElementById('page-catalog').innerHTML = html;
+}
+
+function toggleCatalogEdit(idx) {
+  editingCatalogIdx = editingCatalogIdx === idx ? -1 : idx;
+  renderCatalog();
+}
+
+function saveCatalogEdit(idx) {
+  const name = document.getElementById('cat-edit-name-' + idx).value.trim();
+  const unit = document.getElementById('cat-edit-unit-' + idx).value.trim();
+  const price = parseFloat(document.getElementById('cat-edit-price-' + idx).value) || 0;
+  if (!name) { appAlert('Ürün adı gerekli.'); return; }
+  const oldName = S.catalog[idx].name;
+  if (name !== oldName && S.catalog.some(c => c.name === name)) { appAlert('Bu isimde bir ürün zaten var.'); return; }
+  S.catalog[idx] = { name, unit, price };
+  save.catalog();
+  editingCatalogIdx = -1;
+  renderCatalog();
 }
 
 function addCatalogItem() {
