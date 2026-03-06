@@ -342,7 +342,9 @@ a{text-decoration:none;color:inherit}
 .order-item-card-controls{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .qty-btn{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--text);background:var(--card);transition:all .15s}
 .qty-btn:active{background:var(--primary-light);border-color:var(--primary)}
-.qty-value{font-size:16px;font-weight:700;min-width:24px;text-align:center}
+.qty-input{width:42px;font-size:16px;font-weight:700;text-align:center;border:none;background:transparent;color:var(--text);padding:0;-moz-appearance:textfield}
+.qty-input::-webkit-outer-spin-button,.qty-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.qty-input:focus{outline:none;background:var(--card);border-radius:4px;box-shadow:0 0 0 2px var(--primary)}
 .order-item-card-total{font-size:14px;font-weight:700;min-width:55px;text-align:right;flex-shrink:0}
 .order-item-card-remove{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px;flex-shrink:0;transition:color .15s}
 .order-item-card-remove:active{color:var(--danger)}
@@ -709,7 +711,9 @@ function todayStr() { return new Date().toISOString().slice(0, 10); }
 
 function getCurrentWeek() {
   const d = new Date();
-  const weekNum = Math.ceil(d.getDate() / 7);
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const daysSinceJan1 = Math.floor((d - jan1) / 86400000);
+  const weekNum = Math.ceil((daysSinceJan1 + jan1.getDay() + 1) / 7);
   return (weekNum % 2 === 1) ? 'A' : 'B';
 }
 
@@ -958,7 +962,7 @@ function rerenderRouteKeepScroll() {
 
 function setRouteWeek(w) {
   S.routeWeek = w;
-  S.routeDay = 0;
+  S.routeDay = (w === getCurrentWeek()) ? getTodayDayIndex() : 0;
   renderRoute();
 }
 
@@ -1415,7 +1419,9 @@ function renderOrderFormModal(title, existingNote) {
         </div>
         <div class="order-item-card-controls">
           <button class="qty-btn" onclick="changeOrderItemQty(${idx},-1)">−</button>
-          <span class="qty-value">${item.qty}</span>
+          <input type="number" class="qty-input" value="${item.qty}" min="1"
+                 onchange="setOrderItemQty(${idx},parseInt(this.value)||1)"
+                 onclick="this.select()">
           <button class="qty-btn" onclick="changeOrderItemQty(${idx},1)">+</button>
         </div>
         <div class="order-item-card-total">${formatCurrency(lineTotal)}</div>
@@ -1462,6 +1468,12 @@ function changeOrderItemQty(idx, delta) {
   const newQty = (tempOrderItems[idx].qty || 1) + delta;
   if (newQty < 1) return;
   tempOrderItems[idx].qty = newQty;
+  renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
+}
+
+function setOrderItemQty(idx, qty) {
+  if (!tempOrderItems[idx]) return;
+  tempOrderItems[idx].qty = Math.max(1, qty);
   renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
 }
 
