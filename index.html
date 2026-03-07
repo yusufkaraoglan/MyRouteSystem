@@ -3070,13 +3070,11 @@ function renderCatalog() {
               ${c.stock != null ? `<div style="font-size:11px;color:${c.stock <= 5 ? 'var(--danger)' : 'var(--text-sec)'};font-weight:600">Stok: ${c.stock}</div>` : ''}
             </div>
             <div class="catalog-card-actions" style="display:flex;align-items:center;gap:4px">
-              ${c.stock != null ? `
-                <div style="display:flex;align-items:center;gap:2px;margin-right:4px">
-                  <button class="btn-icon-sm" style="color:var(--danger);font-size:16px;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center" onclick="event.stopPropagation();adjustStock(${i},-1)">−</button>
-                  <input class="input" type="number" value="${c.stock}" onchange="setStock(${i},this.value)" style="width:44px;text-align:center;padding:4px 2px;font-size:13px;font-weight:600">
-                  <button class="btn-icon-sm" style="color:var(--success);font-size:16px;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center" onclick="event.stopPropagation();adjustStock(${i},1)">+</button>
-                </div>
-              ` : ''}
+              <div style="display:flex;align-items:center;gap:2px;margin-right:4px">
+                <button class="btn-icon-sm" style="color:var(--danger);font-size:16px;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center" onclick="event.stopPropagation();adjustStock(${i},-1)">−</button>
+                <input class="input" type="number" value="${c.stock != null ? c.stock : ''}" onchange="setStock(${i},this.value)" onclick="this.select()" placeholder="—" style="width:44px;text-align:center;padding:4px 2px;font-size:13px;font-weight:600">
+                <button class="btn-icon-sm" style="color:var(--success);font-size:16px;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center" onclick="event.stopPropagation();adjustStock(${i},1)">+</button>
+              </div>
               <button class="btn-icon-sm" style="color:var(--info);font-size:14px" onclick="toggleCatalogEdit(${i})">
                 ${isEditing ? '&#10005;' : '&#9998;'}
               </button>
@@ -3099,16 +3097,22 @@ function renderCatalog() {
 }
 
 function adjustStock(idx, delta) {
-  if (!S.catalog[idx] || S.catalog[idx].stock == null) return;
-  S.catalog[idx].stock = Math.max(0, S.catalog[idx].stock + delta);
+  if (!S.catalog[idx]) return;
+  const cur = S.catalog[idx].stock;
+  if (cur == null) {
+    S.catalog[idx].stock = Math.max(0, delta);
+  } else {
+    S.catalog[idx].stock = Math.max(0, cur + delta);
+  }
   save.catalog();
   renderCatalog();
 }
 
 function setStock(idx, val) {
   if (!S.catalog[idx]) return;
-  const v = parseInt(val);
-  S.catalog[idx].stock = isNaN(v) ? null : Math.max(0, v);
+  const trimmed = (val + '').trim();
+  if (trimmed === '') { S.catalog[idx].stock = null; }
+  else { S.catalog[idx].stock = Math.max(0, parseInt(trimmed) || 0); }
   save.catalog();
   renderCatalog();
 }
