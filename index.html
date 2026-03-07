@@ -128,6 +128,10 @@ a{text-decoration:none;color:inherit}
 /* === ROUTE CARD === */
 .route-card{display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:8px;border-left:4px solid var(--border);transition:all .2s}
 .route-card.delivered{border-left-color:var(--success);background:var(--success-light)}
+.route-card.dragging{opacity:0.45;box-shadow:0 8px 24px rgba(0,0,0,0.15)}
+.route-card.drag-over{border-top:3px solid var(--primary);margin-top:-3px}
+.drag-handle{cursor:grab;touch-action:none;padding:6px 4px;color:var(--text-muted);display:flex;align-items:center;flex-shrink:0;-webkit-user-select:none;user-select:none}
+.drag-handle:active{cursor:grabbing}
 .route-card-body{flex:1;min-width:0}
 .route-card-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .route-card-sub{font-size:12px;color:var(--text-sec);margin-top:2px}
@@ -924,7 +928,10 @@ function renderRoute() {
       const debt = S.debts[stopId] || 0;
 
       html += `
-        <div class="route-card ${delivered ? 'delivered' : ''}" style="border-left-color:${dayObj.color}">
+        <div class="route-card ${delivered ? 'delivered' : ''}" style="border-left-color:${dayObj.color}" data-stop-id="${stopId}">
+          <div class="drag-handle" ontouchstart="routeTouchStart(event,${stopId},'${dayId}')" onmousedown="routeMouseStart(event,${stopId},'${dayId}')">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg>
+          </div>
           <span class="route-order-num">${idx + 1}</span>
           <div class="route-card-body" onclick="showProfile(${stopId})" style="cursor:pointer">
             <div class="route-card-name">${escHtml(stop.n)}</div>
@@ -935,10 +942,6 @@ function renderRoute() {
               ${todayRev > 0 ? `<span class="badge badge-info">${formatCurrency(todayRev)}</span>` : ''}
               ${!delivered && debt > 0 ? `<span class="badge badge-danger">${formatCurrency(debt)}</span>` : ''}
             </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:4px;align-items:center">
-            ${idx > 0 ? `<button class="btn-icon-sm" onclick="moveStop(${stopId},-1,'${dayId}')" style="color:var(--text-muted);font-size:16px">&uarr;</button>` : '<div style="height:32px"></div>'}
-            ${idx < sorted.length - 1 ? `<button class="btn-icon-sm" onclick="moveStop(${stopId},1,'${dayId}')" style="color:var(--text-muted);font-size:16px">&darr;</button>` : '<div style="height:32px"></div>'}
           </div>
           <button class="delivery-btn ${delivered ? 'done' : ''}" onclick="event.stopPropagation();${delivered ? '' : `showDeliveryModal(${stopId})`}" title="${pending.length === 0 && !delivered ? 'Visit' : ''}">
             ${delivered ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>'
@@ -1002,6 +1005,80 @@ function moveStop(stopId, dir, dayId) {
   S.routeOrder[dayId] = sorted;
   save.routeOrder();
   rerenderRouteKeepScroll();
+}
+
+let _rdDragSrc = null;
+
+function _rdApplyDrop(targetStopId, dayId) {
+  if (_rdDragSrc === null || _rdDragSrc === targetStopId) { _rdDragSrc = null; return; }
+  const assigned = [];
+  Object.entries(S.assign).forEach(([sid, did]) => { if (did === dayId) assigned.push(parseInt(sid)); });
+  const ro = S.routeOrder[dayId] || [];
+  const sorted = [...new Set([...ro.filter(id => assigned.includes(id)), ...assigned])];
+  const srcIdx = sorted.indexOf(_rdDragSrc);
+  const dstIdx = sorted.indexOf(targetStopId);
+  if (srcIdx < 0 || dstIdx < 0) { _rdDragSrc = null; return; }
+  sorted.splice(srcIdx, 1);
+  sorted.splice(dstIdx, 0, _rdDragSrc);
+  S.routeOrder[dayId] = sorted;
+  save.routeOrder();
+  _rdDragSrc = null;
+  rerenderRouteKeepScroll();
+}
+
+function routeTouchStart(e, stopId, dayId) {
+  e.preventDefault();
+  e.stopPropagation();
+  _rdDragSrc = stopId;
+  const card = e.currentTarget.closest('.route-card');
+  card.classList.add('dragging');
+  const onMove = (ev) => {
+    ev.preventDefault();
+    const t = ev.touches[0];
+    card.style.display = 'none';
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    card.style.display = '';
+    const target = el && el.closest('.route-card');
+    document.querySelectorAll('#page-route .route-card').forEach(c => c.classList.remove('drag-over'));
+    if (target && target !== card) target.classList.add('drag-over');
+  };
+  const onEnd = () => {
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onEnd);
+    const over = document.querySelector('#page-route .route-card.drag-over');
+    document.querySelectorAll('#page-route .route-card').forEach(c => { c.classList.remove('dragging'); c.classList.remove('drag-over'); });
+    if (over) _rdApplyDrop(parseInt(over.dataset.stopId), dayId);
+    else _rdDragSrc = null;
+  };
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('touchend', onEnd);
+}
+
+function routeMouseStart(e, stopId, dayId) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+  _rdDragSrc = stopId;
+  const card = e.currentTarget.closest('.route-card');
+  card.classList.add('dragging');
+  const onMove = (ev) => {
+    card.style.display = 'none';
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    card.style.display = '';
+    const target = el && el.closest('.route-card');
+    document.querySelectorAll('#page-route .route-card').forEach(c => c.classList.remove('drag-over'));
+    if (target && target !== card) target.classList.add('drag-over');
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    const over = document.querySelector('#page-route .route-card.drag-over');
+    document.querySelectorAll('#page-route .route-card').forEach(c => { c.classList.remove('dragging'); c.classList.remove('drag-over'); });
+    if (over) _rdApplyDrop(parseInt(over.dataset.stopId), dayId);
+    else _rdDragSrc = null;
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 }
 
 function calcDayRevenue(dayId) {
@@ -1837,6 +1914,18 @@ function showAddCustomerModal() {
       <label class="form-label">Postcode</label>
       <input class="input" id="add-cust-post" placeholder="Postcode">
     </div>
+    <div class="form-group">
+      <label class="form-label">Ad Soyad (İletişim)</label>
+      <input class="input" id="add-cust-cn" placeholder="Ad Soyad">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cep Telefonu</label>
+      <input class="input" id="add-cust-ph" type="tel" placeholder="07xxx xxxxxx">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input class="input" id="add-cust-em" type="email" placeholder="email@ornek.com">
+    </div>
     <button class="btn btn-primary btn-block" onclick="saveNewCustomer()">Save Customer</button>
   `);
 }
@@ -1850,7 +1939,10 @@ function saveNewCustomer() {
     n: name.toUpperCase(),
     a: document.getElementById('add-cust-addr').value.trim(),
     c: document.getElementById('add-cust-city').value.trim(),
-    p: document.getElementById('add-cust-post').value.trim().toUpperCase()
+    p: document.getElementById('add-cust-post').value.trim().toUpperCase(),
+    cn: document.getElementById('add-cust-cn').value.trim(),
+    ph: document.getElementById('add-cust-ph').value.trim(),
+    em: document.getElementById('add-cust-em').value.trim()
   });
   save.stops();
   closeModal();
@@ -1892,6 +1984,12 @@ function renderProfile() {
         <div style="font-size:12px;color:var(--text-sec)">${escHtml(stop.c)} &middot; ${escHtml(stop.p)}</div>
         ${dayObj ? `<div style="margin-top:8px"><span class="badge" style="background:${dayObj.color}20;color:${dayObj.color}">Week ${dayObj.week} - ${dayObj.label}</span></div>` : '<div style="margin-top:8px"><span class="badge badge-outline">Not assigned</span></div>'}
         ${note ? `<div style="margin-top:8px;font-size:12px;color:var(--text-sec);font-style:italic">"${escHtml(note)}"</div>` : ''}
+        ${(stop.cn || stop.ph || stop.em) ? `
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px;align-items:center;font-size:13px">
+            ${stop.cn ? `<div style="color:var(--text-sec)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>${escHtml(stop.cn)}</div>` : ''}
+            ${stop.ph ? `<div><a href="tel:${escHtml(stop.ph)}" style="color:var(--primary);text-decoration:none"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 6 6l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.44 16l.48.92z"/></svg>${escHtml(stop.ph)}</a></div>` : ''}
+            ${stop.em ? `<div><a href="mailto:${escHtml(stop.em)}" style="color:var(--primary);text-decoration:none"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>${escHtml(stop.em)}</a></div>` : ''}
+          </div>` : ''}
         ${(S.customerProducts[stop.id] && S.customerProducts[stop.id].length > 0) ? `
           <div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;justify-content:center">
             ${S.customerProducts[stop.id].map(p => `<span class="badge badge-purple" style="font-size:10px">${escHtml(p)}</span>`).join('')}
@@ -1919,10 +2017,6 @@ function renderProfile() {
         <button class="action-btn" onclick="showNewOrderModal(${stop.id})">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
           Order
-        </button>
-        <button class="action-btn" onclick="showRecurringModal(${stop.id})" style="${S.recurringOrders[stop.id] ? 'color:var(--primary)' : ''}">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          Tekrar
         </button>
       </div>
 
@@ -2059,6 +2153,18 @@ function showEditCustomerModal() {
       <label class="form-label">Postcode</label>
       <input class="input" id="edit-cust-post" value="${escHtml(stop.p)}">
     </div>
+    <div class="form-group">
+      <label class="form-label">Ad Soyad (İletişim)</label>
+      <input class="input" id="edit-cust-cn" value="${escHtml(stop.cn||'')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cep Telefonu</label>
+      <input class="input" id="edit-cust-ph" type="tel" value="${escHtml(stop.ph||'')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input class="input" id="edit-cust-em" type="email" value="${escHtml(stop.em||'')}">
+    </div>
     <button class="btn btn-primary btn-block mb-1" onclick="saveEditCustomer()">Save</button>
     <button class="btn btn-danger btn-block" onclick="deleteCustomer()">Delete Customer</button>
   `);
@@ -2071,6 +2177,9 @@ function saveEditCustomer() {
   stop.a = document.getElementById('edit-cust-addr').value.trim();
   stop.c = document.getElementById('edit-cust-city').value.trim();
   stop.p = document.getElementById('edit-cust-post').value.trim().toUpperCase();
+  stop.cn = document.getElementById('edit-cust-cn').value.trim();
+  stop.ph = document.getElementById('edit-cust-ph').value.trim();
+  stop.em = document.getElementById('edit-cust-em').value.trim();
   save.stops();
   closeModal();
   renderProfile();
@@ -2574,42 +2683,42 @@ function renderReports() {
           if (S.reportProducts.length === 0) return '<div class="card" style="text-align:center;padding:20px"><p class="text-muted" style="font-size:13px">Select products above to generate a sales report</p></div>';
           const report = calcProductSalesReport();
           if (report.rows.length === 0) return '<div class="card" style="text-align:center;padding:20px"><p class="text-muted" style="font-size:13px">No matching orders for this period</p></div>';
-          let t = `<div class="card" style="padding:0;overflow:hidden;overflow-x:auto">
-            <table class="report-table">
-              <thead><tr><th>Customer</th><th>Date</th><th>Payment</th><th>Products</th></tr></thead>
-              <tbody>`;
+          let t = `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">`;
           report.rows.forEach(r => {
             let payHtml = '';
             r.payDisplay.parts.forEach(p => {
               const c = p.type === 'cash' ? 'var(--success)' : p.type === 'bank' ? 'var(--info)' : 'var(--danger)';
-              payHtml += `<div style="font-weight:600;color:${c};font-size:13px">${p.text}</div>`;
+              payHtml += `<span style="font-weight:700;color:${c};font-size:14px">${p.text}</span> `;
             });
             if (r.payDisplay.unpaidAmount > 0 && r.payDisplay.type !== 'unpaid') {
-              payHtml += `<div style="font-weight:600;color:var(--danger);font-size:11px">left: ${formatCurrency(r.payDisplay.unpaidAmount)}</div>`;
+              payHtml += `<span style="font-weight:600;color:var(--danger);font-size:11px">(kalan: ${formatCurrency(r.payDisplay.unpaidAmount)})</span>`;
             }
-            t += `<tr${r.isDebtPayment ? ' style="background:#f0fdf4"' : ''}>
-              <td style="font-size:13px">${escHtml(r.name)}</td>
-              <td style="font-size:11px;color:var(--text-sec);white-space:nowrap">${r.dateTime || ''}</td>
-              <td>${payHtml}</td>
-              <td style="font-size:12px">${r.isDebtPayment ? '<em style="color:var(--success)">'+r.productsSummary+'</em>' : r.productsSummary}</td>
-            </tr>`;
+            t += `<div style="background:${r.isDebtPayment ? '#f0fdf4' : 'var(--card)'};border:1px solid var(--border);border-radius:10px;padding:10px 12px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
+                <span style="font-weight:600;font-size:14px">${escHtml(r.name)}</span>
+                <span style="font-size:11px;color:var(--text-sec);white-space:nowrap;flex-shrink:0">${r.dateTime || ''}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                <div>${payHtml}</div>
+                <div style="font-size:12px;color:${r.isDebtPayment ? 'var(--success)' : 'var(--text-sec)'};text-align:right">${r.isDebtPayment ? '<em>'+r.productsSummary+'</em>' : r.productsSummary}</div>
+              </div>
+            </div>`;
           });
-          t += `<tr style="background:var(--bg);font-weight:700">
-              <td colspan="2">TOTAL (${report.rows.length})</td>
-              <td style="font-size:11px">
-                <span style="color:var(--success)">Cash ${formatCurrency(report.totalCash)}</span><br>
-                <span style="color:var(--info)">Bank ${formatCurrency(report.totalBank)}</span><br>
-                <span style="color:var(--danger)">Unpaid ${formatCurrency(report.totalUnpaid)}</span>
-              </td>
-              <td></td>
-            </tr>`;
-          t += `</tbody></table></div>
-          <div style="display:flex;gap:8px;margin-top:12px">
-            <button class="btn btn-primary" style="flex:1" onclick="exportProductReportPDF()">
+          t += `</div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px">TOPLAM (${report.rows.length})</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:13px;font-weight:600">
+              <span style="color:var(--success)">Cash ${formatCurrency(report.totalCash)}</span>
+              <span style="color:var(--info)">Bank ${formatCurrency(report.totalBank)}</span>
+              <span style="color:var(--danger)">Unpaid ${formatCurrency(report.totalUnpaid)}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1;padding:12px" onclick="exportProductReportPDF()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               PDF
             </button>
-            <button class="btn btn-outline" style="flex:1" onclick="exportProductReportExcel()">
+            <button class="btn btn-outline" style="flex:1;padding:12px" onclick="exportProductReportExcel()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7h8M8 12h8M8 17h4"/></svg>
               Excel
             </button>
