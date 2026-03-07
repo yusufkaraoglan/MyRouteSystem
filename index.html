@@ -2766,7 +2766,9 @@ function calcProductSalesReport() {
 
     rows.push({
       name: stop.n,
+      rawDate: o.deliveredAt || '',
       dateTime: formatDateTime(o.deliveredAt),
+      dateOnly: formatDate(o.deliveredAt),
       payDisplay,
       productsSummary: Object.entries(prodMap).map(([n, q]) => `${q} ${n}`).join(', '),
       total
@@ -2789,7 +2791,9 @@ function calcProductSalesReport() {
       else totalBank += entry.amount;
       rows.push({
         name: stop.n,
+        rawDate: entry.date || '',
         dateTime: formatDateTime(entry.date),
+        dateOnly: formatDate(entry.date),
         payDisplay: { parts, type: payMethod, unpaidAmount: 0 },
         productsSummary: 'Outstanding payment received',
         total: entry.amount,
@@ -2798,8 +2802,8 @@ function calcProductSalesReport() {
     });
   });
 
-  // Sort all rows by dateTime
-  rows.sort((a, b) => (a.name || '').localeCompare(b.name || '') || (a.dateTime || '').localeCompare(b.dateTime || ''));
+  // Sort by date ascending (old to new)
+  rows.sort((a, b) => (a.rawDate || '').localeCompare(b.rawDate || ''));
 
   return { rows, totalCash, totalBank, totalUnpaid, grandTotal };
 }
@@ -2829,7 +2833,7 @@ function exportProductReportPDF() {
     }
     tableRows += `<tr${r.isDebtPayment ? ' style="background:#f0fdf4"' : ''}>
       <td>${escHtml(r.name)}</td>
-      <td style="font-size:10px;color:#666">${r.dateTime || ''}</td>
+      <td style="font-size:10px;color:#666">${r.dateOnly || ''}</td>
       <td>${payCell}</td>
       <td>${r.isDebtPayment ? '<em style="color:#12B76A">'+r.productsSummary+'</em>' : r.productsSummary}</td>
     </tr>`;
@@ -2893,7 +2897,7 @@ function exportProductReportExcel() {
   report.rows.forEach(r => {
     const payText = r.payDisplay.parts.map(p => p.text).join(' + ');
     const unpaidText = r.payDisplay.unpaidAmount > 0 ? formatCurrency(r.payDisplay.unpaidAmount) : '';
-    data.push([r.name, r.dateTime || '', payText, unpaidText, r.isDebtPayment ? 'Outstanding payment received' : r.productsSummary]);
+    data.push([r.name, r.dateOnly || '', payText, unpaidText, r.isDebtPayment ? 'Outstanding payment received' : r.productsSummary]);
   });
   data.push([]);
   data.push(['TOTAL']);
