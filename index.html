@@ -387,6 +387,7 @@ a{text-decoration:none;color:inherit}
 <div class="page" id="page-settings"></div>
 <div class="page" id="page-catalog"></div>
 <div class="page" id="page-map"></div>
+<div class="page" id="page-delivery-history"></div>
 
 <!-- ═══ MODAL ═══ -->
 <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
@@ -650,6 +651,7 @@ let deliveryOrderIds = null; // null = all pending, array = specific order IDs
 let profilePreviousPage = 'customers';
 let leafletMap = null;
 let mapMarkers = [];
+let mapRouteLines = [];
 
 function loadState() {
   STOPS = lsGet('stops', STOPS_DEFAULT);
@@ -752,12 +754,20 @@ function calcOrderTotal(order) {
   return order.items.reduce((s, i) => s + (i.qty || 0) * (i.price || 0), 0);
 }
 
-function isDeliveredToday(stopId) {
-  const today = todayStr();
+function getWeekMondayStr(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const mon = new Date(d.getFullYear(), d.getMonth(), diff);
+  return mon.toISOString().slice(0, 10);
+}
+
+function isDeliveredThisWeek(stopId) {
+  const thisMonday = getWeekMondayStr(new Date());
   return Object.values(S.orders).some(o =>
     o.customerId === parseInt(stopId) &&
     o.status === 'delivered' &&
-    o.deliveredAt && o.deliveredAt.slice(0, 10) === today
+    o.deliveredAt && getWeekMondayStr(o.deliveredAt) === thisMonday
   );
 }
 
@@ -784,9 +794,11 @@ function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   curPage = name;
+  localStorage.setItem('lastPage', name);
+  if (name === 'profile') localStorage.setItem('lastProfileId', profileStopId);
   document.querySelectorAll('.nav-btn').forEach(b => {
     const pg = b.dataset.page;
-    b.classList.toggle('active', pg === name || (name === 'profile' && pg === 'customers') || (name === 'map' && pg === 'settings') || (name === 'catalog' && pg === 'settings'));
+    b.classList.toggle('active', pg === name || (name === 'profile' && pg === 'customers') || (name === 'map' && pg === 'settings') || (name === 'catalog' && pg === 'settings') || (name === 'delivery-history' && pg === 'settings'));
   });
   renderCurrentPage();
 }
@@ -801,6 +813,7 @@ function renderCurrentPage() {
     case 'settings': renderSettings(); break;
     case 'map': renderMapPage(); break;
     case 'catalog': renderCatalog(); break;
+    case 'delivery-history': renderDeliveryHistory(); break;
   }
 }
 
@@ -918,13 +931,14 @@ function renderRoute() {
       const stop = getStop(stopId);
       if (!stop) return;
       const pending = getStopOrders(stopId, 'pending');
-      const delivered = isDeliveredToday(stopId);
-      const todayOrders = Object.values(S.orders).filter(o =>
+      const delivered = isDeliveredThisWeek(stopId);
+      const thisMonday = getWeekMondayStr(new Date());
+      const weekOrders = Object.values(S.orders).filter(o =>
         o.customerId === stopId && o.status === 'delivered' &&
-        o.deliveredAt && o.deliveredAt.slice(0, 10) === today
+        o.deliveredAt && getWeekMondayStr(o.deliveredAt) === thisMonday
       );
-      const todayRev = todayOrders.reduce((s, o) => s + calcOrderTotal(o), 0);
-      const isVisited = delivered && todayOrders.every(o => o.payMethod === 'visit');
+      const todayRev = weekOrders.reduce((s, o) => s + calcOrderTotal(o), 0);
+      const isVisited = delivered && weekOrders.every(o => o.payMethod === 'visit');
       const debt = S.debts[stopId] || 0;
 
       html += `
@@ -954,7 +968,7 @@ function renderRoute() {
   html += `</div>`;
 
   // Summary bar
-  const deliveredCount = sorted.filter(id => isDeliveredToday(id)).length;
+  const deliveredCount = sorted.filter(id => isDeliveredThisWeek(id)).length;
   const rev = calcDayRevenue(dayId);
   html += `
     <div class="route-summary" style="flex-wrap:wrap;gap:6px">
@@ -1082,14 +1096,14 @@ function routeMouseStart(e, stopId, dayId) {
 }
 
 function calcDayRevenue(dayId) {
-  const today = todayStr();
+  const thisMonday = getWeekMondayStr(new Date());
   const assigned = [];
   Object.entries(S.assign).forEach(([sid, did]) => {
     if (did === dayId) assigned.push(parseInt(sid));
   });
   const todayOrders = Object.values(S.orders)
     .filter(o => assigned.includes(o.customerId) && o.status === 'delivered' &&
-                 o.deliveredAt && o.deliveredAt.slice(0, 10) === today && o.payMethod !== 'visit');
+                 o.deliveredAt && getWeekMondayStr(o.deliveredAt) === thisMonday && o.payMethod !== 'visit');
   let cash = 0, bank = 0, unpaid = 0;
   todayOrders.forEach(o => {
     const total = calcOrderTotal(o);
@@ -2091,6 +2105,10 @@ function renderProfile() {
             ${o.items.length > 0 ? `<span class="order-card-total">${formatCurrency(calcOrderTotal(o))}</span>` : '<span></span>'}
             <span class="text-muted" style="font-size:12px">${payLabel}</span>
           </div>
+          <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:4px">
+            <button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" onclick="showEditDeliveredOrderModal('${o.id}')">Edit</button>
+            <button class="btn-ghost" style="font-size:11px;color:var(--danger);padding:2px 6px" onclick="deleteOrder('${o.id}')">Sil</button>
+          </div>
         </div>`;
     });
   }
@@ -2124,11 +2142,76 @@ function renderProfile() {
 }
 
 async function deleteOrder(orderId) {
-  if (!(await appConfirm('Delete this order?'))) return;
+  if (!(await appConfirm('Bu kaydı silmek istediğinize emin misiniz?'))) return;
   delete S.orders[orderId];
   save.orders();
   if (curPage === 'profile') renderProfile();
   else if (curPage === 'orders') renderOrders();
+}
+
+function showEditDeliveredOrderModal(orderId) {
+  const o = S.orders[orderId];
+  if (!o) return;
+  const isVisit = o.payMethod === 'visit';
+  const dt = o.deliveredAt ? new Date(o.deliveredAt) : new Date();
+  const dateVal = dt.toISOString().slice(0, 16);
+
+  let modalHtml = `
+    <div class="modal-handle"></div>
+    <div class="modal-title">${isVisit ? 'Ziyaret Düzenle' : 'Teslimat Düzenle'}</div>
+    <div class="form-group">
+      <label class="form-label">Tarih</label>
+      <input class="input" type="datetime-local" id="edit-del-date" value="${dateVal}">
+    </div>`;
+
+  if (isVisit) {
+    modalHtml += `
+    <div class="form-group">
+      <label class="form-label">Not</label>
+      <textarea class="textarea" id="edit-del-note" rows="2">${escHtml(o.note || o.deliveryNote || '')}</textarea>
+    </div>`;
+  } else {
+    modalHtml += `
+    <div class="form-group">
+      <label class="form-label">Ödeme Yöntemi</label>
+      <select class="input" id="edit-del-pay">
+        <option value="cash" ${o.payMethod==='cash'?'selected':''}>Cash</option>
+        <option value="bank" ${o.payMethod==='bank'?'selected':''}>Bank</option>
+        <option value="unpaid" ${o.payMethod==='unpaid'?'selected':''}>Not Paid</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Teslimat Notu</label>
+      <textarea class="textarea" id="edit-del-note" rows="2">${escHtml(o.deliveryNote || '')}</textarea>
+    </div>`;
+  }
+
+  modalHtml += `
+    <button class="btn btn-primary btn-block mt-2" onclick="saveEditDeliveredOrder('${orderId}')">Kaydet</button>`;
+  openModal(modalHtml);
+}
+
+function saveEditDeliveredOrder(orderId) {
+  const o = S.orders[orderId];
+  if (!o) return;
+  const dateInput = document.getElementById('edit-del-date');
+  if (dateInput && dateInput.value) {
+    o.deliveredAt = new Date(dateInput.value).toISOString();
+    o.createdAt = o.deliveredAt;
+  }
+  const isVisit = o.payMethod === 'visit';
+  if (isVisit) {
+    const note = document.getElementById('edit-del-note')?.value?.trim() || '';
+    o.note = note;
+    o.deliveryNote = note;
+  } else {
+    const pay = document.getElementById('edit-del-pay')?.value;
+    if (pay) o.payMethod = pay;
+    o.deliveryNote = document.getElementById('edit-del-note')?.value?.trim() || '';
+  }
+  save.orders();
+  closeModal();
+  if (curPage === 'profile') renderProfile();
 }
 
 function showEditCustomerModal() {
@@ -3045,6 +3128,20 @@ function renderSettings() {
         </div>
       </div>
 
+      <!-- Delivery History Section -->
+      <div class="settings-section">
+        <div class="settings-title">Teslimat Geçmişi</div>
+        <div class="settings-card">
+          <div class="settings-item" onclick="showPage('delivery-history')" style="cursor:pointer">
+            <div>
+              <div class="settings-item-label">Teslimat Geçmişi</div>
+              <div class="settings-item-desc">Haftalık teslimat kayıtlarını görüntüle</div>
+            </div>
+            <span style="color:var(--text-muted)">&rarr;</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Map Section -->
       <div class="settings-section">
         <div class="settings-title">Map</div>
@@ -3472,6 +3569,137 @@ async function importJSON(input) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// DELIVERY HISTORY PAGE
+// ══════════════════════════════════════════════════════════════
+let dhSearchTerm = '';
+
+function renderDeliveryHistory() {
+  // Group all delivered orders by week
+  const delivered = Object.values(S.orders).filter(o => o.status === 'delivered' && o.deliveredAt);
+  const weeks = {};
+  delivered.forEach(o => {
+    const monday = getWeekMondayStr(o.deliveredAt);
+    if (!weeks[monday]) weeks[monday] = [];
+    weeks[monday].push(o);
+  });
+
+  // Sort weeks descending (most recent first)
+  const sortedWeeks = Object.keys(weeks).sort((a, b) => b.localeCompare(a));
+
+  // Determine week label (A or B) using the same logic as getCurrentWeek
+  const ref = new Date(2026, 2, 2); // 2 March 2026 = Week A Monday
+  function weekLabel(mondayStr) {
+    const mon = new Date(mondayStr);
+    const diffDays = Math.floor((mon - ref) / 86400000);
+    const weekNum = Math.floor(diffDays / 7);
+    return (weekNum % 2 === 0) ? 'A' : 'B';
+  }
+
+  const thisMonday = getWeekMondayStr(new Date());
+
+  let html = `
+    <header class="topbar">
+      <button class="btn-ghost" onclick="showPage('settings')" style="font-size:18px;padding:8px">&larr;</button>
+      <h1 style="flex:1;text-align:center;font-size:16px">Teslimat Geçmişi</h1>
+      <div style="width:36px"></div>
+    </header>
+    <div style="padding:8px 16px;background:var(--card);border-bottom:1px solid var(--border)">
+      <input class="input" type="search" placeholder="Müşteri ara..." value="${escHtml(dhSearchTerm)}" oninput="dhSearchTerm=this.value;renderDeliveryHistory()">
+    </div>
+    <div class="page-body">`;
+
+  if (sortedWeeks.length === 0) {
+    html += `<div class="empty-state"><p>Henüz teslimat geçmişi yok</p></div>`;
+  } else {
+    sortedWeeks.forEach(monday => {
+      const orders = weeks[monday];
+      const wLabel = weekLabel(monday);
+      const isCurrent = monday === thisMonday;
+      const monDate = new Date(monday);
+      const endDate = new Date(monDate);
+      endDate.setDate(endDate.getDate() + 4); // Friday
+      const dateRange = monDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' - ' + endDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+      // Filter by search
+      let filtered = orders;
+      if (dhSearchTerm) {
+        const term = dhSearchTerm.toLowerCase();
+        filtered = orders.filter(o => {
+          const stop = getStop(o.customerId);
+          return stop && stop.n.toLowerCase().includes(term);
+        });
+        if (filtered.length === 0) return;
+      }
+
+      // Group by customer
+      const byCustomer = {};
+      filtered.forEach(o => {
+        if (!byCustomer[o.customerId]) byCustomer[o.customerId] = [];
+        byCustomer[o.customerId].push(o);
+      });
+
+      // Week summary
+      const totalRev = filtered.reduce((s, o) => s + calcOrderTotal(o), 0);
+      const cashTotal = filtered.filter(o => o.payMethod === 'cash').reduce((s, o) => s + calcOrderTotal(o), 0);
+      const bankTotal = filtered.filter(o => o.payMethod === 'bank').reduce((s, o) => s + calcOrderTotal(o), 0);
+      const visitCount = filtered.filter(o => o.payMethod === 'visit').length;
+      const deliveryCount = filtered.filter(o => o.payMethod !== 'visit').length;
+
+      html += `
+        <div class="card" style="margin-bottom:12px;overflow:hidden">
+          <div style="padding:12px;background:${isCurrent ? 'var(--primary)' : '#f3f4f6'};color:${isCurrent ? '#fff' : 'var(--text)'}">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <b>Week ${wLabel}</b>${isCurrent ? ' (Bu Hafta)' : ''}
+                <div style="font-size:12px;opacity:0.8">${dateRange}</div>
+              </div>
+              <div style="text-align:right;font-size:12px">
+                <div>${deliveryCount} teslimat · ${visitCount} ziyaret</div>
+                ${totalRev > 0 ? `<div style="font-weight:700">${formatCurrency(totalRev)}</div>` : ''}
+              </div>
+            </div>
+            ${totalRev > 0 ? `<div style="display:flex;gap:12px;margin-top:6px;font-size:11px;opacity:0.85">
+              <span>Cash: ${formatCurrency(cashTotal)}</span>
+              <span>Bank: ${formatCurrency(bankTotal)}</span>
+            </div>` : ''}
+          </div>
+          <div style="padding:8px">`;
+
+      Object.entries(byCustomer).forEach(([cid, cOrders]) => {
+        const stop = getStop(cid);
+        if (!stop) return;
+        const custTotal = cOrders.reduce((s, o) => s + calcOrderTotal(o), 0);
+        const allVisit = cOrders.every(o => o.payMethod === 'visit');
+
+        html += `<div style="padding:8px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:600;font-size:13px;cursor:pointer;color:var(--primary)" onclick="showProfile(${cid})">${escHtml(stop.n)}</span>
+            <span style="font-size:12px;${allVisit ? 'color:#8b5cf6' : 'font-weight:600'}">${allVisit ? 'visited' : formatCurrency(custTotal)}</span>
+          </div>`;
+
+        cOrders.sort((a, b) => (a.deliveredAt || '').localeCompare(b.deliveredAt || '')).forEach(o => {
+          const isVisit = o.payMethod === 'visit';
+          const dt = new Date(o.deliveredAt);
+          const dayName = dt.toLocaleDateString('en-GB', { weekday: 'short' });
+          const time = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          html += `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-sec);padding:2px 0">
+            <span>${dayName} ${time} — ${isVisit ? 'Ziyaret' : o.items.map(i => i.qty + 'x ' + i.name).join(', ')}</span>
+            <span>${isVisit ? '' : (o.payMethod || '')}</span>
+          </div>`;
+        });
+
+        html += `</div>`;
+      });
+
+      html += `</div></div>`;
+    });
+  }
+
+  html += `</div>`;
+  document.getElementById('page-delivery-history').innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════
 // MAP PAGE
 // ══════════════════════════════════════════════════════════════
 let mapAssignStopId = null;
@@ -3512,12 +3740,23 @@ function refreshMapMarkers() {
   if (!leafletMap) return;
   mapMarkers.forEach(m => leafletMap.removeLayer(m));
   mapMarkers = [];
+  mapRouteLines.forEach(l => leafletMap.removeLayer(l));
+  mapRouteLines = [];
 
   // Update filter chip visuals
   document.querySelectorAll('#page-map .chip').forEach(c => {
     const filter = c.textContent.trim();
     const val = filter === 'All' ? 'all' : filter === 'Week A' ? 'A' : filter === 'Week B' ? 'B' : 'none';
     c.classList.toggle('active', val === S.mapFilter);
+  });
+
+  // Build route order per day (same logic as route page)
+  const dayStopOrder = {};
+  DAYS.forEach(d => {
+    const assigned = [];
+    Object.entries(S.assign).forEach(([sid, did]) => { if (did === d.id) assigned.push(parseInt(sid)); });
+    const ro = S.routeOrder[d.id] || [];
+    dayStopOrder[d.id] = [...new Set([...ro.filter(id => assigned.includes(id)), ...assigned])];
   });
 
   STOPS.forEach(stop => {
@@ -3533,16 +3772,22 @@ function refreshMapMarkers() {
     if (S.mapFilter === 'none' && dayId) return;
 
     const color = dayObj ? dayObj.color : '#999';
+
+    // Get route order number
+    const dayOrder = dayId ? (dayStopOrder[dayId] || []) : [];
+    const orderIdx = dayOrder.indexOf(stop.id);
+    const orderNum = orderIdx >= 0 ? orderIdx + 1 : '';
+
     const icon = L.divIcon({
       className: '',
-      html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>`,
-      iconSize: [14, 14],
-      iconAnchor: [7, 7]
+      html: `<div style="width:24px;height:24px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">${orderNum}</div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
     });
 
     const dayLabel = dayObj ? `Week ${dayObj.week} - ${dayObj.label}` : 'Unassigned';
     const popupHtml = `<div style="min-width:160px">
-      <b>${escHtml(stop.n)}</b><br>
+      <b>${orderNum ? orderNum + '. ' : ''}${escHtml(stop.n)}</b><br>
       <span style="font-size:12px;color:#666">${escHtml(stop.c)} &middot; ${escHtml(stop.p)}</span><br>
       <span style="font-size:12px;color:${color}">${dayLabel}</span><br>
       <button onclick="showMapAssignModal(${stop.id})" style="margin-top:6px;padding:4px 10px;font-size:12px;background:${color};color:#fff;border:none;border-radius:6px;cursor:pointer">Assign Day</button>
@@ -3551,10 +3796,28 @@ function refreshMapMarkers() {
 
     const marker = L.marker([geo.lat, geo.lng], { icon }).bindPopup(popupHtml).addTo(leafletMap);
     marker.bindTooltip(stop.n, {
-      permanent: false, direction: 'bottom', offset: [0, 6],
+      permanent: false, direction: 'bottom', offset: [0, 10],
       className: 'map-label'
     });
     mapMarkers.push(marker);
+  });
+
+  // Draw route lines per day
+  DAYS.forEach(d => {
+    // Check filter
+    if (S.mapFilter === 'A' && !d.id.startsWith('wA')) return;
+    if (S.mapFilter === 'B' && !d.id.startsWith('wB')) return;
+    if (S.mapFilter === 'none') return;
+
+    const order = dayStopOrder[d.id] || [];
+    const points = order
+      .map(sid => S.geo[sid])
+      .filter(g => g && g.lat && g.lng)
+      .map(g => [g.lat, g.lng]);
+    if (points.length >= 2) {
+      const line = L.polyline(points, { color: d.color, weight: 2.5, opacity: 0.5, dashArray: '6,6' }).addTo(leafletMap);
+      mapRouteLines.push(line);
+    }
   });
 
   if (mapMarkers.length > 0) {
@@ -3804,8 +4067,19 @@ function init() {
   // Auto-create recurring orders for today
   autoCreateRecurringOrders();
 
-  // Show route page
-  showPage('route');
+  // Restore last page or show route
+  const savedPage = localStorage.getItem('lastPage') || 'route';
+  if (savedPage === 'profile') {
+    const savedId = localStorage.getItem('lastProfileId');
+    if (savedId && getStop(parseInt(savedId))) {
+      profileStopId = parseInt(savedId);
+      showPage('profile');
+    } else {
+      showPage('route');
+    }
+  } else {
+    showPage(savedPage);
+  }
 
   // Sync from cloud on startup
   if (SB_CONFIGURED) {
