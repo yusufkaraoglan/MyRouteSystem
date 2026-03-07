@@ -1304,7 +1304,9 @@ function confirmDelivery() {
 
     save.orders();
     closeModal();
-    rerenderRouteKeepScroll();
+    if (curPage === 'orders') renderOrders();
+    else if (curPage === 'profile') renderProfile();
+    else rerenderRouteKeepScroll();
   } catch (err) {
     appAlert('Teslimat hatası: ' + err.message);
     console.error('confirmDelivery error:', err);
