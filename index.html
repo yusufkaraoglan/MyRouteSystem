@@ -722,8 +722,12 @@ function formatDateTime(d) {
 }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 
+function normalizePostcode(postcode) {
+  return String(postcode || '').trim().toUpperCase();
+}
+
 function buildStopAddress(stop) {
-  const parts = [stop.a, stop.c, stop.p]
+  const parts = [stop.a, stop.c, normalizePostcode(stop.p)]
     .map(v => String(v || '').trim())
     .filter(Boolean);
   if (!parts.length) return '';
@@ -732,52 +736,109 @@ function buildStopAddress(stop) {
 }
 
 function getStopAddressKey(stop) {
-  return [stop.a || '', stop.c || '', stop.p || '']
-    .map(v => v.trim().toUpperCase())
+  return [stop.a || '', stop.c || '', normalizePostcode(stop.p)]
+    .map(v => String(v || '').trim().toUpperCase())
     .join('|');
+}
+
+function buildGeocodeQueries(stop) {
+  const postcode = normalizePostcode(stop.p);
+  const queries = [
+    [stop.n, stop.a, stop.c, postcode, 'United Kingdom'].filter(Boolean).join(', '),
+    [stop.a, stop.c, postcode, 'United Kingdom'].filter(Boolean).join(', '),
+    [stop.c, postcode, 'United Kingdom'].filter(Boolean).join(', '),
+    [postcode, 'United Kingdom'].filter(Boolean).join(', ')
+  ].map(q => q.trim()).filter(Boolean);
+  return [...new Set(queries)];
+}
+
+async function geocodeWithNominatim(query) {
+  if (!query) return null;
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=gb&q=${encodeURIComponent(query)}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const results = await res.json();
+  const first = Array.isArray(results) ? results[0] : null;
+  if (!first || !first.lat || !first.lon) return null;
+  return {
+    lat: Number(first.lat),
+    lng: Number(first.lon),
+    matchedQuery: query,
+    source: 'nominatim'
+  };
+}
+
+async function geocodeWithPostcode(postcode) {
+  const normalized = normalizePostcode(postcode).replace(/\s+/g, '');
+  if (!normalized) return null;
+  const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(normalized)}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (!data || data.status !== 200 || !data.result || data.result.latitude == null || data.result.longitude == null) return null;
+  return {
+    lat: Number(data.result.latitude),
+    lng: Number(data.result.longitude),
+    matchedQuery: normalized,
+    source: 'postcodes.io'
+  };
 }
 
 async function geocodeStop(stop, opts = {}) {
   const { force = false, silent = false } = opts;
   if (!stop) return false;
 
-  const query = buildStopAddress(stop);
-  if (!query.trim()) {
+  const addressKey = getStopAddressKey(stop);
+  const queries = buildGeocodeQueries(stop);
+  const cached = S.geo[stop.id];
+  if (!force && cached && cached.lat && cached.lng && cached.addressKey === addressKey) {
+    return true;
+  }
+
+  if (!queries.length) {
     delete S.geo[stop.id];
     save.geo();
     return false;
   }
 
-  const cached = S.geo[stop.id];
-  if (!force && cached && cached.lat && cached.lng && cached.query === query) {
-    return true;
+  let match = null;
+  let lastError = null;
+
+  for (const query of queries) {
+    try {
+      match = await geocodeWithNominatim(query);
+      if (match) break;
+    } catch (err) {
+      lastError = err;
+    }
   }
 
-  try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=gb&q=${encodeURIComponent(query)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const results = await res.json();
-    const first = Array.isArray(results) ? results[0] : null;
-
-    if (!first || !first.lat || !first.lon) {
-      delete S.geo[stop.id];
-      save.geo();
-      if (!silent) appAlert('Bu adres haritada bulunamadi.');
-      return false;
+  if (!match && stop.p) {
+    try {
+      match = await geocodeWithPostcode(stop.p);
+    } catch (err) {
+      lastError = err;
     }
+  }
 
+  if (match) {
     S.geo[stop.id] = {
-      lat: Number(first.lat),
-      lng: Number(first.lon),
-      query,
+      lat: match.lat,
+      lng: match.lng,
+      addressKey,
+      matchedQuery: match.matchedQuery,
+      source: match.source,
       updatedAt: new Date().toISOString()
     };
     save.geo();
     return true;
-  } catch (err) {
-    if (!silent) appAlert('Adres konumu guncellenemedi: ' + err.message);
-    return false;
   }
+
+  if (!silent) {
+    const msg = lastError
+      ? 'Adres konumu guncellenemedi: ' + lastError.message
+      : 'Bu adres haritada bulunamadi.';
+    appAlert(msg);
+  }
+  return false;
 }
 
 function getCurrentWeek() {
@@ -2146,14 +2207,14 @@ async function saveNewCustomer() {
     n: name.toUpperCase(),
     a: document.getElementById('add-cust-addr').value.trim(),
     c: document.getElementById('add-cust-city').value.trim(),
-    p: document.getElementById('add-cust-post').value.trim().toUpperCase(),
+    p: normalizePostcode(document.getElementById('add-cust-post').value),
     cn: document.getElementById('add-cust-cn').value.trim(),
     ph: document.getElementById('add-cust-ph').value.trim(),
     em: document.getElementById('add-cust-em').value.trim()
   };
   STOPS.push(stop);
   save.stops();
-  await geocodeStop(stop, { force: true, silent: true });
+  await geocodeStop(stop, { force: true });
   closeModal();
   renderCustomers();
 }
@@ -2507,15 +2568,13 @@ async function saveEditCustomer() {
   stop.n = (document.getElementById('edit-cust-name').value.trim() || stop.n).toUpperCase();
   stop.a = document.getElementById('edit-cust-addr').value.trim();
   stop.c = document.getElementById('edit-cust-city').value.trim();
-  stop.p = document.getElementById('edit-cust-post').value.trim().toUpperCase();
+  stop.p = normalizePostcode(document.getElementById('edit-cust-post').value);
   stop.cn = document.getElementById('edit-cust-cn').value.trim();
   stop.ph = document.getElementById('edit-cust-ph').value.trim();
   stop.em = document.getElementById('edit-cust-em').value.trim();
   save.stops();
   if (previousAddressKey !== getStopAddressKey(stop)) {
-    delete S.geo[stop.id];
-    save.geo();
-    await geocodeStop(stop, { force: true, silent: true });
+    await geocodeStop(stop, { force: true });
     if (leafletMap) refreshMapMarkers();
   }
   closeModal();
@@ -4369,13 +4428,23 @@ document.addEventListener('DOMContentLoaded', init);
 // Register service worker for offline caching
 if ('serviceWorker' in navigator) {
   const swCode = `
-    const CACHE = 'costadoro-v2';
+    const CACHE = 'costadoro-v3';
     const URLS = ['./', 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
       'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
       'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'];
     self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(URLS)).then(() => self.skipWaiting())));
     self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
     self.addEventListener('fetch', e => {
+      if (e.request.mode === 'navigate') {
+        e.respondWith(fetch(e.request).then(res => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE).then(c => c.put('./', clone));
+          }
+          return res;
+        }).catch(() => caches.match(e.request).then(r => r || caches.match('./'))));
+        return;
+      }
       e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).then(res => {
         if (res.ok && e.request.url.startsWith('http')) {
           const clone = res.clone();
