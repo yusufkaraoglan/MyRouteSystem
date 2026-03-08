@@ -367,13 +367,6 @@ a{text-decoration:none;color:inherit}
 .catalog-edit-form{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 .catalog-edit-form .input{flex:1;min-width:0}
 
-/* === SYNC STATUS === */
-.sync-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:6px}
-.sync-dot.ok{background:var(--success)}
-.sync-dot.error{background:var(--danger)}
-.sync-dot.syncing{background:var(--info);animation:pulse 1s infinite}
-.sync-dot.off{background:var(--text-muted)}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 </style>
 </head>
 <body>
@@ -547,9 +540,8 @@ const DAYS = [
 // ══════════════════════════════════════════════════════════════
 // SUPABASE CONFIG
 // ══════════════════════════════════════════════════════════════
-const SB_URL = localStorage.getItem('cr4_sb_url') || 'https://mvvvqloqwjimlbqeotsd.supabase.co';
-const SB_KEY = localStorage.getItem('cr4_sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12dnZxbG9xd2ppbWxicWVvdHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTYxMDAsImV4cCI6MjA4NzkzMjEwMH0.tKSiEJouyr9dhs_vIAPUbX9NqtAsFAslZroNKtG2mBk';
-const SB_CONFIGURED = SB_URL !== 'YOUR_SUPABASE_URL' && SB_KEY !== 'YOUR_ANON_KEY';
+const SB_URL = 'https://mvvvqloqwjimlbqeotsd.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12dnZxbG9xd2ppbWxicWVvdHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNTYxMDAsImV4cCI6MjA4NzkzMjEwMH0.tKSiEJouyr9dhs_vIAPUbX9NqtAsFAslZroNKtG2mBk';
 
 // ══════════════════════════════════════════════════════════════
 // STORAGE
@@ -562,7 +554,6 @@ function lsSaveLocal(k, v) {
 }
 
 async function sbGet(key) {
-  if (!SB_CONFIGURED) return null;
   try {
     const r = await fetch(`${SB_URL}/rest/v1/cr4_store?key=eq.${encodeURIComponent(key)}&select=value`, {
       headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
@@ -573,7 +564,6 @@ async function sbGet(key) {
 }
 
 async function sbSet(key, value) {
-  if (!SB_CONFIGURED) return;
   try {
     await fetch(`${SB_URL}/rest/v1/cr4_store`, {
       method: 'POST',
@@ -592,17 +582,7 @@ function lsSave(k, v) {
   sbSet(k, v);
 }
 
-let syncStatus = 'off';
-let lastSyncTime = null;
-function setSyncStatus(s) {
-  syncStatus = s;
-  const dot = document.getElementById('sync-dot');
-  if (dot) dot.className = 'sync-dot ' + s;
-}
-
 async function syncFromSupabase() {
-  if (!SB_CONFIGURED) return;
-  setSyncStatus('syncing');
   try {
     const r = await fetch(`${SB_URL}/rest/v1/cr4_store?select=key,value`, {
       headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
@@ -615,24 +595,18 @@ async function syncFromSupabase() {
     });
     loadState();
     renderCurrentPage();
-    setSyncStatus('ok');
-    lastSyncTime = new Date();
   } catch (e) {
     console.warn('Sync error:', e.message);
-    setSyncStatus('error');
   }
 }
 
 async function pushAllToSupabase() {
-  if (!SB_CONFIGURED) { appAlert('Supabase not configured.'); return; }
-  setSyncStatus('syncing');
   const keys = ['stops','assign','routeOrder','geo','ordersV2','debts','debtHistory','cnotes','catalog','customerPricing','customerProducts','recurringOrders'];
   for (const k of keys) {
     const v = lsGet(k, null);
     if (v !== null) await sbSet(k, v);
   }
-  setSyncStatus('ok');
-  appAlert('All data pushed to cloud.');
+  appAlert('Tüm veriler buluta yüklendi.');
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -3438,7 +3412,6 @@ function renderSettings() {
   let html = `
     <header class="topbar">
       <h1>Settings</h1>
-      <span class="sync-dot ${SB_CONFIGURED ? (syncStatus || 'off') : 'off'}" id="sync-dot" title="Sync status"></span>
     </header>
     <div class="page-body">
 
@@ -3534,40 +3507,6 @@ function renderSettings() {
         <input type="file" id="json-import-input" accept=".json" style="display:none" onchange="importJSON(this)">
       </div>
 
-      <!-- Cloud Sync Section -->
-      <div class="settings-section">
-        <div class="settings-title">Cloud Sync</div>
-        <div class="settings-card">
-          <div class="settings-item">
-            <div>
-              <div class="settings-item-label">Status</div>
-              <div class="settings-item-desc">${SB_CONFIGURED ? 'Connected' + (lastSyncTime ? ' (last: ' + lastSyncTime.toLocaleTimeString('en-GB') + ')' : '') : 'Not configured'}</div>
-            </div>
-            <span class="sync-dot ${SB_CONFIGURED ? (syncStatus || 'off') : 'off'}"></span>
-          </div>
-          <div class="settings-item" style="cursor:pointer" onclick="syncFromSupabase()">
-            <div>
-              <div class="settings-item-label">Pull from Cloud</div>
-              <div class="settings-item-desc">Download latest data</div>
-            </div>
-            <span style="color:var(--text-muted)">&darr;</span>
-          </div>
-          <div class="settings-item" style="cursor:pointer" onclick="pushAllToSupabase()">
-            <div>
-              <div class="settings-item-label">Push to Cloud</div>
-              <div class="settings-item-desc">Upload all local data</div>
-            </div>
-            <span style="color:var(--text-muted)">&uarr;</span>
-          </div>
-          <div class="settings-item" style="cursor:pointer" onclick="showSupabaseModal()">
-            <div>
-              <div class="settings-item-label">Configure</div>
-              <div class="settings-item-desc">Set Supabase URL and key</div>
-            </div>
-            <span style="color:var(--text-muted)">&rarr;</span>
-          </div>
-        </div>
-      </div>
 
       <!-- Danger Zone -->
       <div class="settings-section">
@@ -3718,29 +3657,6 @@ async function removeCatalogItem(idx) {
   else if (curPage === 'settings') renderSettings();
 }
 
-function showSupabaseModal() {
-  const url = localStorage.getItem('cr4_sb_url') || '';
-  const key = localStorage.getItem('cr4_sb_key') || '';
-  openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">Supabase Configuration</div>
-    <div class="form-group">
-      <label class="form-label">Supabase URL</label>
-      <input class="input" id="sb-url" value="${escHtml(url)}" placeholder="https://xxx.supabase.co">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Anon Key</label>
-      <textarea class="textarea" id="sb-key" rows="3" style="font-size:12px">${escHtml(key)}</textarea>
-    </div>
-    <button class="btn btn-primary btn-block" onclick="saveSupabaseConfig()">Save Configuration</button>
-  `);
-}
-
-function saveSupabaseConfig() {
-  localStorage.setItem('cr4_sb_url', document.getElementById('sb-url').value.trim());
-  localStorage.setItem('cr4_sb_key', document.getElementById('sb-key').value.trim());
-  closeModal();
-  appAlert('Configuration saved. Reload the app to apply.').then(() => location.reload());
-}
 
 async function resetAllData() {
   if (!(await appConfirm('This will delete ALL local data.<br>Are you sure?'))) return;
@@ -4422,24 +4338,19 @@ function init() {
   }
 
   // Sync from cloud on startup
-  if (SB_CONFIGURED) {
-    setSyncStatus('off');
-    syncFromSupabase();
-  }
+  syncFromSupabase();
 
   // Periodic sync every 5 minutes
   setInterval(() => {
-    if (SB_CONFIGURED && navigator.onLine) syncFromSupabase();
+    if (navigator.onLine) syncFromSupabase();
   }, 5 * 60 * 1000);
 
   // Sync when coming back online
-  window.addEventListener('online', () => {
-    if (SB_CONFIGURED) syncFromSupabase();
-  });
+  window.addEventListener('online', () => syncFromSupabase());
 
   // Sync when app becomes visible again (tab/app switch)
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && SB_CONFIGURED && navigator.onLine) syncFromSupabase();
+    if (!document.hidden && navigator.onLine) syncFromSupabase();
   });
 
 }
