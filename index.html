@@ -161,6 +161,18 @@ a{text-decoration:none;color:inherit}
 .order-card-items{font-size:13px;color:var(--text-sec);margin-bottom:6px}
 .order-card-footer{display:flex;justify-content:space-between;align-items:center}
 .order-card-total{font-weight:700;color:var(--text)}
+/* Order Card V2 */
+.order-card-v2{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;transition:box-shadow .15s,transform .15s,opacity .15s}
+.order-card-v2:hover{box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+.order-card-v2-body{flex:1;min-width:0}
+.order-card-v2-top{display:flex;align-items:center;gap:6px}
+.order-card-v2-right{flex-shrink:0;text-align:right}
+.order-card-v2-actions{display:flex;gap:4px;flex-shrink:0}
+.order-card-v2-actions .btn-sm{padding:5px 10px;font-size:12px;min-height:32px}
+.order-lock-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s}
+.order-lock-btn.locked{background:var(--primary-light);border-color:var(--primary);color:var(--primary)}
+.order-card-v2.drag-over{border-top:2px solid var(--primary);margin-top:-2px}
+.order-card-v2.dragging{opacity:0.4;transform:scale(0.98)}
 
 /* === CUSTOMER CARD === */
 .customer-card{display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:8px;cursor:pointer;transition:all .15s}
@@ -667,10 +679,9 @@ function loadState() {
   }
   S.routeWeek = getCurrentWeek();
   S.routeDay = getTodayDayIndex();
-  S.ordersFilter = 'all';
+  S.ordersFilter = 'pending';
   S.ordersSearch = '';
-  S.ordersSort = 'date';
-  S.ordersManualOrder = [];
+  S.ordersLockedOrders = lsGet('ordersLockedOrders', []);
   S.customersFilter = 'all';
   S.customersSearch = '';
   S.reportRange = 'month';
@@ -1087,7 +1098,7 @@ function showPage(name) {
   if (name === 'profile') localStorage.setItem('lastProfileId', profileStopId);
   document.querySelectorAll('.nav-btn').forEach(b => {
     const pg = b.dataset.page;
-    b.classList.toggle('active', pg === name || (name === 'profile' && pg === 'customers') || (name === 'map' && pg === 'settings') || (name === 'catalog' && pg === 'settings') || (name === 'delivery-history' && pg === 'settings'));
+    b.classList.toggle('active', pg === name || (name === 'profile' && pg === 'customers') || (name === 'map' && pg === 'settings') || (name === 'catalog' && pg === 'settings'));
   });
   renderCurrentPage();
 }
@@ -1698,20 +1709,12 @@ function renderOrders(fullRender) {
       <div class="page-body">
         <div class="search-bar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" placeholder="Search by customer..." value="${escHtml(S.ordersSearch)}" oninput="S.ordersSearch=this.value;renderOrderResults()">
+          <input type="text" placeholder="Müşteri ara..." value="${escHtml(S.ordersSearch)}" oninput="S.ordersSearch=this.value;renderOrderResults()">
         </div>
         <div class="chip-group">
-          <button class="chip ${S.ordersFilter==='all'?'active':''}" onclick="S.ordersFilter='all';renderOrders(true)">All</button>
           <button class="chip ${S.ordersFilter==='pending'?'active':''}" onclick="S.ordersFilter='pending';renderOrders(true)">Pending</button>
           <button class="chip ${S.ordersFilter==='delivered'?'active':''}" onclick="S.ordersFilter='delivered';renderOrders(true)">Delivered</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:0 4px">
-          <span style="font-size:11px;color:var(--text-sec);font-weight:600">Sırala:</span>
-          <div class="chip-group" style="margin:0">
-            <button class="chip ${S.ordersSort==='date'?'active':''}" onclick="S.ordersSort='date';renderOrders(true)" style="font-size:11px;padding:4px 10px">Tarih</button>
-            <button class="chip ${S.ordersSort==='day'?'active':''}" onclick="S.ordersSort='day';renderOrders(true)" style="font-size:11px;padding:4px 10px">Gün</button>
-            <button class="chip ${S.ordersSort==='manual'?'active':''}" onclick="S.ordersSort='manual';renderOrders(true)" style="font-size:11px;padding:4px 10px">Manuel</button>
-          </div>
+          <button class="chip ${S.ordersFilter==='all'?'active':''}" onclick="S.ordersFilter='all';renderOrders(true)">All</button>
         </div>
         <div id="orders-results"></div>
       </div>
@@ -1735,79 +1738,85 @@ function renderOrderResults() {
     const q = S.ordersSearch.toLowerCase();
     orders = orders.filter(o => { const stop = getStop(o.customerId); return stop && stop.n.toLowerCase().includes(q); });
   }
-  const sort = S.ordersSort || 'date';
-  if (sort === 'manual') {
-    const mo = S.ordersManualOrder || [];
-    // Add any orders not in manual order list
-    orders.forEach(o => { if (!mo.includes(o.id)) mo.push(o.id); });
-    S.ordersManualOrder = mo.filter(id => orders.some(o => o.id === id));
-    orders.sort((a, b) => {
-      const ai = S.ordersManualOrder.indexOf(a.id);
-      const bi = S.ordersManualOrder.indexOf(b.id);
-      return ai - bi;
+
+  // Sorting logic
+  if (S.ordersFilter === 'pending') {
+    // Pending: locked orders first (in their saved order), then unlocked by date
+    const locked = S.ordersLockedOrders || [];
+    const lockedOrders = [];
+    locked.forEach(id => {
+      const o = orders.find(x => x.id === id);
+      if (o) lockedOrders.push(o);
     });
+    const unlockedOrders = orders.filter(o => !locked.includes(o.id));
+    unlockedOrders.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    orders = [...lockedOrders, ...unlockedOrders];
+  } else if (S.ordersFilter === 'delivered') {
+    // Delivered: newest delivery first
+    orders.sort((a, b) => (b.deliveredAt || '').localeCompare(a.deliveredAt || ''));
   } else {
-    orders.sort((a, b) => {
-      if (a.status !== b.status) return a.status === 'pending' ? -1 : 1;
-      if (sort === 'name') {
-        const na = (getStop(a.customerId)?.n || '').toLowerCase();
-        const nb = (getStop(b.customerId)?.n || '').toLowerCase();
-        return na.localeCompare(nb);
-      } else if (sort === 'total') {
-        return calcOrderTotal(b) - calcOrderTotal(a);
-      } else if (sort === 'day') {
-        const da = S.assign[a.customerId] || '';
-        const db = S.assign[b.customerId] || '';
-        return da.localeCompare(db);
-      }
-      return (b.createdAt || '').localeCompare(a.createdAt || '');
-    });
+    // All: newest first by createdAt
+    orders.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   }
 
   // Update badge
   const badge = document.getElementById('orders-pending-badge');
   if (badge) badge.textContent = Object.values(S.orders).filter(o=>o.status==='pending'&&o.payMethod!=='visit').length + ' pending';
 
+  const isPending = S.ordersFilter === 'pending';
+  const locked = S.ordersLockedOrders || [];
+
   let html = '';
   if (orders.length === 0) {
-    html = `<div class="empty-state"><p><b>No orders found</b></p><p>Create a new order with the + button</p></div>`;
+    html = `<div class="empty-state"><p><b>Sipariş bulunamadı</b></p><p>+ butonuyla yeni sipariş oluşturun</p></div>`;
   } else {
-    const isManual = sort === 'manual';
+    if (isPending) {
+      html += `<div id="orders-drag-list">`;
+    }
     orders.forEach((o, oIdx) => {
       const stop = getStop(o.customerId);
       const total = calcOrderTotal(o);
       const dayId = S.assign[o.customerId];
       const dayObj = dayId ? DAYS.find(d => d.id === dayId) : null;
+      const isLocked = locked.includes(o.id);
+      const isDelivered = o.status === 'delivered';
+
       html += `
-        <div class="order-card" ${isManual ? 'style="display:flex;gap:8px;align-items:stretch"' : ''}>
-          ${isManual ? `<div style="display:flex;flex-direction:column;justify-content:center;gap:4px;padding-right:4px;flex-shrink:0">
-            <button style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--text-sec)${oIdx === 0 ? ';opacity:0.3;pointer-events:none' : ''}" onclick="moveOrder('${o.id}',-1)">&#9650;</button>
-            <button style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--text-sec)${oIdx === orders.length - 1 ? ';opacity:0.3;pointer-events:none' : ''}" onclick="moveOrder('${o.id}',1)">&#9660;</button>
-          </div><div style="flex:1;min-width:0">` : ''}
-          <div class="order-card-head">
-            <div onclick="showProfile(${o.customerId})" style="cursor:pointer">
-              <div class="order-card-name">${stop ? escHtml(stop.n) : 'Unknown'}${dayObj ? ` <span class="badge" style="background:${dayObj.color}20;color:${dayObj.color};font-size:10px;font-weight:600;vertical-align:middle">Week ${dayObj.week} - ${dayObj.label.slice(0,3)}</span>` : ''}</div>
-              <div class="order-card-date">${formatDateTime(o.createdAt)}${o.deliveryDate ? ` · Teslimat: ${o.deliveryDate}` : ''}</div>
+        <div class="order-card-v2${isPending ? ' draggable-order' : ''}" data-order-id="${o.id}" ${isPending && !isLocked ? 'draggable="true"' : ''}>
+          ${isPending ? `<div class="order-drag-handle" style="display:flex;align-items:center;gap:2px;flex-shrink:0">
+            <button class="order-lock-btn${isLocked ? ' locked' : ''}" onclick="toggleOrderLock('${o.id}')" title="${isLocked ? 'Kilidi aç' : 'Kilitle'}">
+              ${isLocked ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>' : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>'}
+            </button>
+            ${!isLocked ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--text-muted)" stroke-width="2" style="cursor:grab"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg>' : ''}
+          </div>` : ''}
+          <div class="order-card-v2-body" onclick="showProfile(${o.customerId})" style="cursor:pointer;flex:1;min-width:0">
+            <div class="order-card-v2-top">
+              <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${stop ? escHtml(stop.n) : 'Unknown'}</div>
+              ${dayObj ? `<span class="badge" style="background:${dayObj.color}20;color:${dayObj.color};font-size:10px;font-weight:600;flex-shrink:0">${dayObj.week}-${dayObj.label.slice(0,3)}</span>` : ''}
             </div>
-            <span class="badge ${o.status==='pending' ? 'badge-warning' : 'badge-success'}">${o.status}</span>
+            <div style="font-size:12px;color:var(--text-sec);margin-top:2px">${o.items.map(i => `${i.qty}x ${escHtml(i.name)}`).join(', ')}</div>
           </div>
-          <div class="order-card-items">${o.items.map(i => `${i.qty}x ${escHtml(i.name)}`).join(', ')}</div>
-          <div class="order-card-footer">
-            <span class="order-card-total">${formatCurrency(total)}</span>
-            ${o.status === 'delivered' ? `<span class="text-muted" style="font-size:12px">${o.payMethod || ''} &middot; ${formatDate(o.deliveredAt)}</span>` : ''}
+          <div class="order-card-v2-right">
+            <div style="font-weight:700;font-size:15px;text-align:right">${formatCurrency(total)}</div>
+            ${isDelivered ? `<div style="font-size:10px;color:var(--text-muted);text-align:right">${o.payMethod || ''}</div>` : ''}
           </div>
-          <div style="display:flex;gap:6px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+          <div class="order-card-v2-actions">
             ${o.status === 'pending' ? `
-              <button class="btn btn-success btn-sm" style="flex:1" onclick="showDeliveryFromOrder('${o.id}')">Deliver</button>
-              <button class="btn btn-outline btn-sm" style="flex:1" onclick="showEditOrderModal('${o.id}')">Edit</button>
+              <button class="btn btn-success btn-sm" onclick="showDeliveryFromOrder('${o.id}')">Deliver</button>
+              <button class="btn btn-outline btn-sm" onclick="showEditOrderModal('${o.id}')">Edit</button>
             ` : ''}
-            <button class="btn btn-sm" style="flex:1;color:var(--danger);border:1px solid var(--danger)" onclick="deleteOrderFromList('${o.id}')">Remove</button>
+            <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger)" onclick="deleteOrderFromList('${o.id}')">Sil</button>
           </div>
-          ${isManual ? '</div>' : ''}
         </div>`;
     });
+    if (isPending) {
+      html += `</div>`;
+    }
   }
   container.innerHTML = html;
+
+  // Init drag-and-drop for pending orders
+  if (isPending) initOrderDragDrop();
 }
 
 function showDeliveryFromOrder(orderId) {
@@ -1819,14 +1828,137 @@ async function deleteOrderFromList(orderId) {
   await deleteOrder(orderId);
 }
 
-function moveOrder(orderId, direction) {
-  const mo = S.ordersManualOrder;
-  const idx = mo.indexOf(orderId);
-  if (idx < 0) return;
-  const newIdx = idx + direction;
-  if (newIdx < 0 || newIdx >= mo.length) return;
-  [mo[idx], mo[newIdx]] = [mo[newIdx], mo[idx]];
+function toggleOrderLock(orderId) {
+  const locked = S.ordersLockedOrders || [];
+  const idx = locked.indexOf(orderId);
+  if (idx >= 0) {
+    locked.splice(idx, 1);
+  } else {
+    locked.push(orderId);
+  }
+  S.ordersLockedOrders = locked;
+  lsSave('ordersLockedOrders', locked);
   renderOrderResults();
+}
+
+function initOrderDragDrop() {
+  const list = document.getElementById('orders-drag-list');
+  if (!list) return;
+  let draggedId = null;
+
+  list.addEventListener('dragstart', e => {
+    const card = e.target.closest('.draggable-order');
+    if (!card || card.getAttribute('draggable') !== 'true') { e.preventDefault(); return; }
+    draggedId = card.dataset.orderId;
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  list.addEventListener('dragend', e => {
+    const card = e.target.closest('.draggable-order');
+    if (card) card.classList.remove('dragging');
+    list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    draggedId = null;
+  });
+
+  list.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const target = e.target.closest('.draggable-order');
+    list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    if (target && target.dataset.orderId !== draggedId) {
+      target.classList.add('drag-over');
+    }
+  });
+
+  list.addEventListener('drop', e => {
+    e.preventDefault();
+    const target = e.target.closest('.draggable-order');
+    if (!target || !draggedId || target.dataset.orderId === draggedId) return;
+    const targetId = target.dataset.orderId;
+
+    // Build new locked order: insert dragged before target
+    const locked = S.ordersLockedOrders || [];
+    // Remove dragged from locked if present
+    const filteredLocked = locked.filter(id => id !== draggedId);
+    // Find target position - if target is locked, insert before it in locked array
+    const targetIdx = filteredLocked.indexOf(targetId);
+    if (targetIdx >= 0) {
+      filteredLocked.splice(targetIdx, 0, draggedId);
+    } else {
+      filteredLocked.push(draggedId);
+    }
+    // Lock the dragged order
+    if (!filteredLocked.includes(draggedId)) filteredLocked.push(draggedId);
+    S.ordersLockedOrders = filteredLocked;
+    lsSave('ordersLockedOrders', filteredLocked);
+    renderOrderResults();
+  });
+
+  // Touch drag support
+  let touchDragId = null;
+  let touchClone = null;
+  let touchStartY = 0;
+  let longPressTimer = null;
+
+  list.addEventListener('touchstart', e => {
+    const card = e.target.closest('.draggable-order');
+    if (!card || card.getAttribute('draggable') !== 'true') return;
+    if (e.target.closest('.order-lock-btn') || e.target.closest('.btn')) return;
+    touchStartY = e.touches[0].clientY;
+    longPressTimer = setTimeout(() => {
+      touchDragId = card.dataset.orderId;
+      card.classList.add('dragging');
+      // Create visual clone
+      touchClone = card.cloneNode(true);
+      touchClone.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;opacity:0.8;width:' + card.offsetWidth + 'px;transform:scale(0.95);box-shadow:0 8px 24px rgba(0,0,0,0.2);left:' + card.getBoundingClientRect().left + 'px;top:' + (e.touches[0].clientY - 30) + 'px';
+      document.body.appendChild(touchClone);
+    }, 300);
+  }, { passive: true });
+
+  list.addEventListener('touchmove', e => {
+    if (!touchDragId) {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      return;
+    }
+    e.preventDefault();
+    if (touchClone) touchClone.style.top = (e.touches[0].clientY - 30) + 'px';
+    list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+    if (el) {
+      const target = el.closest('.draggable-order');
+      if (target && target.dataset.orderId !== touchDragId) target.classList.add('drag-over');
+    }
+  }, { passive: false });
+
+  list.addEventListener('touchend', e => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    if (!touchDragId) return;
+    if (touchClone) { touchClone.remove(); touchClone = null; }
+    const cards = list.querySelectorAll('.draggable-order');
+    cards.forEach(c => { c.classList.remove('dragging'); c.classList.remove('drag-over'); });
+
+    const el = document.elementFromPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    if (el) {
+      const target = el.closest('.draggable-order');
+      if (target && target.dataset.orderId !== touchDragId) {
+        const targetId = target.dataset.orderId;
+        const locked = S.ordersLockedOrders || [];
+        const filteredLocked = locked.filter(id => id !== touchDragId);
+        const targetIdx = filteredLocked.indexOf(targetId);
+        if (targetIdx >= 0) {
+          filteredLocked.splice(targetIdx, 0, touchDragId);
+        } else {
+          filteredLocked.push(touchDragId);
+        }
+        if (!filteredLocked.includes(touchDragId)) filteredLocked.push(touchDragId);
+        S.ordersLockedOrders = filteredLocked;
+        lsSave('ordersLockedOrders', filteredLocked);
+        renderOrderResults();
+      }
+    }
+    touchDragId = null;
+  });
 }
 
 let editingOrderId = null;
@@ -3023,6 +3155,7 @@ function renderReports() {
       <button class="day-tab ${reportTab==='customers'?'active':''}" style="${reportTab==='customers'?'background:var(--primary);color:#fff':''}" onclick="reportTab='customers';renderReports()">Customers</button>
       <button class="day-tab ${reportTab==='debts'?'active':''}" style="${reportTab==='debts'?'background:var(--primary);color:#fff':''}" onclick="reportTab='debts';renderReports()">Debts</button>
       <button class="day-tab ${reportTab==='export'?'active':''}" style="${reportTab==='export'?'background:var(--primary);color:#fff':''}" onclick="reportTab='export';renderReports()">Export</button>
+      <button class="day-tab ${reportTab==='history'?'active':''}" style="${reportTab==='history'?'background:var(--primary);color:#fff':''}" onclick="reportTab='history';renderReports()">History</button>
     </div>
     <div class="page-body">
       <!-- Date Range (always visible) -->
@@ -3050,6 +3183,10 @@ function renderReports() {
         <div class="metric-card">
           <div class="metric-value">${data.deliveryCount}</div>
           <div class="metric-label">Deliveries</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value" style="color:var(--purple)">${data.visitCount}</div>
+          <div class="metric-label">Visits</div>
         </div>
         <div class="metric-card">
           <div class="metric-value">${formatCurrency(data.avgOrder)}</div>
@@ -3229,6 +3366,8 @@ function renderReports() {
           return t;
         })()}
       </div>`;
+  } else if (reportTab === 'history') {
+    html += renderDeliveryHistoryContent();
   }
 
   html += `</div>`;
@@ -3280,8 +3419,9 @@ function calcReportData() {
     );
   }
 
-  const totalRevenue = filtered.reduce((s, o) => s + calcOrderTotal(o), 0);
-  const deliveryCount = filtered.length;
+  const totalRevenue = filtered.filter(o => o.payMethod !== 'visit').reduce((s, o) => s + calcOrderTotal(o), 0);
+  const deliveryCount = filtered.filter(o => o.payMethod !== 'visit').length;
+  const visitCount = filtered.filter(o => o.payMethod === 'visit').length;
   const avgOrder = deliveryCount > 0 ? totalRevenue / deliveryCount : 0;
   const totalDebt = Object.values(S.debts).reduce((s, d) => s + (d || 0), 0);
 
@@ -3317,7 +3457,7 @@ function calcReportData() {
     customers[id].revenue += calcOrderTotal(o);
   });
 
-  return { totalRevenue, deliveryCount, avgOrder, totalDebt, products, payments, customers };
+  return { totalRevenue, deliveryCount, visitCount, avgOrder, totalDebt, products, payments, customers };
 }
 
 function calcProductSalesReport() {
@@ -3542,20 +3682,6 @@ function renderSettings() {
             <div>
               <div class="settings-item-label">Manage Catalog</div>
               <div class="settings-item-desc">${S.catalog.length} products</div>
-            </div>
-            <span style="color:var(--text-muted)">&rarr;</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Delivery History Section -->
-      <div class="settings-section">
-        <div class="settings-title">Teslimat Geçmişi</div>
-        <div class="settings-card">
-          <div class="settings-item" onclick="showPage('delivery-history')" style="cursor:pointer">
-            <div>
-              <div class="settings-item-label">Teslimat Geçmişi</div>
-              <div class="settings-item-desc">Haftalık teslimat kayıtlarını görüntüle</div>
             </div>
             <span style="color:var(--text-muted)">&rarr;</span>
           </div>
@@ -4013,7 +4139,7 @@ async function importJSON(input) {
 // ══════════════════════════════════════════════════════════════
 let dhSearchTerm = '';
 
-function renderDeliveryHistory() {
+function renderDeliveryHistoryContent() {
   // Group all delivered orders by week
   const delivered = Object.values(S.orders).filter(o => o.status === 'delivered' && o.deliveredAt);
   const weeks = {};
@@ -4038,15 +4164,9 @@ function renderDeliveryHistory() {
   const thisMonday = getWeekMondayStr(new Date());
 
   let html = `
-    <header class="topbar">
-      <button class="btn-ghost" onclick="showPage('settings')" style="font-size:18px;padding:8px">&larr;</button>
-      <h1 style="flex:1;text-align:center;font-size:16px">Teslimat Geçmişi</h1>
-      <div style="width:36px"></div>
-    </header>
-    <div style="padding:8px 16px;background:var(--card);border-bottom:1px solid var(--border)">
-      <input class="input" type="search" placeholder="Müşteri ara..." value="${escHtml(dhSearchTerm)}" oninput="dhSearchTerm=this.value;renderDeliveryHistory()">
-    </div>
-    <div class="page-body">`;
+    <div style="margin-bottom:12px">
+      <input class="input" type="search" placeholder="Müşteri ara..." value="${escHtml(dhSearchTerm)}" oninput="dhSearchTerm=this.value;reportTab='history';renderReports()">
+    </div>`;
 
   if (sortedWeeks.length === 0) {
     html += `<div class="empty-state"><p>Henüz teslimat geçmişi yok</p></div>`;
@@ -4071,6 +4191,9 @@ function renderDeliveryHistory() {
         if (filtered.length === 0) return;
       }
 
+      // Sort within week: newest first
+      filtered.sort((a, b) => (b.deliveredAt || '').localeCompare(a.deliveredAt || ''));
+
       // Group by customer
       const byCustomer = {};
       filtered.forEach(o => {
@@ -4079,7 +4202,7 @@ function renderDeliveryHistory() {
       });
 
       // Week summary
-      const totalRev = filtered.reduce((s, o) => s + calcOrderTotal(o), 0);
+      const totalRev = filtered.filter(o => o.payMethod !== 'visit').reduce((s, o) => s + calcOrderTotal(o), 0);
       const cashTotal = filtered.filter(o => o.payMethod === 'cash').reduce((s, o) => {
         const total = calcOrderTotal(o);
         const paid = (o.cashPaid !== undefined) ? Math.min(o.cashPaid, total) : total;
@@ -4112,7 +4235,7 @@ function renderDeliveryHistory() {
       Object.entries(byCustomer).forEach(([cid, cOrders]) => {
         const stop = getStop(cid);
         if (!stop) return;
-        const custTotal = cOrders.reduce((s, o) => s + calcOrderTotal(o), 0);
+        const custTotal = cOrders.filter(o => o.payMethod !== 'visit').reduce((s, o) => s + calcOrderTotal(o), 0);
         const allVisit = cOrders.every(o => o.payMethod === 'visit');
 
         html += `<div style="padding:8px;border-bottom:1px solid var(--border)">
@@ -4121,7 +4244,8 @@ function renderDeliveryHistory() {
             <span style="font-size:12px;${allVisit ? 'color:#8b5cf6' : 'font-weight:600'}">${allVisit ? 'visited' : formatCurrency(custTotal)}</span>
           </div>`;
 
-        cOrders.sort((a, b) => (a.deliveredAt || '').localeCompare(b.deliveredAt || '')).forEach(o => {
+        // Within customer, sort newest first
+        cOrders.sort((a, b) => (b.deliveredAt || '').localeCompare(a.deliveredAt || '')).forEach(o => {
           const isVisit = o.payMethod === 'visit';
           const dt = new Date(o.deliveredAt);
           const dayName = dt.toLocaleDateString('en-GB', { weekday: 'short' });
@@ -4139,8 +4263,13 @@ function renderDeliveryHistory() {
     });
   }
 
-  html += `</div>`;
-  document.getElementById('page-delivery-history').innerHTML = html;
+  return html;
+}
+
+function renderDeliveryHistory() {
+  // Redirect to reports history tab
+  reportTab = 'history';
+  showPage('reports');
 }
 
 // ══════════════════════════════════════════════════════════════
