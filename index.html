@@ -657,6 +657,7 @@ function loadState() {
   S.routeDay = getTodayDayIndex();
   S.ordersFilter = 'all';
   S.ordersSearch = '';
+  S.ordersSort = 'date';
   S.customersFilter = 'all';
   S.customersSearch = '';
   S.reportRange = 'month';
@@ -1184,11 +1185,14 @@ function renderRoute() {
       <button class="week-btn ${week==='B'?'active':''}" onclick="setRouteWeek('B')">Week B</button>
     </div>
     <div class="day-tabs">
-      ${days.map((d, i) => `
+      ${days.map((d, i) => {
+        const dayStops = Object.entries(S.assign).filter(([,did]) => did === d.id).map(([sid]) => parseInt(sid));
+        const dayPending = dayStops.reduce((sum, sid) => sum + getStopOrders(sid, 'pending').length, 0);
+        return `
         <button class="day-tab ${i===S.routeDay?'active':''}"
-                style="${i===S.routeDay ? 'background:'+d.color+';color:#fff' : ''}"
-                onclick="setRouteDay(${i})">${d.label.slice(0,3)}</button>
-      `).join('')}
+                style="${i===S.routeDay ? 'background:'+d.color+';color:#fff' : ''};position:relative"
+                onclick="setRouteDay(${i})">${d.label.slice(0,3)}${dayPending > 0 ? `<span style="position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:var(--warning);${i===S.routeDay ? 'background:#fff' : ''}"></span>` : ''}</button>`;
+      }).join('')}
     </div>
     <div class="page-body">`;
 
@@ -1688,6 +1692,15 @@ function renderOrders(fullRender) {
           <button class="chip ${S.ordersFilter==='pending'?'active':''}" onclick="S.ordersFilter='pending';renderOrderResults()">Pending</button>
           <button class="chip ${S.ordersFilter==='delivered'?'active':''}" onclick="S.ordersFilter='delivered';renderOrderResults()">Delivered</button>
         </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:0 4px">
+          <span style="font-size:11px;color:var(--text-sec);font-weight:600">Sırala:</span>
+          <div class="chip-group" style="margin:0">
+            <button class="chip ${S.ordersSort==='date'?'active':''}" onclick="S.ordersSort='date';renderOrderResults()" style="font-size:11px;padding:4px 10px">Tarih</button>
+            <button class="chip ${S.ordersSort==='name'?'active':''}" onclick="S.ordersSort='name';renderOrderResults()" style="font-size:11px;padding:4px 10px">İsim</button>
+            <button class="chip ${S.ordersSort==='total'?'active':''}" onclick="S.ordersSort='total';renderOrderResults()" style="font-size:11px;padding:4px 10px">Tutar</button>
+            <button class="chip ${S.ordersSort==='day'?'active':''}" onclick="S.ordersSort='day';renderOrderResults()" style="font-size:11px;padding:4px 10px">Gün</button>
+          </div>
+        </div>
         <div id="orders-results"></div>
       </div>
       <button class="fab" onclick="showNewOrderModal()">
@@ -1712,6 +1725,18 @@ function renderOrderResults() {
   }
   orders.sort((a, b) => {
     if (a.status !== b.status) return a.status === 'pending' ? -1 : 1;
+    const sort = S.ordersSort || 'date';
+    if (sort === 'name') {
+      const na = (getStop(a.customerId)?.n || '').toLowerCase();
+      const nb = (getStop(b.customerId)?.n || '').toLowerCase();
+      return na.localeCompare(nb);
+    } else if (sort === 'total') {
+      return calcOrderTotal(b) - calcOrderTotal(a);
+    } else if (sort === 'day') {
+      const da = S.assign[a.customerId] || '';
+      const db = S.assign[b.customerId] || '';
+      return da.localeCompare(db);
+    }
     return (b.createdAt || '').localeCompare(a.createdAt || '');
   });
 
@@ -1816,27 +1841,29 @@ function renderOrderFormModal(title, existingNote) {
     const lineTotal = (item.qty || 0) * (item.price || 0);
     total += lineTotal;
     itemsHtml += `
-      <div class="order-item-card">
-        <div class="order-item-card-info">
-          <div class="order-item-card-name">${escHtml(item.name)}</div>
-          <div class="order-item-card-price" style="display:flex;align-items:center;gap:4px">
-            <span style="color:var(--text-sec)">£</span>
-            <input type="number" step="0.01" value="${item.price}" min="0"
-                   onchange="setOrderItemPrice(${idx},parseFloat(this.value)||0)"
-                   onclick="this.select()"
-                   style="width:55px;font-size:12px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--bg);color:var(--text)">
-            <span style="color:var(--text-sec);font-size:11px">each</span>
+      <div style="background:var(--bg);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:14px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.name)}</div>
+          <button style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px;flex-shrink:0" onclick="removeOrderItem(${idx})">&#10005;</button>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="display:flex;align-items:center;gap:4px">
+            <button class="qty-btn" onclick="changeOrderItemQty(${idx},-1)">−</button>
+            <input type="number" class="qty-input" value="${item.qty}" min="1"
+                   onchange="setOrderItemQty(${idx},parseInt(this.value)||1)"
+                   onclick="this.select()">
+            <button class="qty-btn" onclick="changeOrderItemQty(${idx},1)">+</button>
+            <span style="color:var(--text-sec);font-size:11px;margin-left:2px">x</span>
+            <div style="display:flex;align-items:center;border:1.5px solid var(--border);border-radius:6px;padding:4px 8px;background:var(--card)" onclick="this.querySelector('input').focus()">
+              <span style="color:var(--text-sec);font-size:13px;margin-right:2px">£</span>
+              <input type="number" step="0.01" value="${item.price}" min="0"
+                     onchange="setOrderItemPrice(${idx},parseFloat(this.value)||0)"
+                     onclick="this.select()"
+                     style="width:50px;font-size:14px;font-weight:600;border:none;background:transparent;color:var(--text);padding:0;outline:none;-moz-appearance:textfield">
+            </div>
           </div>
+          <div style="font-size:15px;font-weight:700;flex-shrink:0">${formatCurrency(lineTotal)}</div>
         </div>
-        <div class="order-item-card-controls">
-          <button class="qty-btn" onclick="changeOrderItemQty(${idx},-1)">−</button>
-          <input type="number" class="qty-input" value="${item.qty}" min="1"
-                 onchange="setOrderItemQty(${idx},parseInt(this.value)||1)"
-                 onclick="this.select()">
-          <button class="qty-btn" onclick="changeOrderItemQty(${idx},1)">+</button>
-        </div>
-        <div class="order-item-card-total">${formatCurrency(lineTotal)}</div>
-        <button class="order-item-card-remove" onclick="removeOrderItem(${idx})">&#10005;</button>
       </div>`;
   });
 
@@ -3708,7 +3735,17 @@ function setStock(idx, val) {
 
 function toggleCatalogEdit(idx) {
   editingCatalogIdx = editingCatalogIdx === idx ? -1 : idx;
+  const pageEl = document.getElementById('page-catalog');
+  const scrollPos = pageEl ? pageEl.scrollTop : 0;
   renderCatalog();
+  if (pageEl) pageEl.scrollTop = scrollPos;
+  // Scroll the edit form into view if opening
+  if (editingCatalogIdx === idx) {
+    setTimeout(() => {
+      const editInput = document.getElementById('cat-edit-name-' + idx);
+      if (editInput) editInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
+  }
 }
 
 function saveCatalogEdit(idx) {
@@ -3732,7 +3769,10 @@ function saveCatalogEdit(idx) {
   S.catalog[idx] = { name, unit, price, stock, trackStock: noStockChecked ? false : true };
   save.catalog();
   editingCatalogIdx = -1;
+  const pageEl = document.getElementById('page-catalog');
+  const scrollPos = pageEl ? pageEl.scrollTop : 0;
   renderCatalog();
+  if (pageEl) pageEl.scrollTop = scrollPos;
 }
 
 function addCatalogItem() {
