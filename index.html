@@ -70,13 +70,19 @@ a{text-decoration:none;color:inherit}
 /* === BUTTONS === */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border-radius:var(--radius-sm);font-size:14px;font-weight:600;transition:all .15s;min-height:44px}
 .btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{opacity:0.9}
 .btn-primary:active{background:var(--primary-hover)}
 .btn-success{background:var(--success);color:#fff}
+.btn-success:hover{opacity:0.9}
 .btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{opacity:0.9}
 .btn-outline{border:1.5px solid var(--border);color:var(--text);background:var(--card)}
+.btn-outline:hover{background:var(--bg)}
 .btn-outline:active{background:var(--bg)}
 .btn-ghost{color:var(--text-sec);padding:8px}
+.btn-ghost:hover{color:var(--text)}
 .btn-sm{padding:6px 12px;font-size:13px;min-height:36px}
+.btn:disabled,.btn[disabled]{opacity:0.4;pointer-events:none}
 .btn-block{width:100%}
 .btn-icon{width:44px;height:44px;padding:0;border-radius:50%}
 .btn-icon-sm{width:32px;height:32px;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center}
@@ -104,8 +110,10 @@ a{text-decoration:none;color:inherit}
 
 /* === CHIP / TOGGLE === */
 .chip-group{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.chip{padding:6px 14px;border-radius:20px;font-size:13px;font-weight:500;border:1.5px solid var(--border);color:var(--text-sec);background:var(--card);transition:all .15s}
+.chip{padding:6px 14px;border-radius:20px;font-size:13px;font-weight:500;border:1.5px solid var(--border);color:var(--text-sec);background:var(--card);transition:all .15s;cursor:pointer}
+.chip:hover{border-color:var(--primary);color:var(--primary)}
 .chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.chip.active:hover{opacity:0.9}
 
 /* === MODAL === */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;justify-content:center;align-items:flex-end;overflow:hidden}
@@ -145,7 +153,8 @@ a{text-decoration:none;color:inherit}
 .route-summary .revenue{color:var(--success);font-size:16px}
 
 /* === ORDER CARD === */
-.order-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:10px}
+.order-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:10px;transition:box-shadow .15s}
+.order-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.08)}
 .order-card-head{display:flex;justify-content:space-between;align-items:start;margin-bottom:6px}
 .order-card-name{font-size:14px;font-weight:600}
 .order-card-date{font-size:11px;color:var(--text-muted)}
@@ -154,7 +163,9 @@ a{text-decoration:none;color:inherit}
 .order-card-total{font-weight:700;color:var(--text)}
 
 /* === CUSTOMER CARD === */
-.customer-card{display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:8px;cursor:pointer;transition:background .1s}
+.customer-card{display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:8px;cursor:pointer;transition:all .15s}
+.customer-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+.customer-card:active{background:var(--bg)}
 .customer-card:active{background:var(--bg)}
 .customer-avatar{width:40px;height:40px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0}
 .customer-info{flex:1;min-width:0}
@@ -206,6 +217,7 @@ a{text-decoration:none;color:inherit}
 
 /* === FAB === */
 .fab{position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 16px);right:16px;width:56px;height:56px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md);z-index:50;transition:transform .15s}
+.fab:hover{box-shadow:0 4px 16px rgba(0,0,0,0.2)}
 .fab:active{transform:scale(0.92)}
 .fab svg{width:24px;height:24px}
 
@@ -1697,15 +1709,13 @@ function renderOrders(fullRender) {
           <span style="font-size:11px;color:var(--text-sec);font-weight:600">Sırala:</span>
           <div class="chip-group" style="margin:0">
             <button class="chip ${S.ordersSort==='date'?'active':''}" onclick="S.ordersSort='date';renderOrders(true)" style="font-size:11px;padding:4px 10px">Tarih</button>
-            <button class="chip ${S.ordersSort==='name'?'active':''}" onclick="S.ordersSort='name';renderOrders(true)" style="font-size:11px;padding:4px 10px">İsim</button>
-            <button class="chip ${S.ordersSort==='total'?'active':''}" onclick="S.ordersSort='total';renderOrders(true)" style="font-size:11px;padding:4px 10px">Tutar</button>
             <button class="chip ${S.ordersSort==='day'?'active':''}" onclick="S.ordersSort='day';renderOrders(true)" style="font-size:11px;padding:4px 10px">Gün</button>
             <button class="chip ${S.ordersSort==='manual'?'active':''}" onclick="S.ordersSort='manual';renderOrders(true)" style="font-size:11px;padding:4px 10px">Manuel</button>
           </div>
         </div>
         <div id="orders-results"></div>
       </div>
-      <button class="fab" onclick="showNewOrderModal()">
+      <button class="fab" onclick="showNewOrderModal()" aria-label="Yeni Sipariş">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>`;
     document.getElementById('page-orders').innerHTML = html;
@@ -1769,12 +1779,11 @@ function renderOrderResults() {
       const dayId = S.assign[o.customerId];
       const dayObj = dayId ? DAYS.find(d => d.id === dayId) : null;
       html += `
-        <div class="order-card" style="${isManual ? 'display:flex;gap:8px;align-items:stretch' : ''}">
+        <div class="order-card" ${isManual ? 'style="display:flex;gap:8px;align-items:stretch"' : ''}>
           ${isManual ? `<div style="display:flex;flex-direction:column;justify-content:center;gap:4px;padding-right:4px;flex-shrink:0">
-            <button style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--text-sec)${oIdx === 0 ? ';opacity:0.3;pointer-events:none' : ''}" onclick="moveOrder('${o.id}',-1)">&#9650;</button>
-            <button style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--text-sec)${oIdx === orders.length - 1 ? ';opacity:0.3;pointer-events:none' : ''}" onclick="moveOrder('${o.id}',1)">&#9660;</button>
-          </div>` : ''}
-          <div style="flex:1;min-width:0">
+            <button style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--text-sec)${oIdx === 0 ? ';opacity:0.3;pointer-events:none' : ''}" onclick="moveOrder('${o.id}',-1)">&#9650;</button>
+            <button style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--text-sec)${oIdx === orders.length - 1 ? ';opacity:0.3;pointer-events:none' : ''}" onclick="moveOrder('${o.id}',1)">&#9660;</button>
+          </div><div style="flex:1;min-width:0">` : ''}
           <div class="order-card-head">
             <div onclick="showProfile(${o.customerId})" style="cursor:pointer">
               <div class="order-card-name">${stop ? escHtml(stop.n) : 'Unknown'}${dayObj ? ` <span class="badge" style="background:${dayObj.color}20;color:${dayObj.color};font-size:10px;font-weight:600;vertical-align:middle">Week ${dayObj.week} - ${dayObj.label.slice(0,3)}</span>` : ''}</div>
@@ -3669,7 +3678,6 @@ function renderCatalog() {
     html += `<div class="empty-state"><p><b>No products yet</b></p><p>Add products above</p></div>`;
   } else {
     S.catalog.forEach((c, i) => {
-      const isEditing = editingCatalogIdx === i;
       html += `
         <div class="catalog-card" id="cat-card-${i}">
           <div class="catalog-card-top">
@@ -3682,9 +3690,7 @@ function renderCatalog() {
                 ? '<span style="font-size:11px;color:var(--text-muted);font-style:italic">Günlük</span>'
                 : `<span id="cat-stock-badge-${i}" style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;padding:4px 8px;border-radius:12px;font-size:14px;font-weight:700;background:${c.stock != null && c.stock <= 5 ? 'var(--danger)' : c.stock != null && c.stock <= 20 ? 'var(--warning)' : 'var(--success)'};color:#fff">${c.stock != null ? c.stock : '—'}</span>`
               }
-              <button style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;color:var(--info)" onclick="toggleCatalogEdit(${i})">
-                ${isEditing ? '&#10005;' : '&#9998;'}
-              </button>
+              <button id="cat-edit-btn-${i}" style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;color:var(--info)" onclick="toggleCatalogEdit(${i})">&#9998;</button>
             </div>
           </div>
           ${c.trackStock !== false ? `
@@ -3698,7 +3704,7 @@ function renderCatalog() {
               <button style="font-size:12px;padding:6px 12px;border-radius:8px;background:var(--primary);color:#fff;border:none;cursor:pointer;font-weight:600;white-space:nowrap" onclick="addToStock(${i})">Ekle</button>
             </div>
           </div>` : ''}
-          ${isEditing ? `
+          <div id="cat-edit-panel-${i}" style="display:none">
           <div class="catalog-edit-form">
             <input class="input" id="cat-edit-name-${i}" value="${escHtml(c.name)}" placeholder="Ürün adı" style="flex:2;min-width:100px">
             <input class="input" id="cat-edit-unit-${i}" value="${escHtml(c.unit || '')}" placeholder="Birim" style="flex:1;min-width:60px">
@@ -3717,7 +3723,8 @@ function renderCatalog() {
           </div>
           <div style="display:flex;justify-content:flex-end;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
             <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger)" onclick="removeCatalogItem(${i})">Ürünü Sil</button>
-          </div>` : ''}
+          </div>
+          </div>
         </div>`;
     });
   }
@@ -3770,17 +3777,22 @@ function setStock(idx, val) {
 }
 
 function toggleCatalogEdit(idx) {
-  editingCatalogIdx = editingCatalogIdx === idx ? -1 : idx;
-  const pageEl = document.getElementById('page-catalog');
-  const scrollPos = pageEl ? pageEl.scrollTop : 0;
-  renderCatalog();
-  if (pageEl) pageEl.scrollTop = scrollPos;
-  // Scroll the edit form into view if opening
-  if (editingCatalogIdx === idx) {
-    setTimeout(() => {
-      const editInput = document.getElementById('cat-edit-name-' + idx);
-      if (editInput) editInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 50);
+  // Close previously open panel
+  if (editingCatalogIdx >= 0 && editingCatalogIdx !== idx) {
+    const prevPanel = document.getElementById('cat-edit-panel-' + editingCatalogIdx);
+    const prevBtn = document.getElementById('cat-edit-btn-' + editingCatalogIdx);
+    if (prevPanel) prevPanel.style.display = 'none';
+    if (prevBtn) { prevBtn.innerHTML = '&#9998;'; prevBtn.style.color = 'var(--info)'; }
+  }
+  const panel = document.getElementById('cat-edit-panel-' + idx);
+  const btn = document.getElementById('cat-edit-btn-' + idx);
+  if (!panel) return;
+  const isOpening = panel.style.display === 'none';
+  editingCatalogIdx = isOpening ? idx : -1;
+  panel.style.display = isOpening ? 'block' : 'none';
+  if (btn) {
+    btn.innerHTML = isOpening ? '&#10005;' : '&#9998;';
+    btn.style.color = isOpening ? 'var(--danger)' : 'var(--info)';
   }
 }
 
@@ -3805,10 +3817,11 @@ function saveCatalogEdit(idx) {
   S.catalog[idx] = { name, unit, price, stock, trackStock: noStockChecked ? false : true };
   save.catalog();
   editingCatalogIdx = -1;
-  const pageEl = document.getElementById('page-catalog');
-  const scrollPos = pageEl ? pageEl.scrollTop : 0;
+  const body = document.querySelector('#page-catalog .page-body');
+  const scrollPos = body ? body.scrollTop : 0;
   renderCatalog();
-  if (pageEl) pageEl.scrollTop = scrollPos;
+  const newBody = document.querySelector('#page-catalog .page-body');
+  if (newBody) newBody.scrollTop = scrollPos;
 }
 
 function addCatalogItem() {
