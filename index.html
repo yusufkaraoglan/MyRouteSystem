@@ -162,17 +162,20 @@ a{text-decoration:none;color:inherit}
 .order-card-footer{display:flex;justify-content:space-between;align-items:center}
 .order-card-total{font-weight:700;color:var(--text)}
 /* Order Card V2 */
-.order-card-v2{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;transition:box-shadow .15s,transform .15s,opacity .15s}
+.order-card-v2{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:10px;transition:box-shadow .15s,transform .15s,opacity .15s}
 .order-card-v2:hover{box-shadow:0 2px 8px rgba(0,0,0,0.08)}
-.order-card-v2-body{flex:1;min-width:0}
-.order-card-v2-top{display:flex;align-items:center;gap:6px}
-.order-card-v2-right{flex-shrink:0;text-align:right}
-.order-card-v2-actions{display:flex;gap:4px;flex-shrink:0}
-.order-card-v2-actions .btn-sm{padding:5px 10px;font-size:12px;min-height:32px}
-.order-lock-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s}
+.order-card-v2-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.order-card-v2-name{font-weight:700;font-size:15px;flex:1;min-width:0}
+.order-card-v2-items{font-size:13px;color:var(--text-sec);margin-bottom:8px;line-height:1.4}
+.order-card-v2-footer{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.order-card-v2-price{font-weight:700;font-size:16px;white-space:nowrap}
+.order-card-v2-actions{display:flex;gap:6px}
+.order-card-v2-actions .btn-sm{padding:6px 14px;font-size:13px;min-height:34px}
+.order-lock-btn{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s;flex-shrink:0}
 .order-lock-btn.locked{background:var(--primary-light);border-color:var(--primary);color:var(--primary)}
 .order-card-v2.drag-over{border-top:2px solid var(--primary);margin-top:-2px}
 .order-card-v2.dragging{opacity:0.4;transform:scale(0.98)}
+.order-drag-row{display:flex;align-items:center;gap:6px}
 
 /* === CUSTOMER CARD === */
 .customer-card{display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:8px;cursor:pointer;transition:all .15s}
@@ -1783,29 +1786,26 @@ function renderOrderResults() {
 
       html += `
         <div class="order-card-v2${isPending ? ' draggable-order' : ''}" data-order-id="${o.id}" ${isPending && !isLocked ? 'draggable="true"' : ''}>
-          ${isPending ? `<div class="order-drag-handle" style="display:flex;align-items:center;gap:2px;flex-shrink:0">
-            <button class="order-lock-btn${isLocked ? ' locked' : ''}" onclick="toggleOrderLock('${o.id}')" title="${isLocked ? 'Kilidi aç' : 'Kilitle'}">
-              ${isLocked ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>' : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>'}
-            </button>
-            ${!isLocked ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--text-muted)" stroke-width="2" style="cursor:grab"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg>' : ''}
-          </div>` : ''}
-          <div class="order-card-v2-body" onclick="showProfile(${o.customerId})" style="cursor:pointer;flex:1;min-width:0">
-            <div class="order-card-v2-top">
-              <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${stop ? escHtml(stop.n) : 'Unknown'}</div>
-              ${dayObj ? `<span class="badge" style="background:${dayObj.color}20;color:${dayObj.color};font-size:10px;font-weight:600;flex-shrink:0">${dayObj.week}-${dayObj.label.slice(0,3)}</span>` : ''}
+          <div class="order-card-v2-header">
+            ${isPending ? `<div class="order-drag-row">
+              <button class="order-lock-btn${isLocked ? ' locked' : ''}" onclick="event.stopPropagation();toggleOrderLock('${o.id}')" title="${isLocked ? 'Kilidi aç' : 'Kilitle'}">
+                ${isLocked ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>' : '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>'}
+              </button>
+            </div>` : ''}
+            <div class="order-card-v2-name" onclick="showProfile(${o.customerId})" style="cursor:pointer">${stop ? escHtml(stop.n) : 'Unknown'}</div>
+            ${dayObj ? `<span class="badge" style="background:${dayObj.color}20;color:${dayObj.color};font-size:10px;font-weight:600;flex-shrink:0">${dayObj.week}-${dayObj.label.slice(0,3)}</span>` : ''}
+          </div>
+          <div class="order-card-v2-items">${o.items.map(i => `${i.qty}x ${escHtml(i.name)}`).join(', ')}</div>
+          <div class="order-card-v2-footer">
+            <span class="order-card-v2-price">${formatCurrency(total)}</span>
+            ${isDelivered ? `<span style="font-size:11px;color:var(--text-muted)">${o.payMethod || ''} · ${formatDate(o.deliveredAt)}</span>` : ''}
+            <div class="order-card-v2-actions">
+              ${o.status === 'pending' ? `
+                <button class="btn btn-success btn-sm" onclick="showDeliveryFromOrder('${o.id}')">Deliver</button>
+                <button class="btn btn-outline btn-sm" onclick="showEditOrderModal('${o.id}')">Edit</button>
+              ` : ''}
+              <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger)" onclick="deleteOrderFromList('${o.id}')">Sil</button>
             </div>
-            <div style="font-size:12px;color:var(--text-sec);margin-top:2px">${o.items.map(i => `${i.qty}x ${escHtml(i.name)}`).join(', ')}</div>
-          </div>
-          <div class="order-card-v2-right">
-            <div style="font-weight:700;font-size:15px;text-align:right">${formatCurrency(total)}</div>
-            ${isDelivered ? `<div style="font-size:10px;color:var(--text-muted);text-align:right">${o.payMethod || ''}</div>` : ''}
-          </div>
-          <div class="order-card-v2-actions">
-            ${o.status === 'pending' ? `
-              <button class="btn btn-success btn-sm" onclick="showDeliveryFromOrder('${o.id}')">Deliver</button>
-              <button class="btn btn-outline btn-sm" onclick="showEditOrderModal('${o.id}')">Edit</button>
-            ` : ''}
-            <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger)" onclick="deleteOrderFromList('${o.id}')">Sil</button>
           </div>
         </div>`;
     });
