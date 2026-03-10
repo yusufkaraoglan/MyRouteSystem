@@ -263,7 +263,10 @@ async function init() {
     // Check if migration is needed (has old data + new tables exist)
     try {
       const needed = await checkMigrationNeeded();
-      if (needed) {
+      if (needed === 'already_done') {
+        // Data already in new tables, just load from DB
+        await loadStateFromDB();
+      } else if (needed) {
         showToast('Veriler yeni sisteme aktarılıyor...', 'info', 10000);
         const ok = await runMigration();
         if (ok) {
@@ -302,8 +305,9 @@ async function init() {
     showPage(savedPage);
   }
 
-  // Periodic sync
-  if (migrated) {
+  // Periodic sync (re-check flag since migration may have just completed)
+  const useNewDB = cacheGet('db_migrated', false);
+  if (useNewDB) {
     setInterval(() => { if (navigator.onLine) syncAll(); }, 5 * 60 * 1000);
     window.addEventListener('online', () => { syncAll(); flushOfflineQueue(); });
     document.addEventListener('visibilitychange', () => {

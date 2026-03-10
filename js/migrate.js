@@ -7,8 +7,9 @@ async function checkMigrationNeeded() {
   // Check if new tables have data
   const customers = await dbSelect('customers', 'select=id&limit=1');
   if (customers && customers.length > 0) {
-    console.log('Migration: Already migrated, skipping');
-    return false;
+    console.log('Migration: Already migrated, setting db_migrated flag');
+    cacheSet('db_migrated', true);
+    return 'already_done';
   }
   // Check if old data exists
   const oldStops = legacyGet('stops', null);
