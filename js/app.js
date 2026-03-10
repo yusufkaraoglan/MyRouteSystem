@@ -1,0 +1,383 @@
+'use strict';
+// ═══════════════════════════════════════════════════════════
+// APP CORE - State, Navigation, Init
+// ═══════════════════════════════════════════════════════════
+
+// ── Constants ──────────────────────────────────────────────
+
+const STOPS_DEFAULT = [];  // Will be populated from DB
+
+const DAYS = [
+  {id:'wA0',label:'Monday',   week:'A',color:'#E85D3A',ci:0},
+  {id:'wA1',label:'Tuesday',  week:'A',color:'#F0A500',ci:1},
+  {id:'wA2',label:'Wednesday',week:'A',color:'#12B76A',ci:2},
+  {id:'wA3',label:'Thursday', week:'A',color:'#2E90FA',ci:3},
+  {id:'wA4',label:'Friday',   week:'A',color:'#9E77ED',ci:4},
+  {id:'wB0',label:'Monday',   week:'B',color:'#F63D68',ci:5},
+  {id:'wB1',label:'Tuesday',  week:'B',color:'#06AED4',ci:6},
+  {id:'wB2',label:'Wednesday',week:'B',color:'#DC6803',ci:7},
+  {id:'wB3',label:'Thursday', week:'B',color:'#6172F3',ci:8},
+  {id:'wB4',label:'Friday',   week:'B',color:'#2D9D6B',ci:9}
+];
+
+// ── Global State ───────────────────────────────────────────
+
+let STOPS = [];
+let S = {};
+let curPage = 'route';
+let profileStopId = null;
+let tempOrderItems = [];
+let tempOrderCustomerId = null;
+let tempOrderDeliveryDate = '';
+let deliveryStopId = null;
+let deliveryPayMethod = null;
+let deliveryOrderIds = null;
+let profilePreviousPage = 'customers';
+let leafletMap = null;
+let mapMarkers = [];
+let mapRouteLines = [];
+let editingCatalogIdx = -1;
+let editingOrderId = null;
+let reportTab = 'overview';
+let dhSearchTerm = '';
+
+// ── Legacy load (from localStorage, for backward compat) ──
+
+function loadStateLegacy() {
+  STOPS = legacyGet('stops', STOPS_DEFAULT);
+  S.assign = legacyGet('assign', {});
+  S.routeOrder = legacyGet('routeOrder', null);
+  if (!S.routeOrder) {
+    S.routeOrder = legacyGet('order', {});
+  }
+  S.geo = legacyGet('geo', {});
+  S.orders = legacyGet('ordersV2', {});
+  S.debts = legacyGet('debts', {});
+  S.debtHistory = legacyGet('debtHistory', {});
+  S.cnotes = legacyGet('cnotes', {});
+  S.catalog = legacyGet('catalog', []);
+  S.customerPricing = legacyGet('customerPricing', null);
+  if (!S.customerPricing) S.customerPricing = legacyGet('stopCatalog', {});
+  S.customerProducts = legacyGet('customerProducts', {});
+  S.recurringOrders = legacyGet('recurringOrders', {});
+  initUIState();
+}
+
+// ── New DB load ────────────────────────────────────────────
+
+async function loadStateFromDB() {
+  const [customers, products, assignments, routeOrder, orders,
+         debts, debtHistory, pricing, recurring] = await Promise.all([
+    DB.getCustomers(),
+    DB.getProducts(),
+    DB.getAssignments(),
+    DB.getRouteOrder(),
+    DB.getOrders(),
+    DB.getDebts(),
+    DB.getDebtHistory(),
+    DB.getCustomerPricing(),
+    DB.getRecurringOrders()
+  ]);
+
+  // Map customers to STOPS format for backward compat
+  STOPS = customers.map(c => ({
+    id: c.id, n: c.name, a: c.address, c: c.city, p: c.postcode
+  }));
+
+  S.assign = assignments;
+  S.routeOrder = routeOrder;
+  S.geo = {};
+  customers.forEach(c => {
+    if (c.lat && c.lng) {
+      S.geo[c.id] = { lat: c.lat, lng: c.lng };
+    }
+  });
+  S.orders = orders;
+  S.debts = debts;
+  S.debtHistory = debtHistory;
+  S.cnotes = {};
+  customers.forEach(c => { if (c.note) S.cnotes[c.id] = c.note; });
+  S.catalog = products.map(p => ({
+    name: p.name, unit: p.unit, price: parseFloat(p.price),
+    stock: p.stock, trackStock: p.track_stock
+  }));
+  S.customerPricing = pricing;
+  S.customerProducts = cacheGet('customer_products', {});
+  S.recurringOrders = recurring;
+
+  initUIState();
+}
+
+function initUIState() {
+  S.routeWeek = getCurrentWeek();
+  S.routeDay = getTodayDayIndex();
+  S.ordersFilter = 'pending';
+  S.ordersSearch = '';
+  S.ordersLockedOrders = cacheGet('setting_ordersLockedOrders', legacyGet('ordersLockedOrders', []));
+  S.customersFilter = 'all';
+  S.customersSearch = '';
+  S.reportRange = 'month';
+  S.reportStart = '';
+  S.reportEnd = '';
+  S.reportProducts = [];
+  S.mapFilter = 'all';
+}
+
+// ── Save helpers (write to both state + DB) ────────────────
+
+const save = {
+  stops:       () => { /* customers saved individually via DB.saveCustomer */ },
+  assign:      () => { /* saved via DB.setAssignment */ },
+  routeOrder:  () => { /* saved via DB.saveRouteOrder */ },
+  geo:         () => { /* geo stored in customers table */ },
+  orders:      () => { /* saved via DB.saveOrder */ },
+  debts:       () => { /* saved via DB.setDebt */ },
+  debtHistory: () => { /* saved via DB.addDebtHistoryEntry */ },
+  cnotes:      () => { /* saved via DB.saveCustomer */ },
+  catalog:     () => { /* saved via DB.saveProduct */ },
+  pricing:     () => { /* saved via DB.setCustomerPricing */ },
+  customerProducts: () => cacheSet('customer_products', S.customerProducts),
+  recurringOrders: () => { /* saved via DB.setRecurringOrder */ }
+};
+
+// Legacy save helpers (still used by existing code during transition)
+function lsSave(k, v) {
+  try { localStorage.setItem('cr4_' + k, JSON.stringify(v)); } catch {}
+  sbSet(k, v);
+}
+
+function lsGet(k, d) {
+  try { const v = localStorage.getItem('cr4_' + k); return v !== null ? JSON.parse(v) : d; } catch { return d; }
+}
+
+function lsSaveLocal(k, v) {
+  try { localStorage.setItem('cr4_' + k, JSON.stringify(v)); } catch {}
+}
+
+// ── Navigation ─────────────────────────────────────────────
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const pageEl = document.getElementById('page-' + name);
+  if (pageEl) pageEl.classList.add('active');
+  curPage = name;
+  localStorage.setItem('lastPage', name);
+  if (name === 'profile') localStorage.setItem('lastProfileId', profileStopId);
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    const pg = b.dataset.page;
+    b.classList.toggle('active',
+      pg === name ||
+      (name === 'profile' && pg === 'customers') ||
+      (name === 'map' && pg === 'settings') ||
+      (name === 'catalog' && pg === 'settings')
+    );
+  });
+  renderCurrentPage();
+}
+
+function renderCurrentPage() {
+  switch (curPage) {
+    case 'route': renderRoute(); break;
+    case 'orders': renderOrders(); break;
+    case 'customers': renderCustomers(); break;
+    case 'profile': renderProfile(); break;
+    case 'reports': renderReports(); break;
+    case 'settings': renderSettings(); break;
+    case 'map': renderMapPage(); break;
+    case 'catalog': renderCatalog(); break;
+    case 'delivery-history': reportTab = 'history'; showPage('reports'); break;
+  }
+}
+
+// ── Modal System ───────────────────────────────────────────
+
+function openModal(html) {
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+  document.getElementById('modal-content').innerHTML = '';
+}
+
+// ── Alert / Confirm ────────────────────────────────────────
+
+function appAlert(msg) {
+  return new Promise(resolve => {
+    openModal(`
+      <div class="modal-handle"></div>
+      <div style="padding:24px 20px;text-align:center">
+        <p style="font-size:15px;margin-bottom:20px">${msg}</p>
+        <button class="btn btn-primary btn-block" onclick="closeModal();(${resolve})()" >Tamam</button>
+      </div>
+    `);
+  });
+}
+
+function appConfirm(msg) {
+  return new Promise(resolve => {
+    const yes = () => { closeModal(); resolve(true); };
+    const no = () => { closeModal(); resolve(false); };
+    openModal(`
+      <div class="modal-handle"></div>
+      <div style="padding:24px 20px;text-align:center">
+        <p style="font-size:15px;margin-bottom:20px">${msg}</p>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-block" id="confirm-no">Hayır</button>
+          <button class="btn btn-primary btn-block" id="confirm-yes">Evet</button>
+        </div>
+      </div>
+    `);
+    document.getElementById('confirm-yes').onclick = yes;
+    document.getElementById('confirm-no').onclick = no;
+  });
+}
+
+// ── Toast Notifications ────────────────────────────────────
+
+function showToast(message, type = 'info', duration = 3000) {
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// ── Init ───────────────────────────────────────────────────
+
+async function init() {
+  // Try new DB first, fall back to legacy
+  const migrated = cacheGet('db_migrated', false);
+
+  if (migrated) {
+    await loadStateFromDB();
+  } else {
+    // Load from legacy localStorage
+    loadStateLegacy();
+
+    // Check if migration is needed (has old data + new tables exist)
+    try {
+      const needed = await checkMigrationNeeded();
+      if (needed) {
+        showToast('Veriler yeni sisteme aktarılıyor...', 'info', 10000);
+        const ok = await runMigration();
+        if (ok) {
+          cacheSet('db_migrated', true);
+          await loadStateFromDB();
+          showToast('Veri göçü tamamlandı!', 'success');
+        }
+      }
+    } catch (e) {
+      console.warn('Migration check failed, using legacy:', e.message);
+    }
+  }
+
+  // Set initial report range
+  setReportRange('month');
+
+  // Nav binding
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => showPage(btn.dataset.page));
+  });
+
+  // Auto-create recurring orders for today
+  autoCreateRecurringOrders();
+
+  // Restore last page
+  const savedPage = localStorage.getItem('lastPage') || 'route';
+  if (savedPage === 'profile') {
+    const savedId = localStorage.getItem('lastProfileId');
+    if (savedId && getStop(parseInt(savedId))) {
+      profileStopId = parseInt(savedId);
+      showPage('profile');
+    } else {
+      showPage('route');
+    }
+  } else {
+    showPage(savedPage);
+  }
+
+  // Periodic sync
+  if (migrated) {
+    setInterval(() => { if (navigator.onLine) syncAll(); }, 5 * 60 * 1000);
+    window.addEventListener('online', () => { syncAll(); flushOfflineQueue(); });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && navigator.onLine) syncAll();
+    });
+  } else {
+    // Legacy sync
+    syncFromSupabase();
+    setInterval(() => { if (navigator.onLine) syncFromSupabase(); }, 5 * 60 * 1000);
+    window.addEventListener('online', () => syncFromSupabase());
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && navigator.onLine) syncFromSupabase();
+    });
+  }
+}
+
+// Legacy sync function
+async function syncFromSupabase() {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/cr4_store?select=key,value`, {
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const rows = await r.json();
+    if (!Array.isArray(rows)) throw new Error('Invalid response');
+    rows.forEach(row => {
+      try { localStorage.setItem('cr4_' + row.key, JSON.stringify(row.value)); } catch {}
+    });
+    loadStateLegacy();
+    renderCurrentPage();
+  } catch (e) {
+    console.warn('Sync error:', e.message);
+  }
+}
+
+async function pushAllToSupabase() {
+  const keys = ['stops','assign','routeOrder','geo','ordersV2','debts','debtHistory','cnotes','catalog','customerPricing','customerProducts','recurringOrders'];
+  for (const k of keys) {
+    const v = legacyGet(k, null);
+    if (v !== null) await sbSet(k, v);
+  }
+  showToast('Tüm veriler buluta yüklendi.', 'success');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  const swCode = `
+    const CACHE = 'costadoro-v4';
+    const URLS = ['./', 'css/app.css', 'js/db.js', 'js/utils.js', 'js/app.js',
+      'js/migrate.js', 'js/components/modal.js', 'js/components/order-form.js',
+      'js/components/delivery.js', 'js/components/product-picker.js', 'js/components/customer-picker.js',
+      'js/pages/route.js', 'js/pages/orders.js', 'js/pages/customers.js', 'js/pages/profile.js',
+      'js/pages/reports.js', 'js/pages/settings.js', 'js/pages/catalog.js', 'js/pages/map.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
+      'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'];
+    self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(URLS)).then(() => self.skipWaiting())));
+    self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
+    self.addEventListener('fetch', e => {
+      if (e.request.mode === 'navigate') {
+        e.respondWith(fetch(e.request).then(res => {
+          if (res.ok) { const clone = res.clone(); caches.open(CACHE).then(c => c.put('./', clone)); }
+          return res;
+        }).catch(() => caches.match(e.request).then(r => r || caches.match('./'))));
+        return;
+      }
+      e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).then(res => {
+        if (res.ok && e.request.url.startsWith('http')) { const clone = res.clone(); caches.open(CACHE).then(c => c.put(e.request, clone)); }
+        return res;
+      }).catch(() => caches.match('./'))));
+    });
+  `;
+  const blob = new Blob([swCode], { type: 'application/javascript' });
+  navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+}
