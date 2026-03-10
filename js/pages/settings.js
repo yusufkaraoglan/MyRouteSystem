@@ -111,8 +111,6 @@ function renderSettings() {
   document.getElementById('page-settings').innerHTML = html;
 }
 
-let editingCatalogIdx = -1;
-
 // JSON BACKUP
 // ══════════════════════════════════════════════════════════════
 function exportJSON() {

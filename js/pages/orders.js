@@ -264,8 +264,6 @@ function initOrderDragDrop() {
   });
 }
 
-let editingOrderId = null;
-
 function quickReorder(customerId, lastOrderId) {
   const lastOrder = S.orders[lastOrderId];
   if (!lastOrder || !lastOrder.items || lastOrder.items.length === 0) return;
