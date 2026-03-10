@@ -21,12 +21,12 @@ function renderRoute() {
   const sorted = [...new Set([...ro.filter(id => assigned.includes(id)), ...assigned])];
 
   // Current date info
-  const dateInfo = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dateInfo = new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   let html = `
     <header class="topbar">
       <div>
-        <h1>Route</h1>
+        <h1>Rota</h1>
         <div style="font-size:12px;color:var(--text-sec)">${dateInfo}</div>
       </div>
       <div class="topbar-actions">
@@ -60,8 +60,8 @@ function renderRoute() {
   if (sorted.length === 0) {
     html += `<div class="empty-state">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-      <p><b>No customers for this day</b></p>
-      <p>Assign customers from the Customers tab</p>
+      <p><b>Bu güne müşteri atanmamış</b></p>
+      <p>Müşteriler sayfasından gün atayabilirsiniz</p>
     </div>`;
   } else {
     sorted.forEach((stopId, idx) => {
@@ -88,8 +88,8 @@ function renderRoute() {
             <div class="route-card-name">${escHtml(stop.n)}</div>
             <div class="route-card-sub">${escHtml(stop.c)} &middot; ${escHtml(stop.p)}</div>
             <div class="route-card-badges">
-              ${pending.length > 0 ? `<span class="badge badge-warning">${pending.length} pending</span>` : ''}
-              ${delivered ? `<span class="badge badge-success">${isVisited ? 'Visited' : 'Delivered'}</span>` : ''}
+              ${pending.length > 0 ? `<span class="badge badge-warning">${pending.length} bekleyen</span>` : ''}
+              ${delivered ? `<span class="badge badge-success">${isVisited ? 'Ziyaret' : 'Teslim'}</span>` : ''}
               ${todayRev > 0 ? `<span class="badge badge-info">${formatCurrency(todayRev)}</span>` : ''}
               ${!delivered && debt > 0 ? `<span class="badge badge-danger">${formatCurrency(debt)}</span>` : ''}
             </div>
@@ -109,11 +109,11 @@ function renderRoute() {
   const rev = calcDayRevenue(dayId);
   html += `
     <div class="route-summary" style="flex-wrap:wrap;gap:6px">
-      <span>${deliveredCount} / ${sorted.length} delivered</span>
+      <span>${deliveredCount} / ${sorted.length} teslim</span>
       <div style="display:flex;gap:10px;font-size:12px">
-        <span style="color:var(--success)">Cash ${formatCurrency(rev.cash)}</span>
-        <span style="color:var(--info)">Bank ${formatCurrency(rev.bank)}</span>
-        <span style="color:var(--danger)">Unpaid ${formatCurrency(rev.unpaid)}</span>
+        <span style="color:var(--success)">Nakit ${formatCurrency(rev.cash)}</span>
+        <span style="color:var(--info)">Banka ${formatCurrency(rev.bank)}</span>
+        <span style="color:var(--danger)">Ödenmedi ${formatCurrency(rev.unpaid)}</span>
       </div>
     </div>`;
 
@@ -292,47 +292,47 @@ function showDeliveryModal(stopId, singleOrderId) {
     // VISIT MODE - no pending orders
     let visitHtml = `
       <div class="modal-handle"></div>
-      <div class="modal-title">Visit - ${escHtml(stop.n)}</div>
+      <div class="modal-title">Ziyaret - ${escHtml(stop.n)}</div>
       <div style="text-align:center;padding:12px 0">
         <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="var(--primary)" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        <p class="text-muted" style="margin-top:8px;font-size:13px">No pending orders for this customer</p>
+        <p class="text-muted" style="margin-top:8px;font-size:13px">Bu müşterinin bekleyen siparişi yok</p>
       </div>`;
 
     if (debt > 0) {
       visitHtml += `
         <div class="card" style="border-left:4px solid var(--danger)">
           <div class="flex-between">
-            <span style="font-size:13px;font-weight:600;color:var(--text-sec)">Outstanding Debt</span>
+            <span style="font-size:13px;font-weight:600;color:var(--text-sec)">Mevcut Borç</span>
             <span style="font-size:18px;font-weight:700;color:var(--danger)">${formatCurrency(debt)}</span>
           </div>
           <div style="margin-top:12px">
-            <div style="font-size:13px;font-weight:600;color:var(--text-sec);margin-bottom:6px">Collect Payment</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-sec);margin-bottom:6px">Ödeme Al</div>
             <div class="pay-options">
               <div class="pay-opt" onclick="selectVisitPayMethod('cash',this)">
-                <div class="pay-icon">&#163;</div>Cash
+                <div class="pay-icon">&#163;</div>Nakit
               </div>
               <div class="pay-opt" onclick="selectVisitPayMethod('bank',this)">
-                <div class="pay-icon">&#127974;</div>Bank
+                <div class="pay-icon">&#127974;</div>Banka
               </div>
             </div>
             <div id="visit-cash-input" class="hidden" style="margin-top:8px">
-              <label class="form-label">Amount received</label>
+              <label class="form-label">Alınan tutar</label>
               <input class="input" type="number" step="0.01" id="visit-cash-amount" value="${debt.toFixed(2)}" placeholder="0.00">
             </div>
           </div>
         </div>
         <button class="btn btn-success btn-block mt-2" onclick="confirmVisitWithPayment()" id="btn-confirm-visit-pay" disabled>
-          Collect Payment & Mark Visited
+          Ödeme Al ve Ziyaret Olarak İşaretle
         </button>`;
     }
 
     visitHtml += `
       <div class="form-group" style="margin-top:12px">
-        <label class="form-label">Visit Note (optional)</label>
-        <textarea class="textarea" id="visit-note" rows="2" style="min-height:50px" placeholder="Add a note..."></textarea>
+        <label class="form-label">Ziyaret Notu (opsiyonel)</label>
+        <textarea class="textarea" id="visit-note" rows="2" style="min-height:50px" placeholder="Not ekleyin..."></textarea>
       </div>
       <button class="btn ${debt > 0 ? 'btn-outline' : 'btn-success'} btn-block mt-1" onclick="confirmVisitOnly()">
-        ${debt > 0 ? 'Mark Visited (No Payment)' : 'Mark Visited'}
+        ${debt > 0 ? 'Ziyaret Olarak İşaretle (Ödemesiz)' : 'Ziyaret Olarak İşaretle'}
       </button>`;
 
     openModal(visitHtml);
@@ -340,31 +340,31 @@ function showDeliveryModal(stopId, singleOrderId) {
     // DELIVERY MODE - has pending orders
     openModal(`
       <div class="modal-handle"></div>
-      <div class="modal-title">Delivery - ${escHtml(stop.n)}</div>
+      <div class="modal-title">Teslimat - ${escHtml(stop.n)}</div>
       <div style="margin-bottom:12px">
-        <div style="font-size:13px;font-weight:600;color:var(--text-sec);margin-bottom:8px">Pending Orders (${pending.length})</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-sec);margin-bottom:8px">Bekleyen Siparişler (${pending.length})</div>
         ${itemsHtml}
         <div class="flex-between" style="font-size:15px;font-weight:700;padding:4px 0">
-          <span>Total</span><span id="delivery-grand-total">${formatCurrency(grandTotal)}</span>
+          <span>Toplam</span><span id="delivery-grand-total">${formatCurrency(grandTotal)}</span>
         </div>
         ${debt > 0 ? `<div class="flex-between" style="font-size:13px;padding:4px 0;color:var(--danger)">
-          <span>Outstanding Debt</span><span style="font-weight:600">${formatCurrency(debt)}</span>
+          <span>Mevcut Borç</span><span style="font-weight:600">${formatCurrency(debt)}</span>
         </div>` : ''}
       </div>
-      <div style="font-size:13px;font-weight:600;color:var(--text-sec);margin-bottom:8px">Payment Method</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text-sec);margin-bottom:8px">Ödeme Yöntemi</div>
       <div class="pay-options">
         <div class="pay-opt" onclick="selectPayMethod('cash',this)" data-method="cash">
-          <div class="pay-icon">&#163;</div>Cash
+          <div class="pay-icon">&#163;</div>Nakit
         </div>
         <div class="pay-opt" onclick="selectPayMethod('bank',this)" data-method="bank">
-          <div class="pay-icon">&#127974;</div>Bank
+          <div class="pay-icon">&#127974;</div>Banka
         </div>
         <div class="pay-opt" onclick="selectPayMethod('unpaid',this)" data-method="unpaid">
-          <div class="pay-icon">&#9203;</div>Not Paid
+          <div class="pay-icon">&#9203;</div>Ödenmedi
         </div>
       </div>
       <div id="cash-amount-section" class="hidden" style="margin-top:8px">
-        <label class="form-label">Cash amount received</label>
+        <label class="form-label">Alınan nakit tutar</label>
         <input class="input" type="number" step="0.01" id="cash-amount-input" value="${grandTotal.toFixed(2)}" placeholder="0.00" oninput="updateCashRemainder()">
         <p class="text-muted" style="font-size:12px;margin-top:4px" id="cash-remainder-msg"></p>
       </div>
@@ -470,7 +470,7 @@ function updateCashRemainder() {
   const paid = parseFloat(cashInput.value) || 0;
   const remainder = grandTotal - paid;
   if (remainder > 0.01) {
-    msg.innerHTML = `<span style="color:var(--danger)">${formatCurrency(remainder)} will be added to debt</span>`;
+    msg.innerHTML = `<span style="color:var(--danger)">${formatCurrency(remainder)} borca eklenecek</span>`;
   } else {
     msg.innerHTML = '';
   }

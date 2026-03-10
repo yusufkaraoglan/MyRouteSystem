@@ -5,9 +5,9 @@ function renderOrders(fullRender) {
   if (!isSearchUpdate) {
     let html = `
       <header class="topbar">
-        <h1>Orders</h1>
+        <h1>Siparişler</h1>
         <div class="topbar-actions">
-          <span class="badge badge-outline" id="orders-pending-badge">${Object.values(S.orders).filter(o=>o.status==='pending'&&o.payMethod!=='visit').length} pending</span>
+          <span class="badge badge-outline" id="orders-pending-badge">${Object.values(S.orders).filter(o=>o.status==='pending'&&o.payMethod!=='visit').length} bekleyen</span>
         </div>
       </header>
       <div class="page-body">
@@ -16,9 +16,9 @@ function renderOrders(fullRender) {
           <input type="text" placeholder="Müşteri ara..." value="${escHtml(S.ordersSearch)}" oninput="S.ordersSearch=this.value;renderOrderResults()">
         </div>
         <div class="chip-group">
-          <button class="chip ${S.ordersFilter==='pending'?'active':''}" onclick="S.ordersFilter='pending';renderOrders(true)">Pending</button>
-          <button class="chip ${S.ordersFilter==='delivered'?'active':''}" onclick="S.ordersFilter='delivered';renderOrders(true)">Delivered</button>
-          <button class="chip ${S.ordersFilter==='all'?'active':''}" onclick="S.ordersFilter='all';renderOrders(true)">All</button>
+          <button class="chip ${S.ordersFilter==='pending'?'active':''}" onclick="S.ordersFilter='pending';renderOrders(true)">Bekleyen</button>
+          <button class="chip ${S.ordersFilter==='delivered'?'active':''}" onclick="S.ordersFilter='delivered';renderOrders(true)">Teslim Edildi</button>
+          <button class="chip ${S.ordersFilter==='all'?'active':''}" onclick="S.ordersFilter='all';renderOrders(true)">Tümü</button>
         </div>
         <div id="orders-results"></div>
       </div>
@@ -65,14 +65,16 @@ function renderOrderResults() {
 
   // Update badge
   const badge = document.getElementById('orders-pending-badge');
-  if (badge) badge.textContent = Object.values(S.orders).filter(o=>o.status==='pending'&&o.payMethod!=='visit').length + ' pending';
+  if (badge) badge.textContent = Object.values(S.orders).filter(o=>o.status==='pending'&&o.payMethod!=='visit').length + ' bekleyen';
 
   const isPending = S.ordersFilter === 'pending';
   const locked = S.ordersLockedOrders || [];
 
   let html = '';
   if (orders.length === 0) {
-    html = `<div class="empty-state"><p><b>Sipariş bulunamadı</b></p><p>+ butonuyla yeni sipariş oluşturun</p></div>`;
+    html = `<div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      <p><b>Sipariş bulunamadı</b></p><p>+ butonuyla yeni sipariş oluşturun</p></div>`;
   } else {
     if (isPending) {
       html += `<div id="orders-drag-list">`;
@@ -102,8 +104,8 @@ function renderOrderResults() {
             ${isDelivered ? `<span style="font-size:11px;color:var(--text-muted)">${o.payMethod || ''} · ${formatDate(o.deliveredAt)}</span>` : ''}
             <div class="order-card-v2-actions">
               ${o.status === 'pending' ? `
-                <button class="btn btn-success btn-sm" onclick="showDeliveryFromOrder('${o.id}')">Deliver</button>
-                <button class="btn btn-outline btn-sm" onclick="showEditOrderModal('${o.id}')">Edit</button>
+                <button class="btn btn-success btn-sm" onclick="showDeliveryFromOrder('${o.id}')">Teslim</button>
+                <button class="btn btn-outline btn-sm" onclick="showEditOrderModal('${o.id}')">Düzenle</button>
               ` : ''}
               <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger)" onclick="deleteOrderFromList('${o.id}')">Sil</button>
             </div>
@@ -359,23 +361,23 @@ function renderOrderFormModal(title, existingNote) {
     </div>
     <div class="order-form-body">
       <div class="form-group">
-        <label class="form-label">Customer</label>
+        <label class="form-label">Müşteri</label>
         <div class="input" id="cust-display"
              onclick="${editingOrderId ? '' : 'openCustomerPicker()'}"
              style="cursor:${editingOrderId ? 'default' : 'pointer'};color:${selectedStop ? 'var(--text)' : 'var(--text-muted)'};${editingOrderId ? 'opacity:0.6' : ''}">
-          ${selectedStop ? escHtml(selectedStop.n) : 'Tap to select customer...'}
+          ${selectedStop ? escHtml(selectedStop.n) : 'Müşteri seçmek için dokunun...'}
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Items${itemCount > 0 ? ' (' + itemCount + ')' : ''}</label>
-        <div id="order-items-list">${itemsHtml || '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:13px">No items added yet</div>'}</div>
+        <label class="form-label">Ürünler${itemCount > 0 ? ' (' + itemCount + ')' : ''}</label>
+        <div id="order-items-list">${itemsHtml || '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:13px">Henüz ürün eklenmedi</div>'}</div>
         <button class="btn btn-outline btn-block mt-1" onclick="openProductPicker()" style="gap:6px">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add Item
+          Ürün Ekle
         </button>
       </div>
       <div class="flex-between mb-2" style="padding:12px;background:var(--card);border-radius:var(--radius-sm)">
-        <span style="font-weight:700;font-size:16px">Total</span>
+        <span style="font-weight:700;font-size:16px">Toplam</span>
         <span style="font-weight:700;font-size:18px;color:var(--primary)" id="order-total">${formatCurrency(total)}</span>
       </div>
       <div class="form-group">
@@ -423,7 +425,7 @@ function openProductPicker() {
   overlay.innerHTML = `
     <div class="ppick-header">
       <button class="btn-ghost" onclick="closeProductPicker()" style="font-size:20px;padding:4px">&larr;</button>
-      <input type="text" id="ppick-search" placeholder="Search product..." autofocus
+      <input type="text" id="ppick-search" placeholder="Ürün ara..." autofocus
              oninput="filterProductPicker(this.value)">
     </div>
     <div class="ppick-list" id="ppick-list"></div>
@@ -449,7 +451,7 @@ function updateDoneBtn() {
   const btn = document.getElementById('ppick-done-btn');
   if (!btn) return;
   const count = tempOrderItems.filter(i => i.name).length;
-  btn.textContent = count > 0 ? 'Done (' + count + ' selected)' : 'Done';
+  btn.textContent = count > 0 ? 'Tamam (' + count + ' seçildi)' : 'Tamam';
 }
 
 function filterProductPicker(q) {
@@ -475,7 +477,7 @@ function filterProductPicker(q) {
   }).join('');
 
   if (filtered.length === 0) {
-    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">No products found</div>';
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">Ürün bulunamadı</div>';
   }
 }
 
@@ -505,7 +507,7 @@ function openCustomerPicker() {
   overlay.innerHTML = `
     <div class="cpick-header">
       <button class="btn-ghost" onclick="closeCustomerPicker()" style="font-size:20px;padding:4px">&larr;</button>
-      <input type="text" id="cpick-search" placeholder="Search customer..." autofocus
+      <input type="text" id="cpick-search" placeholder="Müşteri ara..." autofocus
              oninput="filterCPicker(this.value)">
     </div>
     <div class="cpick-list" id="cpick-list"></div>
@@ -574,9 +576,9 @@ function removeOrderItem(idx) {
 }
 
 function saveOrder() {
-  if (tempOrderCustomerId == null) { appAlert('Please select a customer.'); return; }
+  if (tempOrderCustomerId == null) { appAlert('Lütfen bir müşteri seçin.'); return; }
   const items = tempOrderItems.filter(i => i.name && i.qty > 0);
-  if (items.length === 0) { appAlert('Please add at least one item.'); return; }
+  if (items.length === 0) { appAlert('Lütfen en az bir ürün ekleyin.'); return; }
 
   const existingOrder = editingOrderId ? S.orders[editingOrderId] : null;
   const previousItems = existingOrder ? (existingOrder.items || []) : [];

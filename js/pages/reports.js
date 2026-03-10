@@ -8,24 +8,26 @@ function renderReports() {
 
   let html = `
     <header class="topbar">
-      <h1>Reports</h1>
+      <h1>Raporlar</h1>
     </header>
-    <!-- Report Tabs -->
-    <div class="day-tabs" style="border-bottom:1px solid var(--border)">
-      <button class="day-tab ${reportTab==='overview'?'active':''}" style="${reportTab==='overview'?'background:var(--primary);color:#fff':''}" onclick="reportTab='overview';renderReports()">Overview</button>
-      <button class="day-tab ${reportTab==='products'?'active':''}" style="${reportTab==='products'?'background:var(--primary);color:#fff':''}" onclick="reportTab='products';renderReports()">Products</button>
-      <button class="day-tab ${reportTab==='customers'?'active':''}" style="${reportTab==='customers'?'background:var(--primary);color:#fff':''}" onclick="reportTab='customers';renderReports()">Customers</button>
-      <button class="day-tab ${reportTab==='debts'?'active':''}" style="${reportTab==='debts'?'background:var(--primary);color:#fff':''}" onclick="reportTab='debts';renderReports()">Debts</button>
-      <button class="day-tab ${reportTab==='export'?'active':''}" style="${reportTab==='export'?'background:var(--primary);color:#fff':''}" onclick="reportTab='export';renderReports()">Export</button>
-      <button class="day-tab ${reportTab==='history'?'active':''}" style="${reportTab==='history'?'background:var(--primary);color:#fff':''}" onclick="reportTab='history';renderReports()">History</button>
+    <!-- Report Tabs (scrollable chips) -->
+    <div style="padding:8px 16px;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap">
+      <div class="chip-group" style="flex-wrap:nowrap;display:inline-flex;margin-bottom:0">
+        <button class="chip ${reportTab==='overview'?'active':''}" onclick="reportTab='overview';renderReports()">Özet</button>
+        <button class="chip ${reportTab==='products'?'active':''}" onclick="reportTab='products';renderReports()">Ürünler</button>
+        <button class="chip ${reportTab==='customers'?'active':''}" onclick="reportTab='customers';renderReports()">Müşteriler</button>
+        <button class="chip ${reportTab==='debts'?'active':''}" onclick="reportTab='debts';renderReports()">Borçlar</button>
+        <button class="chip ${reportTab==='export'?'active':''}" onclick="reportTab='export';renderReports()">Dışa Aktar</button>
+        <button class="chip ${reportTab==='history'?'active':''}" onclick="reportTab='history';renderReports()">Geçmiş</button>
+      </div>
     </div>
     <div class="page-body">
       <!-- Date Range (always visible) -->
       <div class="date-range-bar">
-        <button class="date-btn ${S.reportRange==='today'?'active':''}" onclick="setReportRange('today')">Today</button>
-        <button class="date-btn ${S.reportRange==='week'?'active':''}" onclick="setReportRange('week')">This Week</button>
-        <button class="date-btn ${S.reportRange==='month'?'active':''}" onclick="setReportRange('month')">This Month</button>
-        <button class="date-btn ${S.reportRange==='custom'?'active':''}" onclick="setReportRange('custom')">Custom</button>
+        <button class="date-btn ${S.reportRange==='today'?'active':''}" onclick="setReportRange('today')">Bugün</button>
+        <button class="date-btn ${S.reportRange==='week'?'active':''}" onclick="setReportRange('week')">Bu Hafta</button>
+        <button class="date-btn ${S.reportRange==='month'?'active':''}" onclick="setReportRange('month')">Bu Ay</button>
+        <button class="date-btn ${S.reportRange==='custom'?'active':''}" onclick="setReportRange('custom')">Özel</button>
       </div>
       ${S.reportRange === 'custom' ? `
         <div class="custom-dates">
@@ -40,46 +42,46 @@ function renderReports() {
       <div class="metric-grid">
         <div class="metric-card">
           <div class="metric-value text-success">${formatCurrency(data.totalRevenue)}</div>
-          <div class="metric-label">Revenue</div>
+          <div class="metric-label">Gelir</div>
         </div>
         <div class="metric-card">
           <div class="metric-value">${data.deliveryCount}</div>
-          <div class="metric-label">Deliveries</div>
+          <div class="metric-label">Teslimat</div>
         </div>
         <div class="metric-card">
           <div class="metric-value" style="color:var(--purple)">${data.visitCount}</div>
-          <div class="metric-label">Visits</div>
+          <div class="metric-label">Ziyaret</div>
         </div>
         <div class="metric-card">
           <div class="metric-value">${formatCurrency(data.avgOrder)}</div>
-          <div class="metric-label">Avg Order</div>
+          <div class="metric-label">Ort. Sipariş</div>
         </div>
         <div class="metric-card">
           <div class="metric-value text-danger">${formatCurrency(data.totalDebt)}</div>
-          <div class="metric-label">Total Debt</div>
+          <div class="metric-label">Toplam Borç</div>
         </div>
       </div>
 
       <!-- Payment Breakdown -->
       <div class="report-section">
-        <h3>Payment Summary</h3>
+        <h3>Ödeme Özeti</h3>
         <div class="card">
           <div class="flex-between mb-1">
-            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--success);display:inline-block"></span> Cash</span>
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--success);display:inline-block"></span> Nakit</span>
             <span style="font-weight:600">${formatCurrency(data.payments.cash)}</span>
           </div>
           <div class="progress-bar mb-2">
             <div class="progress-fill" style="width:${data.totalRevenue > 0 ? (data.payments.cash / data.totalRevenue * 100) : 0}%;background:var(--success)"></div>
           </div>
           <div class="flex-between mb-1">
-            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--info);display:inline-block"></span> Bank</span>
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--info);display:inline-block"></span> Banka</span>
             <span style="font-weight:600">${formatCurrency(data.payments.bank)}</span>
           </div>
           <div class="progress-bar mb-2">
             <div class="progress-fill" style="width:${data.totalRevenue > 0 ? (data.payments.bank / data.totalRevenue * 100) : 0}%;background:var(--info)"></div>
           </div>
           <div class="flex-between mb-1">
-            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--danger);display:inline-block"></span> Unpaid</span>
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--danger);display:inline-block"></span> Ödenmedi</span>
             <span style="font-weight:600">${formatCurrency(data.payments.unpaid)}</span>
           </div>
           <div class="progress-bar">
@@ -92,9 +94,9 @@ function renderReports() {
       <!-- Product Filter -->
       ${S.catalog.length > 0 ? `
         <div style="margin-bottom:12px">
-          <div style="font-size:12px;font-weight:600;color:var(--text-sec);margin-bottom:6px">Filter Products</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-sec);margin-bottom:6px">Ürün Filtresi</div>
           <div class="chip-group">
-            <button class="chip ${S.reportProducts.length===0?'active':''}" onclick="S.reportProducts=[];renderReports()">All</button>
+            <button class="chip ${S.reportProducts.length===0?'active':''}" onclick="S.reportProducts=[];renderReports()">Tümü</button>
             ${S.catalog.map(c => `
               <button class="chip ${S.reportProducts.includes(c.name)?'active':''}"
                 onclick="toggleReportProduct('${escHtml(c.name)}')">${escHtml(c.name)}</button>
@@ -105,11 +107,11 @@ function renderReports() {
 
       <!-- Product Breakdown -->
       <div class="report-section">
-        <h3>Product Breakdown</h3>
-        ${Object.keys(data.products).length === 0 ? '<p class="text-muted" style="font-size:13px">No data for this period</p>' : `
+        <h3>Ürün Dağılımı</h3>
+        ${Object.keys(data.products).length === 0 ? '<p class="text-muted" style="font-size:13px">Bu dönem için veri yok</p>' : `
           <div class="card" style="padding:0;overflow:hidden">
             <table class="report-table">
-              <thead><tr><th>Product</th><th class="text-right">Qty</th><th class="text-right">Revenue</th></tr></thead>
+              <thead><tr><th>Ürün</th><th class="text-right">Adet</th><th class="text-right">Gelir</th></tr></thead>
               <tbody>
                 ${Object.entries(data.products)
                   .sort((a, b) => b[1].revenue - a[1].revenue)
@@ -125,11 +127,11 @@ function renderReports() {
     html += `
       <!-- Top Customers -->
       <div class="report-section">
-        <h3>Top Customers</h3>
-        ${Object.keys(data.customers).length === 0 ? '<p class="text-muted" style="font-size:13px">No data for this period</p>' : `
+        <h3>En İyi Müşteriler</h3>
+        ${Object.keys(data.customers).length === 0 ? '<p class="text-muted" style="font-size:13px">Bu dönem için veri yok</p>' : `
           <div class="card" style="padding:0;overflow:hidden">
             <table class="report-table">
-              <thead><tr><th>Customer</th><th class="text-right">Orders</th><th class="text-right">Revenue</th></tr></thead>
+              <thead><tr><th>Müşteri</th><th class="text-right">Sipariş</th><th class="text-right">Gelir</th></tr></thead>
               <tbody>
                 ${Object.entries(data.customers)
                   .sort((a, b) => b[1].revenue - a[1].revenue)
@@ -148,14 +150,14 @@ function renderReports() {
     const totalDebt = debtors.reduce((s, [_, v]) => s + v, 0);
     html += `
       <div class="card" style="text-align:center;margin-bottom:12px">
-        <div style="font-size:12px;color:var(--text-sec)">Total Outstanding</div>
+        <div style="font-size:12px;color:var(--text-sec)">Toplam Borç</div>
         <div style="font-size:28px;font-weight:700;color:var(--danger)">${formatCurrency(totalDebt)}</div>
-        <div class="text-muted" style="font-size:12px">${debtors.length} customer${debtors.length !== 1 ? 's' : ''} with debt</div>
+        <div class="text-muted" style="font-size:12px">${debtors.length} borçlu müşteri</div>
       </div>
-      ${debtors.length === 0 ? '<p class="text-muted text-center" style="font-size:13px;padding:20px">No outstanding debts</p>' : `
+      ${debtors.length === 0 ? '<p class="text-muted text-center" style="font-size:13px;padding:20px">Borçlu müşteri yok</p>' : `
         <div class="card" style="padding:0;overflow:hidden">
           <table class="report-table">
-            <thead><tr><th>Customer</th><th class="text-right">Debt</th></tr></thead>
+            <thead><tr><th>Müşteri</th><th class="text-right">Borç</th></tr></thead>
             <tbody>${debtors.map(([id, amount]) => {
               const s = getStop(parseInt(id));
               return `<tr onclick="showProfile(${id})" style="cursor:pointer"><td>${s ? escHtml(s.n) : 'Unknown'}</td><td class="text-right text-danger" style="font-weight:600">${formatCurrency(amount)}</td></tr>`;
@@ -168,7 +170,7 @@ function renderReports() {
       <!-- Product Filter for Export -->
       ${S.catalog.length > 0 ? `
         <div style="margin-bottom:12px">
-          <div style="font-size:12px;font-weight:600;color:var(--text-sec);margin-bottom:6px">Select Products for Report</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-sec);margin-bottom:6px">Rapor İçin Ürün Seçin</div>
           <div class="chip-group">
             ${S.catalog.map(c => `
               <button class="chip ${S.reportProducts.includes(c.name)?'active':''}"
@@ -180,11 +182,11 @@ function renderReports() {
 
       <!-- Product Sales Report -->
       <div class="report-section">
-        <h3>Product Sales Report</h3>
+        <h3>Ürün Satış Raporu</h3>
         ${(() => {
-          if (S.reportProducts.length === 0) return '<div class="card" style="text-align:center;padding:20px"><p class="text-muted" style="font-size:13px">Select products above to generate a sales report</p></div>';
+          if (S.reportProducts.length === 0) return '<div class="card" style="text-align:center;padding:20px"><p class="text-muted" style="font-size:13px">Satış raporu oluşturmak için yukarıdan ürün seçin</p></div>';
           const report = calcProductSalesReport();
-          if (report.rows.length === 0) return '<div class="card" style="text-align:center;padding:20px"><p class="text-muted" style="font-size:13px">No matching orders for this period</p></div>';
+          if (report.rows.length === 0) return '<div class="card" style="text-align:center;padding:20px"><p class="text-muted" style="font-size:13px">Bu dönem için eşleşen sipariş yok</p></div>';
           let t = `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">`;
           report.rows.forEach(r => {
             let payHtml = '';
@@ -430,10 +432,10 @@ function getReportDateLabel() {
 
 function exportProductReportPDF() {
   const report = calcProductSalesReport();
-  if (report.rows.length === 0) { appAlert('No data to export.'); return; }
+  if (report.rows.length === 0) { appAlert('Dışa aktarılacak veri yok.'); return; }
 
   const dateLabel = getReportDateLabel();
-  const exportDate = new Date().toLocaleString('en-GB');
+  const exportDate = new Date().toLocaleString('tr-TR');
   const productsLabel = S.reportProducts.join(', ');
 
   let tableRows = '';
@@ -505,7 +507,7 @@ function exportProductReportPDF() {
 
 function exportProductReportExcel() {
   const report = calcProductSalesReport();
-  if (report.rows.length === 0) { appAlert('No data to export.'); return; }
+  if (report.rows.length === 0) { appAlert('Dışa aktarılacak veri yok.'); return; }
 
   const data = [['Customer', 'Date', 'Payment', 'Unpaid', 'Products']];
   report.rows.forEach(r => {

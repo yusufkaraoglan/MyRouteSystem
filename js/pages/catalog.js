@@ -3,25 +3,25 @@ function renderCatalog() {
   let html = `
     <header class="topbar">
       <button class="btn-ghost" onclick="showPage('settings')" style="font-size:18px;padding:8px">&larr;</button>
-      <h1 style="flex:1;text-align:center;font-size:16px">Product Catalog</h1>
-      <span class="badge badge-outline">${S.catalog.length} products</span>
+      <h1 style="flex:1;text-align:center;font-size:16px">Ürün Kataloğu</h1>
+      <span class="badge badge-outline">${S.catalog.length} ürün</span>
     </header>
     <div class="page-body">
       <div class="card" style="margin-bottom:12px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Add Product</div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Ürün Ekle</div>
         <div style="display:flex;gap:8px;margin-bottom:8px">
-          <input class="input" id="cat-name" placeholder="Product name" style="flex:1;min-width:0">
+          <input class="input" id="cat-name" placeholder="Ürün adı" style="flex:1;min-width:0">
         </div>
         <div style="display:flex;gap:8px">
-          <input class="input" id="cat-unit" placeholder="Unit" style="flex:1;min-width:0">
+          <input class="input" id="cat-unit" placeholder="Birim" style="flex:1;min-width:0">
           <input class="input" id="cat-price" placeholder="£0.00" type="number" step="0.01" style="flex:1;min-width:0">
           <input class="input" id="cat-stock" placeholder="Stok" type="number" style="flex:0.7;min-width:0">
-          <button class="btn btn-primary" onclick="addCatalogItem()" style="flex-shrink:0;padding:10px 20px">Add</button>
+          <button class="btn btn-primary" onclick="addCatalogItem()" style="flex-shrink:0;padding:10px 20px">Ekle</button>
         </div>
       </div>`;
 
   if (S.catalog.length === 0) {
-    html += `<div class="empty-state"><p><b>No products yet</b></p><p>Add products above</p></div>`;
+    html += `<div class="empty-state"><p><b>Henüz ürün yok</b></p><p>Yukarıdan ürün ekleyin</p></div>`;
   } else {
     S.catalog.forEach((c, i) => {
       html += `
@@ -176,8 +176,8 @@ function addCatalogItem() {
   const price = parseFloat(document.getElementById('cat-price').value) || 0;
   const stockVal = document.getElementById('cat-stock').value;
   const stock = stockVal !== '' ? parseInt(stockVal) : null;
-  if (!name) { appAlert('Product name is required.'); return; }
-  if (S.catalog.some(c => c.name === name)) { appAlert('Product already exists.'); return; }
+  if (!name) { appAlert('Ürün adı gerekli.'); return; }
+  if (S.catalog.some(c => c.name === name)) { appAlert('Bu ürün zaten mevcut.'); return; }
   S.catalog.push({ name, unit, price, stock });
   save.catalog();
   if (curPage === 'catalog') renderCatalog();

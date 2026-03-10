@@ -10,14 +10,14 @@ function renderMapPage() {
   let html = `
     <header class="topbar">
       <button class="btn-ghost" onclick="showPage('settings')" style="font-size:18px;padding:8px">&larr;</button>
-      <h1 style="flex:1;text-align:center;font-size:16px">Map</h1>
+      <h1 style="flex:1;text-align:center;font-size:16px">Harita</h1>
       <div style="width:36px"></div>
     </header>
     <div class="chip-group" style="padding:8px 16px;background:var(--card);border-bottom:1px solid var(--border);margin:0">
-      <button class="chip ${S.mapFilter==='all'?'active':''}" onclick="S.mapFilter='all';refreshMapMarkers()">All</button>
-      <button class="chip ${S.mapFilter==='A'?'active':''}" onclick="S.mapFilter='A';refreshMapMarkers()">Week A</button>
-      <button class="chip ${S.mapFilter==='B'?'active':''}" onclick="S.mapFilter='B';refreshMapMarkers()">Week B</button>
-      <button class="chip ${S.mapFilter==='none'?'active':''}" onclick="S.mapFilter='none';refreshMapMarkers()">Unassigned</button>
+      <button class="chip ${S.mapFilter==='all'?'active':''}" onclick="S.mapFilter='all';refreshMapMarkers()">Tümü</button>
+      <button class="chip ${S.mapFilter==='A'?'active':''}" onclick="S.mapFilter='A';refreshMapMarkers()">Hafta A</button>
+      <button class="chip ${S.mapFilter==='B'?'active':''}" onclick="S.mapFilter='B';refreshMapMarkers()">Hafta B</button>
+      <button class="chip ${S.mapFilter==='none'?'active':''}" onclick="S.mapFilter='none';refreshMapMarkers()">Atanmamış</button>
     </div>
     <div id="map-container" style="flex:1;min-height:0"></div>`;
   document.getElementById('page-map').innerHTML = html;
@@ -84,14 +84,14 @@ function refreshMapMarkers() {
       iconAnchor: [12, 12]
     });
 
-    const dayLabel = dayObj ? `Week ${dayObj.week} - ${dayObj.label}` : 'Unassigned';
+    const dayLabel = dayObj ? `Hafta ${dayObj.week} - ${dayObj.label}` : 'Atanmamış';
     const popupHtml = `<div style="min-width:160px">
       <b>${orderNum ? orderNum + '. ' : ''}${escHtml(stop.n)}</b><br>
       ${stop.a ? `<span style="font-size:12px;color:#666">${escHtml(stop.a)}</span><br>` : ''}
       <span style="font-size:12px;color:#666">${escHtml(stop.c)} &middot; ${escHtml(stop.p)}</span><br>
       <span style="font-size:12px;color:${color}">${dayLabel}</span><br>
-      <button onclick="showMapAssignModal(${stop.id})" style="margin-top:6px;padding:4px 10px;font-size:12px;background:${color};color:#fff;border:none;border-radius:6px;cursor:pointer">Assign Day</button>
-      <button onclick="showProfile(${stop.id})" style="margin-top:6px;padding:4px 10px;font-size:12px;background:#eee;color:#333;border:none;border-radius:6px;cursor:pointer;margin-left:4px">Profile</button>
+      <button onclick="showMapAssignModal(${stop.id})" style="margin-top:6px;padding:4px 10px;font-size:12px;background:${color};color:#fff;border:none;border-radius:6px;cursor:pointer">Gün Ata</button>
+      <button onclick="showProfile(${stop.id})" style="margin-top:6px;padding:4px 10px;font-size:12px;background:#eee;color:#333;border:none;border-radius:6px;cursor:pointer;margin-left:4px">Profil</button>
     </div>`;
 
     const marker = L.marker([geo.lat, geo.lng], { icon }).bindPopup(popupHtml).addTo(leafletMap);
@@ -146,10 +146,10 @@ function showMapAssignModal(stopId) {
   const currentDay = S.assign[stop.id];
 
   let html = `<div class="modal-handle"></div>
-    <div class="modal-title">Assign - ${escHtml(stop.n)}</div>`;
+    <div class="modal-title">Gün Ata - ${escHtml(stop.n)}</div>`;
 
   ['A', 'B'].forEach(week => {
-    html += `<div style="font-size:13px;font-weight:600;color:var(--text-sec);margin:12px 0 6px">Week ${week}</div>`;
+    html += `<div style="font-size:13px;font-weight:600;color:var(--text-sec);margin:12px 0 6px">Hafta ${week}</div>`;
     DAYS.filter(d => d.week === week).forEach(d => {
       const isActive = currentDay === d.id;
       html += `<button class="btn ${isActive ? 'btn-primary' : 'btn-outline'} btn-block mb-1"
@@ -161,7 +161,7 @@ function showMapAssignModal(stopId) {
   });
 
   if (currentDay) {
-    html += `<button class="btn btn-danger btn-block mt-2" onclick="mapUnassignDay()">Remove from Route</button>`;
+    html += `<button class="btn btn-danger btn-block mt-2" onclick="mapUnassignDay()">Rotadan Çıkar</button>`;
   }
   openModal(html);
 }
@@ -185,15 +185,15 @@ function mapUnassignDay() {
 // ══════════════════════════════════════════════════════════════
 function showImportModal() {
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">Import from Excel</div>
+    <div class="modal-title">Excel'den İçe Aktar</div>
     <p class="text-muted mb-2" style="font-size:13px">
-      Upload an Excel file (.xlsx) with columns:<br>
-      <b>Name, Address, City, Postcode</b>
+      Aşağıdaki sütunlarla bir Excel dosyası (.xlsx) yükleyin:<br>
+      <b>İsim, Adres, Şehir, Posta Kodu</b>
     </p>
     <div class="form-group">
       <input type="file" accept=".xlsx,.xls" class="input" onchange="importExcel(this.files[0])" id="import-file">
     </div>
-    <button class="btn btn-outline btn-block" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-outline btn-block" onclick="closeModal()">İptal</button>
   `);
 }
 
@@ -228,11 +228,11 @@ function importExcel(file) {
 
       save.stops();
       closeModal();
-      appAlert(`Import complete: ${added} new customers added.`);
+      appAlert(`İçe aktarma tamamlandı: ${added} yeni müşteri eklendi.`);
       if (curPage === 'customers') renderCustomers();
       else if (curPage === 'settings') renderSettings();
     } catch (err) {
-      appAlert('Import failed: ' + err.message);
+      appAlert('İçe aktarma hatası: ' + err.message);
     }
   };
   reader.readAsArrayBuffer(file);

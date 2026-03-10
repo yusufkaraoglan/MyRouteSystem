@@ -4,18 +4,18 @@
 function renderSettings() {
   let html = `
     <header class="topbar">
-      <h1>Settings</h1>
+      <h1>Ayarlar</h1>
     </header>
     <div class="page-body">
 
       <!-- Catalog Section -->
       <div class="settings-section">
-        <div class="settings-title">Product Catalog</div>
+        <div class="settings-title">Ürün Kataloğu</div>
         <div class="settings-card">
           <div class="settings-item" onclick="showPage('catalog')" style="cursor:pointer">
             <div>
-              <div class="settings-item-label">Manage Catalog</div>
-              <div class="settings-item-desc">${S.catalog.length} products</div>
+              <div class="settings-item-label">Kataloğu Yönet</div>
+              <div class="settings-item-desc">${S.catalog.length} ürün</div>
             </div>
             <span style="color:var(--text-muted)">&rarr;</span>
           </div>
@@ -24,12 +24,12 @@ function renderSettings() {
 
       <!-- Map Section -->
       <div class="settings-section">
-        <div class="settings-title">Map</div>
+        <div class="settings-title">Harita</div>
         <div class="settings-card">
           <div class="settings-item" onclick="showMapModal()" style="cursor:pointer">
             <div>
-              <div class="settings-item-label">View Map</div>
-              <div class="settings-item-desc">See all customers on map</div>
+              <div class="settings-item-label">Haritayı Görüntüle</div>
+              <div class="settings-item-desc">Tüm müşterileri haritada gör</div>
             </div>
             <span style="color:var(--text-muted)">&rarr;</span>
           </div>
@@ -45,19 +45,19 @@ function renderSettings() {
 
       <!-- Import/Export Section -->
       <div class="settings-section">
-        <div class="settings-title">Data</div>
+        <div class="settings-title">Veri</div>
         <div class="settings-card">
           <div class="settings-item" style="cursor:pointer" onclick="showImportModal()">
             <div>
-              <div class="settings-item-label">Import from Excel</div>
-              <div class="settings-item-desc">Upload customer list (.xlsx)</div>
+              <div class="settings-item-label">Excel'den İçe Aktar</div>
+              <div class="settings-item-desc">Müşteri listesi yükle (.xlsx)</div>
             </div>
             <span style="color:var(--text-muted)">&rarr;</span>
           </div>
           <div class="settings-item" style="cursor:pointer" onclick="exportExcel()">
             <div>
-              <div class="settings-item-label">Export to Excel</div>
-              <div class="settings-item-desc">Download all data</div>
+              <div class="settings-item-label">Excel'e Dışa Aktar</div>
+              <div class="settings-item-desc">Tüm verileri indir</div>
             </div>
             <span style="color:var(--text-muted)">&rarr;</span>
           </div>
@@ -89,14 +89,14 @@ function renderSettings() {
 
       <!-- Danger Zone -->
       <div class="settings-section">
-        <div class="settings-title" style="color:var(--danger)">Danger Zone</div>
+        <div class="settings-title" style="color:var(--danger)">Tehlikeli Bölge</div>
         <div class="settings-card">
           <div class="settings-item">
             <div>
-              <div class="settings-item-label">Reset All Data</div>
-              <div class="settings-item-desc">Clear all local data and start fresh</div>
+              <div class="settings-item-label">Tüm Verileri Sıfırla</div>
+              <div class="settings-item-desc">Tüm yerel verileri sil ve sıfırdan başla</div>
             </div>
-            <button class="btn btn-danger btn-sm" onclick="resetAllData()">Reset</button>
+            <button class="btn btn-danger btn-sm" onclick="resetAllData()">Sıfırla</button>
           </div>
         </div>
       </div>
@@ -104,7 +104,7 @@ function renderSettings() {
       <!-- App Info -->
       <div class="text-center text-muted" style="padding:20px;font-size:12px">
         Costadoro Delivery v2.0<br>
-        ${STOPS.length} customers &middot; ${Object.keys(S.orders).length} orders
+        ${STOPS.length} müşteri &middot; ${Object.keys(S.orders).length} sipariş
       </div>
     </div>`;
 
