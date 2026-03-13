@@ -270,28 +270,77 @@ function selectAndCopySQL() {
 
 async function verifyDbSetup() {
   const ok = await checkDbTables();
-  if (ok) {
-    showToast('Tables verified! Cloud sync is now active.', 'success');
-    closeModal();
-    // Push existing local data to DB
-    showToast('Uploading local data to cloud...', 'info', 5000);
-    save.stops();
-    save.assign();
-    save.routeOrder();
-    save.catalog();
-    save.pricing();
-    save.recurringOrders();
-    const orderIds = Object.keys(S.orders);
-    if (orderIds.length > 0) save.orders(orderIds);
-    Object.entries(S.debts).forEach(([cid, amount]) => DB.setDebt(cid, amount));
-    save.debtHistory();
-    cacheSet('db_migrated', true);
-    setTimeout(() => {
-      showToast('All data uploaded!', 'success');
-      renderSettings();
-    }, 2000);
-  } else {
+  if (!ok) {
     appAlert('Tables still not found. Please make sure you ran the SQL in Supabase SQL Editor and clicked "Run".');
+    return;
+  }
+
+  showToast('Tables verified! Uploading data to cloud...', 'success', 8000);
+  closeModal();
+
+  try {
+    // Step 1: Customers + Products first (no foreign key deps)
+    const customerPromises = STOPS.map(s => DB.saveCustomer({
+      id: s.id, name: s.n, address: s.a, city: s.c, postcode: s.p,
+      lat: (S.geo[s.id] && S.geo[s.id].lat) || null,
+      lng: (S.geo[s.id] && S.geo[s.id].lng) || null,
+      note: S.cnotes[s.id] || '', contact_name: s.cn || '',
+      phone: s.ph || '', email: s.em || ''
+    }));
+    const productPromises = S.catalog.map(c => DB.saveProduct({
+      name: c.name, unit: c.unit || '1', price: c.price || 0,
+      stock: c.stock ?? null, track_stock: c.trackStock !== false,
+      sort_order: c.sort_order || 0
+    }));
+    await Promise.all([...customerPromises, ...productPromises]);
+
+    // Step 2: Everything that references customers (needs customers to exist first)
+    const step2 = [];
+
+    // Assignments
+    Object.entries(S.assign).forEach(([cid, dayId]) => {
+      step2.push(DB.setAssignment(cid, dayId));
+    });
+
+    // Route order
+    Object.entries(S.routeOrder).forEach(([dayId, cids]) => {
+      step2.push(DB.saveRouteOrder(dayId, Array.isArray(cids) ? cids : []));
+    });
+
+    // Orders
+    Object.values(S.orders).forEach(order => {
+      step2.push(DB.saveOrder(order));
+    });
+
+    // Debts
+    Object.entries(S.debts).forEach(([cid, amount]) => {
+      step2.push(DB.setDebt(cid, amount));
+    });
+
+    // Debt history
+    Object.entries(S.debtHistory).forEach(([cid, entries]) => {
+      if (Array.isArray(entries)) {
+        entries.forEach(entry => step2.push(DB.addDebtHistoryEntry(cid, entry)));
+      }
+    });
+
+    // Customer pricing
+    Object.entries(S.customerPricing).forEach(([cid, pricingMap]) => {
+      step2.push(DB.setCustomerPricing(cid, pricingMap || {}));
+    });
+
+    // Recurring orders
+    Object.entries(S.recurringOrders).forEach(([cid, data]) => {
+      step2.push(DB.setRecurringOrder(cid, data));
+    });
+
+    await Promise.all(step2);
+
+    cacheSet('db_migrated', true);
+    showToast('All data uploaded!', 'success');
+    renderSettings();
+  } catch (e) {
+    showToast('Upload error: ' + e.message, 'error', 5000);
   }
 }
 
