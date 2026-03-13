@@ -381,6 +381,9 @@ function _renderDebugPanel() {
 async function init() {
   let dataLoaded = false;
 
+  // 0) Check if DB tables exist
+  await checkDbTables();
+
   // 1) Try new DB tables first (if previously migrated or has cache)
   const migrated = cacheGet('db_migrated', false);
   if (migrated) {
@@ -389,8 +392,8 @@ async function init() {
     console.log('Init: loaded from new DB, STOPS:', STOPS.length);
   }
 
-  // 2) If no data yet, try to fetch from new tables directly
-  if (!dataLoaded) {
+  // 2) If no data yet and DB is ready, try to fetch from new tables directly
+  if (!dataLoaded && _dbReady) {
     try {
       const customers = await dbSelect('customers', 'select=id&limit=1');
       if (customers && customers.length > 0) {
@@ -474,6 +477,7 @@ async function init() {
   const useNewDB = cacheGet('db_migrated', false);
   if (useNewDB) {
     const doSync = async () => {
+      if (!_dbReady) return; // skip sync if tables don't exist
       const ok = await syncAll();
       if (ok) { await loadStateFromDB(); renderCurrentPage(); }
     };

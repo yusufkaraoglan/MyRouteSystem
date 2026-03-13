@@ -12,6 +12,10 @@ const DB_HEADERS = {
   'Content-Type': 'application/json'
 };
 
+// ── DB Ready Flag ─────────────────────────────────────────
+// Set to false when tables don't exist (404 errors)
+let _dbReady = true;
+
 // ── Offline Queue ──────────────────────────────────────────
 // Stores pending operations when offline
 const offlineQueue = [];
@@ -32,7 +36,29 @@ async function dbSelect(table, params = '') {
   }
 }
 
+// Check if required tables exist in Supabase
+async function checkDbTables() {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/orders?select=id&limit=1`, {
+      headers: DB_HEADERS
+    });
+    if (r.status === 404 || r.status === 400) {
+      _dbReady = false;
+      console.warn('DB tables not found — running in cache-only mode');
+      if (typeof dbLog === 'function') dbLog('DB tables NOT found — cache-only mode');
+      return false;
+    }
+    _dbReady = true;
+    if (typeof dbLog === 'function') dbLog('DB tables OK');
+    return true;
+  } catch (e) {
+    console.warn('DB check failed:', e.message);
+    return false;
+  }
+}
+
 async function dbInsert(table, data, opts = {}) {
+  if (!_dbReady) return null;
   try {
     const headers = { ...DB_HEADERS };
     if (opts.upsert) headers['Prefer'] = 'resolution=merge-duplicates';
@@ -59,6 +85,7 @@ async function dbInsert(table, data, opts = {}) {
 }
 
 async function dbUpdate(table, match, data) {
+  if (!_dbReady) return null;
   try {
     const params = Object.entries(match).map(([k, v]) => `${k}=eq.${encodeURIComponent(v)}`).join('&');
     const r = await fetch(`${SB_URL}/rest/v1/${table}?${params}`, {
@@ -82,6 +109,7 @@ async function dbUpdate(table, match, data) {
 }
 
 async function dbDelete(table, match) {
+  if (!_dbReady) return null;
   try {
     const params = Object.entries(match).map(([k, v]) => `${k}=eq.${encodeURIComponent(v)}`).join('&');
     const r = await fetch(`${SB_URL}/rest/v1/${table}?${params}`, {
@@ -194,7 +222,9 @@ const DB = {
     const data = {
       id: c.id, name: c.name || c.n, address: c.address || c.a || '',
       city: c.city || c.c || '', postcode: c.postcode || c.p || '',
-      lat: c.lat || null, lng: c.lng || null, note: c.note || ''
+      lat: c.lat || null, lng: c.lng || null, note: c.note || '',
+      contact_name: c.contact_name || c.cn || '',
+      phone: c.phone || c.ph || '', email: c.email || c.em || ''
     };
     await dbUpsert('customers', data);
     // Update cache

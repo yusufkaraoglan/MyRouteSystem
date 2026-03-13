@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS customers (
   lat DOUBLE PRECISION,
   lng DOUBLE PRECISION,
   note TEXT DEFAULT '',
+  contact_name TEXT DEFAULT '',
+  phone TEXT DEFAULT '',
+  email TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE customers DISABLE ROW LEVEL SECURITY;

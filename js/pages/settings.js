@@ -87,6 +87,20 @@ function renderSettings() {
       </div>
 
 
+      <!-- Database Status -->
+      <div class="settings-section">
+        <div class="settings-title">Database</div>
+        <div class="settings-card">
+          <div class="settings-item">
+            <div>
+              <div class="settings-item-label">Supabase Sync</div>
+              <div class="settings-item-desc" id="db-status-text">${_dbReady ? '<span style="color:var(--success)">Connected — tables OK</span>' : '<span style="color:var(--danger)">Tables not found — cache-only mode</span>'}</div>
+            </div>
+            ${!_dbReady ? `<button class="btn btn-primary btn-sm" onclick="showDbSetupModal()">Setup</button>` : `<button class="btn btn-outline btn-sm" onclick="forceSyncNow()">Sync Now</button>`}
+          </div>
+        </div>
+      </div>
+
       <!-- Danger Zone -->
       <div class="settings-section">
         <div class="settings-title" style="color:var(--danger)">Danger Zone</div>
@@ -168,6 +182,96 @@ async function importJSON(input) {
     renderSettings();
   } catch (e) {
     appAlert('Could not read file: ' + e.message);
+  }
+}
+
+function showDbSetupModal() {
+  const sqlUrl = 'https://supabase.com/dashboard/project/mvvvqloqwjimlbqeotsd/sql/new';
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">Database Setup Required</div>
+    <div style="padding:0 16px 16px;font-size:13px;line-height:1.5">
+      <p style="margin-bottom:12px">The Supabase database tables have not been created yet. All data is currently stored in your browser only (localStorage).</p>
+      <p style="margin-bottom:12px"><b>To enable cloud sync:</b></p>
+      <ol style="margin-bottom:16px;padding-left:20px">
+        <li style="margin-bottom:6px">Open the <a href="${sqlUrl}" target="_blank" style="color:var(--primary);text-decoration:underline">Supabase SQL Editor</a></li>
+        <li style="margin-bottom:6px">Copy the SQL below and paste it in the editor</li>
+        <li style="margin-bottom:6px">Click "Run" to create all tables</li>
+        <li style="margin-bottom:6px">Come back here and tap "Verify"</li>
+      </ol>
+      <button class="btn btn-outline btn-block" onclick="copySetupSQL()" style="margin-bottom:8px">Copy SQL to Clipboard</button>
+      <button class="btn btn-primary btn-block" onclick="verifyDbSetup()">Verify Tables</button>
+    </div>
+  `);
+}
+
+async function copySetupSQL() {
+  try {
+    // Try to fetch the SQL file from the server
+    const r = await fetch('migration/001_create_tables.sql');
+    let sql;
+    if (r.ok) {
+      sql = await r.text();
+    } else {
+      // Fallback: build SQL inline
+      sql = [
+        "CREATE TABLE IF NOT EXISTS customers (id SERIAL PRIMARY KEY, name TEXT NOT NULL, address TEXT DEFAULT '', city TEXT DEFAULT '', postcode TEXT DEFAULT '', lat DOUBLE PRECISION, lng DOUBLE PRECISION, note TEXT DEFAULT '', contact_name TEXT DEFAULT '', phone TEXT DEFAULT '', email TEXT DEFAULT '', created_at TIMESTAMPTZ DEFAULT now()); ALTER TABLE customers DISABLE ROW LEVEL SECURITY;",
+        "CREATE TABLE IF NOT EXISTS products (id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE, unit TEXT DEFAULT '1', price NUMERIC(10,2) DEFAULT 0, stock INT, track_stock BOOLEAN DEFAULT true, sort_order INT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT now()); ALTER TABLE products DISABLE ROW LEVEL SECURITY;",
+        "CREATE TABLE IF NOT EXISTS assignments (customer_id INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE, day_id TEXT NOT NULL, PRIMARY KEY (customer_id)); ALTER TABLE assignments DISABLE ROW LEVEL SECURITY;",
+        "CREATE TABLE IF NOT EXISTS route_order (day_id TEXT NOT NULL, customer_id INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE, position INT DEFAULT 0, PRIMARY KEY (day_id, customer_id)); ALTER TABLE route_order DISABLE ROW LEVEL SECURITY;",
+        "CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, customer_id INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE, status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'delivered')), pay_method TEXT, cash_paid NUMERIC(10,2), delivery_date DATE, note TEXT DEFAULT '', created_at TIMESTAMPTZ DEFAULT now(), delivered_at TIMESTAMPTZ); ALTER TABLE orders DISABLE ROW LEVEL SECURITY;",
+        "CREATE TABLE IF NOT EXISTS order_items (id SERIAL PRIMARY KEY, order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE, product_name TEXT NOT NULL, qty INT DEFAULT 1, price NUMERIC(10,2) DEFAULT 0); ALTER TABLE order_items DISABLE ROW LEVEL SECURITY;",
+        "CREATE TABLE IF NOT EXISTS debts (customer_id INT PRIMARY KEY REFERENCES customers(id) ON DELETE CASCADE, amount NUMERIC(10,2) DEFAULT 0); ALTER TABLE debts DISABLE ROW LEVEL SECURITY;",
+        "CREATE TABLE IF NOT EXISTS debt_history (id SERIAL PRIMARY KEY, customer_id INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE, amount NUMERIC(10,2) DEFAULT 0, note TEXT DEFAULT '', order_id TEXT, created_at TIMESTAMPTZ DEFAULT now()); ALTER TABLE debt_history DISABLE ROW LEVEL SECURITY;",
+        "CREATE TABLE IF NOT EXISTS customer_pricing (customer_id INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE, product_name TEXT NOT NULL, price NUMERIC(10,2) NOT NULL, PRIMARY KEY (customer_id, product_name)); ALTER TABLE customer_pricing DISABLE ROW LEVEL SECURITY;",
+        "CREATE TABLE IF NOT EXISTS recurring_orders (customer_id INT PRIMARY KEY REFERENCES customers(id) ON DELETE CASCADE, items JSONB NOT NULL DEFAULT '[]', note TEXT DEFAULT '', created_at TIMESTAMPTZ DEFAULT now()); ALTER TABLE recurring_orders DISABLE ROW LEVEL SECURITY;",
+        "CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value JSONB, updated_at TIMESTAMPTZ DEFAULT now()); ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;",
+        "CREATE TABLE IF NOT EXISTS migrations (id SERIAL PRIMARY KEY, name TEXT NOT NULL, executed_at TIMESTAMPTZ DEFAULT now()); ALTER TABLE migrations DISABLE ROW LEVEL SECURITY;"
+      ].join("\n\n");
+    }
+    await navigator.clipboard.writeText(sql);
+    showToast('SQL copied to clipboard!', 'success');
+  } catch (e) {
+    appAlert('Could not copy. Please open the file migration/001_create_tables.sql and copy it manually.');
+  }
+}
+
+async function verifyDbSetup() {
+  const ok = await checkDbTables();
+  if (ok) {
+    showToast('Tables verified! Cloud sync is now active.', 'success');
+    closeModal();
+    // Push existing local data to DB
+    showToast('Uploading local data to cloud...', 'info', 5000);
+    save.stops();
+    save.assign();
+    save.routeOrder();
+    save.catalog();
+    save.pricing();
+    save.recurringOrders();
+    const orderIds = Object.keys(S.orders);
+    if (orderIds.length > 0) save.orders(orderIds);
+    Object.entries(S.debts).forEach(([cid, amount]) => DB.setDebt(cid, amount));
+    save.debtHistory();
+    cacheSet('db_migrated', true);
+    setTimeout(() => {
+      showToast('All data uploaded!', 'success');
+      renderSettings();
+    }, 2000);
+  } else {
+    appAlert('Tables still not found. Please make sure you ran the SQL in Supabase SQL Editor and clicked "Run".');
+  }
+}
+
+async function forceSyncNow() {
+  showToast('Syncing...', 'info', 2000);
+  const ok = await syncAll();
+  if (ok) {
+    await loadStateFromDB();
+    renderCurrentPage();
+    showToast('Sync complete!', 'success');
+  } else {
+    showToast('Sync failed', 'error');
   }
 }
 
