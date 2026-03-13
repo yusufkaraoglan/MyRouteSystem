@@ -156,7 +156,7 @@ async function importJSON(input) {
     if (d.assign) { S.assign = d.assign; save.assign(); }
     if (d.routeOrder) { S.routeOrder = d.routeOrder; save.routeOrder(); }
     if (d.geo) { S.geo = d.geo; save.geo(); }
-    if (d.orders) { S.orders = d.orders; save.orders(); }
+    if (d.orders) { S.orders = d.orders; save.orders(Object.keys(d.orders)); }
     if (d.debts) { S.debts = d.debts; save.debts(); }
     if (d.debtHistory) { S.debtHistory = d.debtHistory; save.debtHistory(); }
     if (d.cnotes) { S.cnotes = d.cnotes; save.cnotes(); }

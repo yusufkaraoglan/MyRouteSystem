@@ -273,6 +273,7 @@ function autoCreateRecurringOrders() {
   });
 
   let created = 0;
+  const createdIds = [];
   assigned.forEach(stopId => {
     const rec = S.recurringOrders[stopId];
     if (!rec || !rec.items || rec.items.length === 0) return;
@@ -287,11 +288,11 @@ function autoCreateRecurringOrders() {
       status: 'pending', payMethod: null,
       createdAt: new Date().toISOString(), deliveredAt: null
     };
-    DB.saveOrder(S.orders[id]);
     created++;
+    createdIds.push(id);
   });
   if (created > 0) {
-    save.orders();
+    save.orders(createdIds);
   }
   localStorage.setItem(lastAutoKey, today + '_' + dayId);
 }

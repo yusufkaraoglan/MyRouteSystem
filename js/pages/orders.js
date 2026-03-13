@@ -637,9 +637,7 @@ function saveOrder() {
 
   const savedOrderId = editingOrderId || newOrderId;
   editingOrderId = null;
-  save.orders();
-  // Persist to DB
-  if (S.orders[savedOrderId]) DB.saveOrder(S.orders[savedOrderId]);
+  save.orders([savedOrderId]);
   closeOrderForm();
   closeModal();
   if (curPage === 'orders') renderOrders();

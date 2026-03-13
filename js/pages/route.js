@@ -405,8 +405,7 @@ function confirmVisitOnly() {
     note: visitNote || 'Visit (no orders)', status: 'delivered',
     payMethod: 'visit', createdAt: now, deliveredAt: now
   };
-  save.orders();
-  DB.saveOrder(S.orders[vid]);
+  save.orders([vid]);
   closeModal();
   rerenderRouteKeepScroll();
 }
@@ -439,8 +438,7 @@ function confirmVisitWithPayment() {
     note: visitNote || `Visit - debt payment ${formatCurrency(cleared)}`, status: 'delivered',
     payMethod: visitPayMethod, createdAt: now, deliveredAt: now
   };
-  save.orders();
-  DB.saveOrder(S.orders[vid]);
+  save.orders([vid]);
   closeModal();
   rerenderRouteKeepScroll();
 }
@@ -527,9 +525,7 @@ function confirmDelivery() {
       DB.setDebt(stopId, S.debts[stopId] || 0);
     }
 
-    save.orders();
-    // Persist each delivered order to DB
-    pending.forEach(o => DB.saveOrder(o));
+    save.orders(pending.map(o => o.id));
     closeModal();
     if (curPage === 'orders') renderOrders();
     else if (curPage === 'profile') renderProfile();

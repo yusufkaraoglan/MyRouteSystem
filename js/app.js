@@ -170,7 +170,16 @@ const save = {
     });
   },
   geo: () => { /* stored in customers table via save.stops */ },
-  orders: () => { cacheSet('orders', S.orders); },
+  orders: (changedOrderIds) => {
+    cacheSet('orders', S.orders);
+    // Also persist changed orders to Supabase
+    if (changedOrderIds && Array.isArray(changedOrderIds)) {
+      changedOrderIds.forEach(id => {
+        if (S.orders[id]) DB.saveOrder(S.orders[id]);
+        else DB.deleteOrder(id);
+      });
+    }
+  },
   debts: () => { cacheSet('debts', S.debts); },
   debtHistory: () => {
     cacheSet('debt_history', S.debtHistory);
@@ -423,10 +432,14 @@ async function init() {
   // Periodic sync
   const useNewDB = cacheGet('db_migrated', false);
   if (useNewDB) {
-    setInterval(() => { if (navigator.onLine) syncAll(); }, 5 * 60 * 1000);
-    window.addEventListener('online', () => { syncAll(); flushOfflineQueue(); });
+    const doSync = async () => {
+      const ok = await syncAll();
+      if (ok) { await loadStateFromDB(); renderCurrentPage(); }
+    };
+    setInterval(() => { if (navigator.onLine) doSync(); }, 5 * 60 * 1000);
+    window.addEventListener('online', () => { doSync(); flushOfflineQueue(); });
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && navigator.onLine) syncAll();
+      if (!document.hidden && navigator.onLine) doSync();
     });
   } else {
     // Legacy periodic sync

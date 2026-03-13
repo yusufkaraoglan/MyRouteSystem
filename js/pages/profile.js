@@ -191,8 +191,7 @@ async function deleteOrder(orderId) {
     save.debtHistory();
     DB.setDebt(order.customerId, S.debts[order.customerId] || 0);
   }
-  save.orders();
-  DB.deleteOrder(orderId);
+  save.orders([orderId]);
   if (curPage === 'profile') renderProfile();
   else if (curPage === 'orders') renderOrders();
 }
@@ -299,8 +298,7 @@ function saveEditDeliveredOrder(orderId) {
     save.debtHistory();
     DB.setDebt(o.customerId, S.debts[o.customerId] || 0);
   }
-  save.orders();
-  DB.saveOrder(o);
+  save.orders([o.id]);
   closeModal();
   if (curPage === 'profile') renderProfile();
 }
