@@ -8,19 +8,33 @@ function renderReports() {
     <header class="topbar">
       <h1>Reports</h1>
     </header>
-    <!-- Report Tabs (scrollable chips) -->
-    <div style="padding:8px 16px;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap">
-      <div class="chip-group" style="flex-wrap:nowrap;display:inline-flex;margin-bottom:0">
-        <button class="chip ${reportTab==='overview'?'active':''}" onclick="reportTab='overview';renderReports()">Overview</button>
-        <button class="chip ${reportTab==='products'?'active':''}" onclick="reportTab='products';renderReports()">Products</button>
-        <button class="chip ${reportTab==='customers'?'active':''}" onclick="reportTab='customers';renderReports()">Customers</button>
-        <button class="chip ${reportTab==='debts'?'active':''}" onclick="reportTab='debts';renderReports()">Debts</button>
-        <button class="chip ${reportTab==='export'?'active':''}" onclick="reportTab='export';renderReports()">Export</button>
-        <button class="chip ${reportTab==='history'?'active':''}" onclick="reportTab='history';renderReports()">History</button>
-      </div>
+    <div class="report-tabs-bar">
+      <button class="report-tab-btn ${reportTab==='overview'?'active':''}" onclick="reportTab='overview';renderReports()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="5" width="4" height="16" rx="1"/><rect x="17" y="8" width="4" height="13" rx="1"/></svg>
+        Overview
+      </button>
+      <button class="report-tab-btn ${reportTab==='products'?'active':''}" onclick="reportTab='products';renderReports()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        Products
+      </button>
+      <button class="report-tab-btn ${reportTab==='customers'?'active':''}" onclick="reportTab='customers';renderReports()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Customers
+      </button>
+      <button class="report-tab-btn ${reportTab==='debts'?'active':''}" onclick="reportTab='debts';renderReports()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Debts
+      </button>
+      <button class="report-tab-btn ${reportTab==='export'?'active':''}" onclick="reportTab='export';renderReports()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+      <button class="report-tab-btn ${reportTab==='history'?'active':''}" onclick="reportTab='history';renderReports()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        History
+      </button>
     </div>
     <div class="page-body">
-      <!-- Date Range (always visible) -->
       <div class="date-range-bar">
         <button class="date-btn ${S.reportRange==='today'?'active':''}" onclick="setReportRange('today')">Today</button>
         <button class="date-btn ${S.reportRange==='week'?'active':''}" onclick="setReportRange('week')">This Week</button>
@@ -35,206 +49,255 @@ function renderReports() {
       ` : ''}`;
 
   if (reportTab === 'overview') {
-    html += `
-      <!-- Summary Cards -->
-      <div class="metric-grid">
-        <div class="metric-card">
-          <div class="metric-value text-success">${formatCurrency(data.totalRevenue)}</div>
-          <div class="metric-label">Revenue</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-value">${data.deliveryCount}</div>
-          <div class="metric-label">Deliveries</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-value" style="color:var(--purple)">${data.visitCount}</div>
-          <div class="metric-label">Visits</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-value">${formatCurrency(data.avgOrder)}</div>
-          <div class="metric-label">Avg. Order</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-value text-danger">${formatCurrency(data.totalDebt)}</div>
-          <div class="metric-label">Total Debt</div>
-        </div>
-      </div>
-
-      <!-- Payment Breakdown -->
-      <div class="report-section">
-        <h3>Payment Summary</h3>
-        <div class="card">
-          <div class="flex-between mb-1">
-            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--success);display:inline-block"></span> Cash</span>
-            <span style="font-weight:600">${formatCurrency(data.payments.cash)}</span>
-          </div>
-          <div class="progress-bar mb-2">
-            <div class="progress-fill" style="width:${data.totalRevenue > 0 ? (data.payments.cash / data.totalRevenue * 100) : 0}%;background:var(--success)"></div>
-          </div>
-          <div class="flex-between mb-1">
-            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--info);display:inline-block"></span> Bank</span>
-            <span style="font-weight:600">${formatCurrency(data.payments.bank)}</span>
-          </div>
-          <div class="progress-bar mb-2">
-            <div class="progress-fill" style="width:${data.totalRevenue > 0 ? (data.payments.bank / data.totalRevenue * 100) : 0}%;background:var(--info)"></div>
-          </div>
-          <div class="flex-between mb-1">
-            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:var(--danger);display:inline-block"></span> Unpaid</span>
-            <span style="font-weight:600">${formatCurrency(data.payments.unpaid)}</span>
-          </div>
-          <div class="progress-bar">
-            <div class="progress-fill" style="width:${data.totalRevenue > 0 ? (data.payments.unpaid / data.totalRevenue * 100) : 0}%;background:var(--danger)"></div>
-          </div>
-        </div>
-      </div>`;
+    html += renderOverviewTab(data);
   } else if (reportTab === 'products') {
-    html += `
-      <!-- Product Filter -->
-      ${S.catalog.length > 0 ? `
-        <div style="margin-bottom:12px">
-          <div style="font-size:12px;font-weight:600;color:var(--text-sec);margin-bottom:6px">Product Filter</div>
-          <div class="chip-group">
-            <button class="chip ${S.reportProducts.length===0?'active':''}" onclick="S.reportProducts=[];renderReports()">All</button>
-            ${S.catalog.map(c => `
-              <button class="chip ${S.reportProducts.includes(c.name)?'active':''}"
-                onclick="toggleReportProduct('${escHtml(c.name)}')">${escHtml(c.name)}</button>
-            `).join('')}
-          </div>
-        </div>
-      ` : ''}
-
-      <!-- Product Breakdown -->
-      <div class="report-section">
-        <h3>Product Breakdown</h3>
-        ${Object.keys(data.products).length === 0 ? '<p class="text-muted" style="font-size:13px">No data for this period</p>' : `
-          <div class="card" style="padding:0;overflow:hidden">
-            <table class="report-table">
-              <thead><tr><th>Product</th><th class="text-right">Qty</th><th class="text-right">Revenue</th></tr></thead>
-              <tbody>
-                ${Object.entries(data.products)
-                  .sort((a, b) => b[1].revenue - a[1].revenue)
-                  .map(([name, d]) => `
-                    <tr><td>${escHtml(name)}</td><td class="text-right">${d.qty}</td><td class="text-right">${formatCurrency(d.revenue)}</td></tr>
-                  `).join('')}
-              </tbody>
-            </table>
-          </div>
-        `}
-      </div>`;
+    html += renderProductsTab(data);
   } else if (reportTab === 'customers') {
-    html += `
-      <!-- Top Customers -->
-      <div class="report-section">
-        <h3>Top Customers</h3>
-        ${Object.keys(data.customers).length === 0 ? '<p class="text-muted" style="font-size:13px">No data for this period</p>' : `
-          <div class="card" style="padding:0;overflow:hidden">
-            <table class="report-table">
-              <thead><tr><th>Customer</th><th class="text-right">Orders</th><th class="text-right">Revenue</th></tr></thead>
-              <tbody>
-                ${Object.entries(data.customers)
-                  .sort((a, b) => b[1].revenue - a[1].revenue)
-                  .slice(0, 30)
-                  .map(([id, d]) => {
-                    const s = getStop(parseInt(id));
-                    return `<tr onclick="showProfile(${id})" style="cursor:pointer"><td>${s ? escHtml(s.n) : 'Unknown'}</td><td class="text-right">${d.orders}</td><td class="text-right">${formatCurrency(d.revenue)}</td></tr>`;
-                  }).join('')}
-              </tbody>
-            </table>
-          </div>
-        `}
-      </div>`;
+    html += renderCustomersTab(data);
   } else if (reportTab === 'debts') {
-    const debtors = Object.entries(S.debts).filter(([_, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-    const totalDebt = debtors.reduce((s, [_, v]) => s + v, 0);
-    html += `
-      <div class="card" style="text-align:center;margin-bottom:12px">
-        <div style="font-size:12px;color:var(--text-sec)">Total Debt</div>
-        <div style="font-size:28px;font-weight:700;color:var(--danger)">${formatCurrency(totalDebt)}</div>
-        <div class="text-muted" style="font-size:12px">${debtors.length} customers with debt</div>
-      </div>
-      ${debtors.length === 0 ? '<p class="text-muted text-center" style="font-size:13px;padding:20px">No customers with debt</p>' : `
-        <div class="card" style="padding:0;overflow:hidden">
-          <table class="report-table">
-            <thead><tr><th>Customer</th><th class="text-right">Debt</th></tr></thead>
-            <tbody>${debtors.map(([id, amount]) => {
-              const s = getStop(parseInt(id));
-              return `<tr onclick="showProfile(${id})" style="cursor:pointer"><td>${s ? escHtml(s.n) : 'Unknown'}</td><td class="text-right text-danger" style="font-weight:600">${formatCurrency(amount)}</td></tr>`;
-            }).join('')}</tbody>
-          </table>
-        </div>
-      `}`;
+    html += renderDebtsTab();
   } else if (reportTab === 'export') {
-    html += `
-      <!-- Product Filter for Export -->
-      ${S.catalog.length > 0 ? `
-        <div style="margin-bottom:12px">
-          <div style="font-size:12px;font-weight:600;color:var(--text-sec);margin-bottom:6px">Select Products for Report</div>
-          <div class="chip-group">
-            ${S.catalog.map(c => `
-              <button class="chip ${S.reportProducts.includes(c.name)?'active':''}"
-                onclick="toggleReportProduct('${escHtml(c.name)}')">${escHtml(c.name)}</button>
-            `).join('')}
-          </div>
-        </div>
-      ` : ''}
-
-      <!-- Product Sales Report -->
-      <div class="report-section">
-        <h3>Product Sales Report</h3>
-        ${(() => {
-          if (S.reportProducts.length === 0) return '<div class="card" style="text-align:center;padding:20px"><p class="text-muted" style="font-size:13px">Select products above to generate sales report</p></div>';
-          const report = calcProductSalesReport();
-          if (report.rows.length === 0) return '<div class="card" style="text-align:center;padding:20px"><p class="text-muted" style="font-size:13px">No matching orders for this period</p></div>';
-          let t = `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">`;
-          report.rows.forEach(r => {
-            let payHtml = '';
-            r.payDisplay.parts.forEach(p => {
-              const c = p.type === 'cash' ? 'var(--success)' : p.type === 'bank' ? 'var(--info)' : 'var(--danger)';
-              payHtml += `<span style="font-weight:700;color:${c};font-size:14px">${p.text}</span> `;
-            });
-            if (r.payDisplay.unpaidAmount > 0 && r.payDisplay.type !== 'unpaid') {
-              payHtml += `<span style="font-weight:600;color:var(--danger);font-size:11px">(remaining: ${formatCurrency(r.payDisplay.unpaidAmount)})</span>`;
-            }
-            t += `<div style="background:${r.isDebtPayment ? '#f0fdf4' : 'var(--card)'};border:1px solid var(--border);border-radius:10px;padding:10px 12px">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
-                <span style="font-weight:600;font-size:14px">${escHtml(r.name)}</span>
-                <span style="font-size:11px;color:var(--text-sec);white-space:nowrap;flex-shrink:0">${r.dateTime || ''}</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-                <div>${payHtml}</div>
-                <div style="font-size:12px;color:${r.isDebtPayment ? 'var(--success)' : 'var(--text-sec)'};text-align:right">${r.isDebtPayment ? '<em>'+r.productsSummary+'</em>' : r.productsSummary}</div>
-              </div>
-            </div>`;
-          });
-          t += `</div>
-          <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px">
-            <div style="font-size:13px;font-weight:700;margin-bottom:4px">TOTAL (${report.rows.length})</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:13px;font-weight:600">
-              <span style="color:var(--success)">Cash ${formatCurrency(report.totalCash)}</span>
-              <span style="color:var(--info)">Bank ${formatCurrency(report.totalBank)}</span>
-              <span style="color:var(--danger)">Unpaid ${formatCurrency(report.totalUnpaid)}</span>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-primary" style="flex:1;padding:12px" onclick="exportProductReportPDF()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              PDF
-            </button>
-            <button class="btn btn-outline" style="flex:1;padding:12px" onclick="exportProductReportExcel()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7h8M8 12h8M8 17h4"/></svg>
-              Excel
-            </button>
-          </div>`;
-          return t;
-        })()}
-      </div>`;
+    html += renderExportTab();
   } else if (reportTab === 'history') {
     html += renderDeliveryHistoryContent();
   }
 
   html += `</div>`;
-
   document.getElementById('page-reports').innerHTML = html;
+}
+
+function renderOverviewTab(data) {
+  const total = data.totalRevenue;
+  const cashPct = total > 0 ? (data.payments.cash / total * 100).toFixed(0) : 0;
+  const bankPct = total > 0 ? (data.payments.bank / total * 100).toFixed(0) : 0;
+  const unpaidPct = total > 0 ? (data.payments.unpaid / total * 100).toFixed(0) : 0;
+
+  return `
+    <div class="report-hero-card">
+      <div class="report-hero-label">Total Revenue</div>
+      <div class="report-hero-value">${formatCurrency(data.totalRevenue)}</div>
+      <div class="report-hero-sub">${data.deliveryCount} deliveries &middot; ${data.visitCount} visits</div>
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-icon" style="background:var(--success-light);color:var(--success)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        </div>
+        <div class="metric-value">${data.deliveryCount}</div>
+        <div class="metric-label">Deliveries</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon" style="background:var(--purple-light);color:var(--purple)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>
+        <div class="metric-value" style="color:var(--purple)">${data.visitCount}</div>
+        <div class="metric-label">Visits</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon" style="background:var(--info-light);color:var(--info)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        </div>
+        <div class="metric-value">${formatCurrency(data.avgOrder)}</div>
+        <div class="metric-label">Avg. Order</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon" style="background:var(--danger-light);color:var(--danger)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div class="metric-value text-danger">${formatCurrency(data.totalDebt)}</div>
+        <div class="metric-label">Total Debt</div>
+      </div>
+    </div>
+
+    <div class="report-section">
+      <h3>Payment Breakdown</h3>
+      <div class="card" style="padding:16px">
+        <div class="pay-breakdown-row">
+          <div class="pay-breakdown-label">
+            <span class="pay-dot" style="background:var(--success)"></span>Cash
+          </div>
+          <div class="pay-breakdown-bar"><div class="pay-breakdown-fill" style="width:${cashPct}%;background:var(--success)"></div></div>
+          <span class="pay-breakdown-amount" style="color:var(--success)">${formatCurrency(data.payments.cash)}</span>
+        </div>
+        <div class="pay-breakdown-row">
+          <div class="pay-breakdown-label">
+            <span class="pay-dot" style="background:var(--info)"></span>Bank
+          </div>
+          <div class="pay-breakdown-bar"><div class="pay-breakdown-fill" style="width:${bankPct}%;background:var(--info)"></div></div>
+          <span class="pay-breakdown-amount" style="color:var(--info)">${formatCurrency(data.payments.bank)}</span>
+        </div>
+        <div class="pay-breakdown-row">
+          <div class="pay-breakdown-label">
+            <span class="pay-dot" style="background:var(--danger)"></span>Unpaid
+          </div>
+          <div class="pay-breakdown-bar"><div class="pay-breakdown-fill" style="width:${unpaidPct}%;background:var(--danger)"></div></div>
+          <span class="pay-breakdown-amount" style="color:var(--danger)">${formatCurrency(data.payments.unpaid)}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderProductsTab(data) {
+  let html = '';
+  if (S.catalog.length > 0) {
+    html += `
+      <div style="margin-bottom:12px">
+        <div class="chip-group" style="flex-wrap:wrap">
+          <button class="chip ${S.reportProducts.length===0?'active':''}" onclick="S.reportProducts=[];renderReports()">All</button>
+          ${S.catalog.map(c => `
+            <button class="chip ${S.reportProducts.includes(c.name)?'active':''}"
+              onclick="toggleReportProduct('${escHtml(c.name)}')">${escHtml(c.name)}</button>
+          `).join('')}
+        </div>
+      </div>`;
+  }
+
+  const products = Object.entries(data.products).sort((a, b) => b[1].revenue - a[1].revenue);
+  if (products.length === 0) {
+    html += '<div class="empty-state" style="padding:30px"><p>No product data for this period</p></div>';
+  } else {
+    html += `<div class="report-section">`;
+    products.forEach(([name, d]) => {
+      html += `
+        <div class="report-row-card">
+          <div class="report-row-info">
+            <div class="report-row-name">${escHtml(name)}</div>
+            <div class="report-row-sub">${d.qty} sold</div>
+          </div>
+          <div class="report-row-value">${formatCurrency(d.revenue)}</div>
+        </div>`;
+    });
+    html += `</div>`;
+  }
+  return html;
+}
+
+function renderCustomersTab(data) {
+  const customers = Object.entries(data.customers).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 30);
+  if (customers.length === 0) {
+    return '<div class="empty-state" style="padding:30px"><p>No customer data for this period</p></div>';
+  }
+  let html = '<div class="report-section">';
+  customers.forEach(([id, d], idx) => {
+    const s = getStop(parseInt(id));
+    html += `
+      <div class="report-row-card" onclick="showProfile(${id})" style="cursor:pointer">
+        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+          <span class="report-rank">${idx + 1}</span>
+          <div class="report-row-info">
+            <div class="report-row-name">${s ? escHtml(s.n) : 'Unknown'}</div>
+            <div class="report-row-sub">${d.orders} orders</div>
+          </div>
+        </div>
+        <div class="report-row-value">${formatCurrency(d.revenue)}</div>
+      </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderDebtsTab() {
+  const debtors = Object.entries(S.debts).filter(([_, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const totalDebt = debtors.reduce((s, [_, v]) => s + v, 0);
+
+  let html = `
+    <div class="report-hero-card" style="background:linear-gradient(135deg, #FEF3F2, #FFF0EC)">
+      <div class="report-hero-label" style="color:var(--danger)">Total Outstanding</div>
+      <div class="report-hero-value" style="color:var(--danger)">${formatCurrency(totalDebt)}</div>
+      <div class="report-hero-sub">${debtors.length} customer${debtors.length !== 1 ? 's' : ''} with debt</div>
+    </div>`;
+
+  if (debtors.length === 0) {
+    html += '<div class="empty-state" style="padding:20px"><p>No customers with debt</p></div>';
+  } else {
+    html += '<div class="report-section">';
+    debtors.forEach(([id, amount]) => {
+      const s = getStop(parseInt(id));
+      html += `
+        <div class="report-row-card" onclick="showProfile(${id})" style="cursor:pointer">
+          <div class="report-row-info">
+            <div class="report-row-name">${s ? escHtml(s.n) : 'Unknown'}</div>
+          </div>
+          <div class="report-row-value text-danger">${formatCurrency(amount)}</div>
+        </div>`;
+    });
+    html += '</div>';
+  }
+  return html;
+}
+
+function renderExportTab() {
+  let html = '';
+  if (S.catalog.length > 0) {
+    html += `
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-sec);margin-bottom:6px">Select Products</div>
+        <div class="chip-group" style="flex-wrap:wrap">
+          ${S.catalog.map(c => `
+            <button class="chip ${S.reportProducts.includes(c.name)?'active':''}"
+              onclick="toggleReportProduct('${escHtml(c.name)}')">${escHtml(c.name)}</button>
+          `).join('')}
+        </div>
+      </div>`;
+  }
+
+  if (S.reportProducts.length === 0) {
+    html += '<div class="card" style="text-align:center;padding:30px"><p class="text-muted">Select products above to generate report</p></div>';
+    return html;
+  }
+
+  const report = calcProductSalesReport();
+  if (report.rows.length === 0) {
+    html += '<div class="card" style="text-align:center;padding:30px"><p class="text-muted">No matching orders for this period</p></div>';
+    return html;
+  }
+
+  html += '<div class="report-section">';
+  report.rows.forEach(r => {
+    let payHtml = '';
+    r.payDisplay.parts.forEach(p => {
+      const c = p.type === 'cash' ? 'var(--success)' : p.type === 'bank' ? 'var(--info)' : 'var(--danger)';
+      payHtml += `<span style="font-weight:700;color:${c};font-size:13px">${p.text}</span> `;
+    });
+    if (r.payDisplay.unpaidAmount > 0 && r.payDisplay.type !== 'unpaid') {
+      payHtml += `<span style="font-weight:600;color:var(--danger);font-size:11px">(${formatCurrency(r.payDisplay.unpaidAmount)} left)</span>`;
+    }
+    html += `
+      <div class="report-row-card" style="${r.isDebtPayment ? 'border-left:3px solid var(--success);background:var(--success-light)' : ''}">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-weight:600;font-size:14px">${escHtml(r.name)}</span>
+            <span style="font-size:11px;color:var(--text-muted);flex-shrink:0;margin-left:8px">${r.dateTime || ''}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>${payHtml}</div>
+            <div style="font-size:12px;color:${r.isDebtPayment ? 'var(--success)' : 'var(--text-sec)'};text-align:right;flex-shrink:0;margin-left:8px">${r.isDebtPayment ? '<em>'+r.productsSummary+'</em>' : r.productsSummary}</div>
+          </div>
+        </div>
+      </div>`;
+  });
+  html += `</div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700;margin-bottom:8px">TOTAL (${report.rows.length} orders)</div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:14px;font-weight:600">
+      <span style="color:var(--success)">Cash ${formatCurrency(report.totalCash)}</span>
+      <span style="color:var(--info)">Bank ${formatCurrency(report.totalBank)}</span>
+      <span style="color:var(--danger)">Unpaid ${formatCurrency(report.totalUnpaid)}</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="btn btn-primary" style="flex:1" onclick="exportProductReportPDF()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      PDF
+    </button>
+    <button class="btn btn-outline" style="flex:1" onclick="exportProductReportExcel()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7h8M8 12h8M8 17h4"/></svg>
+      Excel
+    </button>
+  </div>`;
+  return html;
 }
 
 function setReportRange(range) {
@@ -333,13 +396,11 @@ function calcProductSalesReport() {
     return o.items.some(item => S.reportProducts.includes(item.name));
   });
 
-  // Sort by delivery date
   filtered.sort((a, b) => (a.deliveredAt || '').localeCompare(b.deliveredAt || ''));
 
   const rows = [];
   let totalCash = 0, totalBank = 0, totalUnpaid = 0, grandTotal = 0;
 
-  // Each order = separate row
   filtered.forEach(o => {
     const stop = getStop(o.customerId);
     if (!stop) return;
@@ -389,7 +450,7 @@ function calcProductSalesReport() {
     });
   });
 
-  // Add debt payment rows (outstanding payment received)
+  // Add debt payment rows
   Object.entries(S.debtHistory).forEach(([cid, history]) => {
     if (!history) return;
     const stop = getStop(parseInt(cid));
@@ -417,14 +478,11 @@ function calcProductSalesReport() {
     });
   });
 
-  // Sort by date ascending (old to new)
   rows.sort((a, b) => (a.rawDate || '').localeCompare(b.rawDate || ''));
-
   return { rows, totalCash, totalBank, totalUnpaid, grandTotal };
 }
 
 function getReportDateLabel() {
-  if (S.reportRange === 'custom') return `${S.reportStart} to ${S.reportEnd}`;
   return `${S.reportStart} to ${S.reportEnd}`;
 }
 
@@ -527,10 +585,9 @@ function exportProductReportExcel() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// DELIVERY HISTORY PAGE
+// DELIVERY HISTORY
 // ══════════════════════════════════════════════════════════════
 function renderDeliveryHistoryContent() {
-  // Group all delivered orders by week
   const delivered = Object.values(S.orders).filter(o => o.status === 'delivered' && o.deliveredAt);
   const weeks = {};
   delivered.forEach(o => {
@@ -539,11 +596,8 @@ function renderDeliveryHistoryContent() {
     weeks[monday].push(o);
   });
 
-  // Sort weeks descending (most recent first)
   const sortedWeeks = Object.keys(weeks).sort((a, b) => b.localeCompare(a));
-
-  // Determine week label (A or B) using the same logic as getCurrentWeek
-  const ref = new Date(2026, 2, 2); // 2 March 2026 = Week A Monday
+  const ref = new Date(2026, 2, 2);
   function weekLabel(mondayStr) {
     const mon = new Date(mondayStr);
     const diffDays = Math.floor((mon - ref) / 86400000);
@@ -567,10 +621,9 @@ function renderDeliveryHistoryContent() {
       const isCurrent = monday === thisMonday;
       const monDate = new Date(monday);
       const endDate = new Date(monDate);
-      endDate.setDate(endDate.getDate() + 4); // Friday
+      endDate.setDate(endDate.getDate() + 4);
       const dateRange = monDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' - ' + endDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-      // Filter by search
       let filtered = orders;
       if (dhSearchTerm) {
         const term = dhSearchTerm.toLowerCase();
@@ -581,17 +634,14 @@ function renderDeliveryHistoryContent() {
         if (filtered.length === 0) return;
       }
 
-      // Sort within week: newest first
       filtered.sort((a, b) => (b.deliveredAt || '').localeCompare(a.deliveredAt || ''));
 
-      // Group by customer
       const byCustomer = {};
       filtered.forEach(o => {
         if (!byCustomer[o.customerId]) byCustomer[o.customerId] = [];
         byCustomer[o.customerId].push(o);
       });
 
-      // Week summary
       const totalRev = filtered.filter(o => o.payMethod !== 'visit').reduce((s, o) => s + calcOrderTotal(o), 0);
       const cashTotal = filtered.filter(o => o.payMethod === 'cash').reduce((s, o) => {
         const total = calcOrderTotal(o);
@@ -603,15 +653,15 @@ function renderDeliveryHistoryContent() {
       const deliveryCount = filtered.filter(o => o.payMethod !== 'visit').length;
 
       html += `
-        <div class="card" style="margin-bottom:12px;overflow:hidden">
-          <div style="padding:12px;background:${isCurrent ? 'var(--primary)' : '#f3f4f6'};color:${isCurrent ? '#fff' : 'var(--text)'}">
+        <div class="card" style="margin-bottom:12px;overflow:hidden;padding:0">
+          <div style="padding:12px 14px;background:${isCurrent ? 'var(--primary)' : 'var(--bg)'};color:${isCurrent ? '#fff' : 'var(--text)'}">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <div>
                 <b>Week ${wLabel}</b>${isCurrent ? ' (This Week)' : ''}
                 <div style="font-size:12px;opacity:0.8">${dateRange}</div>
               </div>
               <div style="text-align:right;font-size:12px">
-                <div>${deliveryCount} deliveries · ${visitCount} visits</div>
+                <div>${deliveryCount} deliveries &middot; ${visitCount} visits</div>
                 ${totalRev > 0 ? `<div style="font-weight:700">${formatCurrency(totalRev)}</div>` : ''}
               </div>
             </div>
@@ -620,7 +670,7 @@ function renderDeliveryHistoryContent() {
               <span>Bank: ${formatCurrency(bankTotal)}</span>
             </div>` : ''}
           </div>
-          <div style="padding:8px">`;
+          <div style="padding:4px 12px">`;
 
       Object.entries(byCustomer).forEach(([cid, cOrders]) => {
         const stop = getStop(cid);
@@ -628,13 +678,12 @@ function renderDeliveryHistoryContent() {
         const custTotal = cOrders.filter(o => o.payMethod !== 'visit').reduce((s, o) => s + calcOrderTotal(o), 0);
         const allVisit = cOrders.every(o => o.payMethod === 'visit');
 
-        html += `<div style="padding:8px;border-bottom:1px solid var(--border)">
+        html += `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <span style="font-weight:600;font-size:13px;cursor:pointer;color:var(--primary)" onclick="showProfile(${cid})">${escHtml(stop.n)}</span>
             <span style="font-size:12px;${allVisit ? 'color:#8b5cf6' : 'font-weight:600'}">${allVisit ? 'visited' : formatCurrency(custTotal)}</span>
           </div>`;
 
-        // Within customer, sort newest first
         cOrders.sort((a, b) => (b.deliveredAt || '').localeCompare(a.deliveredAt || '')).forEach(o => {
           const isVisit = o.payMethod === 'visit';
           const dt = new Date(o.deliveredAt);
@@ -657,7 +706,6 @@ function renderDeliveryHistoryContent() {
 }
 
 function renderDeliveryHistory() {
-  // Redirect to reports history tab
   reportTab = 'history';
   showPage('reports');
 }
