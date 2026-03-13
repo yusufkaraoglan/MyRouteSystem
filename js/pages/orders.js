@@ -23,7 +23,7 @@ function renderOrders(fullRender) {
         </div>
         <div id="orders-results"></div>
       </div>
-      <button class="fab" onclick="showNewOrderModal()" aria-label="New Order">
+      <button class="fab" onclick="openNewOrderPage()" aria-label="New Order">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>`;
     document.getElementById('page-orders').innerHTML = html;
@@ -106,7 +106,7 @@ function renderOrderResults() {
             <div class="order-card-v2-actions">
               ${o.status === 'pending' ? `
                 <button class="btn btn-success btn-sm" onclick="showDeliveryFromOrder('${o.id}')">Deliver</button>
-                <button class="btn btn-outline btn-sm" onclick="showEditOrderModal('${o.id}')">Edit</button>
+                <button class="btn btn-outline btn-sm" onclick="openEditOrderPage('${o.id}')">Edit</button>
               ` : ''}
               <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger)" onclick="deleteOrderFromList('${o.id}')">Delete</button>
             </div>
@@ -272,7 +272,9 @@ function quickReorder(customerId, lastOrderId) {
   tempOrderCustomerId = customerId;
   tempOrderItems = lastOrder.items.map(i => ({ name: i.name, qty: i.qty, price: i.price }));
   tempOrderDeliveryDate = '';
-  renderOrderFormModal('Reorder', lastOrder.note || '');
+  newOrderPreviousPage = curPage || 'orders';
+  newOrderProductSearch = '';
+  showPage('neworder');
 }
 
 function closeOrderForm() {
