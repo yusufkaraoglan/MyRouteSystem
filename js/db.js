@@ -199,7 +199,8 @@ function parseDebtHistoryRow(r) {
 function dedupeDebtHistory(entries) {
   const seen = new Set();
   return entries.filter(e => {
-    const key = e.date + '|' + e.amount + '|' + e.note;
+    const dateKey = (e.date || '').slice(0, 16);
+    const key = dateKey + '|' + e.amount + '|' + e.note;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

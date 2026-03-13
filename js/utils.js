@@ -19,10 +19,11 @@ function repairDebtHistoryTypes(dhMap) {
       }
       if (!e.id) e.id = uid();
     });
-    // Deduplicate
+    // Deduplicate (round date to minute to catch near-identical entries)
     const seen = new Set();
     dhMap[cid] = entries.filter(e => {
-      const key = e.date + '|' + e.amount + '|' + e.note;
+      const dateKey = (e.date || '').slice(0, 16);
+      const key = dateKey + '|' + e.amount + '|' + e.note;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
