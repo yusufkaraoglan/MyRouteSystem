@@ -580,12 +580,17 @@ function addDebt() {
 
 function showClearDebtModal() {
   const debt = S.debts[profileStopId] || 0;
+  const today = new Date().toISOString().slice(0, 10);
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">Collect Debt</div>
     <p class="mb-2">Current debt: <b>${formatCurrency(debt)}</b></p>
     <div class="form-group">
       <label class="form-label">Amount to collect</label>
       <input class="input" type="number" step="0.01" id="clear-amount" value="${debt.toFixed(2)}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Payment Date</label>
+      <input class="input" type="date" id="clear-date" value="${today}">
     </div>
     <div class="form-group">
       <label class="form-label">Payment Method</label>
@@ -610,9 +615,11 @@ function clearDebt() {
   const requested = parseFloat(document.getElementById('clear-amount').value) || 0;
   const amount = roundMoney(Math.min(debt, Math.max(0, requested)));
   if (amount <= 0) return;
+  const dateInput = document.getElementById('clear-date');
+  const payDate = dateInput && dateInput.value ? new Date(dateInput.value + 'T12:00:00').toISOString() : new Date().toISOString();
   S.debts[profileStopId] = Math.max(0, roundMoney(debt - amount));
   createDebtHistoryEntry(profileStopId, {
-    date: new Date().toISOString(), amount: amount, type: 'clear',
+    date: payDate, amount: amount, type: 'clear',
     note: 'Payment received (' + clearDebtMethod + ')'
   });
   save.debts();
