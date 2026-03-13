@@ -46,11 +46,14 @@ function renderNewOrderPage() {
   const noteEl = document.getElementById('neworder-note');
   const existingNote = noteEl ? noteEl.value : (isEdit && S.orders[editingOrderId] ? S.orders[editingOrderId].note || '' : '');
 
+  // Selected product count
+  const selectedCount = cartItems.length;
+
   let html = `
     <header class="topbar">
       <button class="btn-ghost" onclick="closeNewOrderPage()" style="font-size:20px;padding:4px 8px">&larr;</button>
       <h1 style="flex:1">${title}</h1>
-      ${cartItems.length > 0 ? `<span class="badge badge-info">${cartItems.length} items</span>` : ''}
+      ${selectedCount > 0 ? `<span class="badge badge-info">${selectedCount} items</span>` : ''}
     </header>
     <div class="page-body" id="neworder-body">
 
@@ -76,14 +79,19 @@ function renderNewOrderPage() {
 
       <!-- PRODUCTS SECTION -->
       <div class="neworder-section">
-        <div class="neworder-section-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-          Products
+        <div class="neworder-section-title" style="justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:6px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            Products
+          </div>
+          <button class="btn-ghost" onclick="openNewOrderProductPicker()" style="font-size:13px;color:var(--primary);font-weight:600;padding:4px 8px">
+            + Add Products
+          </button>
         </div>
-        ${buildNewOrderProductGrid()}
+        ${buildNewOrderSelectedProductsList()}
       </div>
 
-      <!-- CART SECTION -->
+      <!-- CART / QUANTITIES SECTION -->
       ${cartItems.length > 0 ? `
       <div class="neworder-section">
         <div class="neworder-section-title">
@@ -101,8 +109,19 @@ function renderNewOrderPage() {
         </div>
         <div class="form-group" style="margin-bottom:10px">
           <label class="form-label">Delivery Date</label>
-          <input class="input" type="date" id="neworder-delivery-date" value="${tempOrderDeliveryDate}" min="${new Date().toISOString().split('T')[0]}" onchange="tempOrderDeliveryDate=this.value">
-          ${!tempOrderDeliveryDate ? '<div class="text-muted" style="font-size:11px;margin-top:4px">Defaults to today if empty</div>' : ''}
+          <div style="position:relative">
+            <input class="input" type="text" id="neworder-delivery-date-display"
+                   value="${tempOrderDeliveryDate ? formatDateForDisplay(tempOrderDeliveryDate) : ''}"
+                   placeholder="Today (default)"
+                   readonly
+                   onclick="document.getElementById('neworder-delivery-date-hidden').showPicker ? document.getElementById('neworder-delivery-date-hidden').showPicker() : document.getElementById('neworder-delivery-date-hidden').focus()"
+                   style="cursor:pointer">
+            <input type="date" id="neworder-delivery-date-hidden"
+                   value="${tempOrderDeliveryDate}"
+                   min="${new Date().toISOString().split('T')[0]}"
+                   onchange="newOrderSetDeliveryDate(this.value)"
+                   style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer">
+          </div>
         </div>
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label">Note (optional)</label>
@@ -125,85 +144,150 @@ function renderNewOrderPage() {
   document.getElementById('page-neworder').innerHTML = html;
 }
 
-function buildNewOrderProductGrid() {
-  const q = newOrderProductSearch.toLowerCase().trim();
-  let filtered = S.catalog;
-  if (q) filtered = filtered.filter(c => c.name.toLowerCase().includes(q));
+function formatDateForDisplay(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function newOrderSetDeliveryDate(val) {
+  tempOrderDeliveryDate = val;
+  const display = document.getElementById('neworder-delivery-date-display');
+  if (display) display.value = val ? formatDateForDisplay(val) : '';
+}
+
+// ── Product selection as list items (compact) ──
+
+function buildNewOrderSelectedProductsList() {
+  const cartItems = tempOrderItems.filter(i => i.name);
+  if (cartItems.length === 0) {
+    return `<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:13px">
+      No products added yet. Tap "+ Add Products" to select.
+    </div>`;
+  }
+
+  let html = '';
+  cartItems.forEach(item => {
+    const cat = S.catalog.find(c => c.name === item.name);
+    const isCustomProduct = tempOrderCustomerId != null &&
+      S.customerProducts[tempOrderCustomerId] &&
+      S.customerProducts[tempOrderCustomerId].includes(item.name);
+    const hasCustomPrice = tempOrderCustomerId != null &&
+      S.customerPricing[tempOrderCustomerId] &&
+      S.customerPricing[tempOrderCustomerId][item.name] !== undefined;
+
+    html += `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:4px">
+            ${escHtml(item.name)}
+            ${isCustomProduct ? '<span class="badge badge-purple" style="font-size:9px;padding:1px 5px">Assigned</span>' : ''}
+            ${hasCustomPrice ? '<span class="badge badge-info" style="font-size:9px;padding:1px 5px">Special Price</span>' : ''}
+          </div>
+          <div style="font-size:12px;color:var(--text-sec)">${cat ? escHtml(cat.unit || 'unit') : ''} &middot; ${formatCurrency(item.price)}</div>
+        </div>
+        <span style="font-size:13px;color:var(--text-sec)">&times;${item.qty}</span>
+        <span style="font-size:14px;font-weight:700;min-width:50px;text-align:right">${formatCurrency(item.qty * item.price)}</span>
+      </div>`;
+  });
+  return html;
+}
+
+// ── Product Picker Overlay (like customer picker) ──
+
+function openNewOrderProductPicker() {
+  const overlay = document.createElement('div');
+  overlay.className = 'product-picker-overlay';
+  overlay.id = 'neworder-product-picker';
+  overlay.innerHTML = `
+    <div class="ppick-header">
+      <button class="btn-ghost" onclick="closeNewOrderProductPicker()" style="font-size:20px;padding:4px">&larr;</button>
+      <input type="text" id="ppick-search-input" placeholder="Search products..." autofocus
+             oninput="filterNewOrderProductPicker(this.value)">
+      <button class="btn btn-primary btn-sm" onclick="closeNewOrderProductPicker()" style="min-width:60px">Done</button>
+    </div>
+    <div class="ppick-list" id="ppick-product-list"></div>
+  `;
+  document.body.appendChild(overlay);
+  filterNewOrderProductPicker('');
+}
+
+function closeNewOrderProductPicker() {
+  const el = document.getElementById('neworder-product-picker');
+  if (el) el.remove();
+  renderNewOrderPage();
+}
+
+function filterNewOrderProductPicker(q) {
+  const list = document.getElementById('ppick-product-list');
+  if (!list) return;
+  const query = q.toLowerCase().trim();
   const selectedNames = tempOrderItems.filter(i => i.name).map(i => i.name);
 
-  let html = `
-    <div class="neworder-search-bar" style="padding:0 0 8px 0">
-      <div style="position:relative">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text-muted)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" placeholder="Search products..." value="${escHtml(newOrderProductSearch)}"
-               oninput="newOrderProductSearch=this.value;rerenderNewOrderProducts()"
-               style="width:100%;padding:8px 12px 8px 34px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--bg)">
-      </div>
-    </div>
-    <div class="neworder-product-grid">`;
+  // Separate customer-assigned products and others
+  const customerProducts = tempOrderCustomerId != null ?
+    (S.customerProducts[tempOrderCustomerId] || []) : [];
 
-  filtered.forEach(c => {
+  let allProducts = [...S.catalog];
+  if (query) allProducts = allProducts.filter(c => c.name.toLowerCase().includes(query));
+
+  // Sort: customer-assigned first, then rest
+  allProducts.sort((a, b) => {
+    const aAssigned = customerProducts.includes(a.name) ? 0 : 1;
+    const bAssigned = customerProducts.includes(b.name) ? 0 : 1;
+    if (aAssigned !== bAssigned) return aAssigned - bAssigned;
+    return a.name.localeCompare(b.name);
+  });
+
+  let html = '';
+  let lastWasAssigned = null;
+
+  allProducts.forEach(c => {
+    const isAssigned = customerProducts.includes(c.name);
     const isSelected = selectedNames.includes(c.name);
     const outOfStock = c.trackStock !== false && c.stock != null && c.stock <= 0;
     const price = tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, c.name) : c.price;
-    const stockLabel = c.trackStock !== false && c.stock != null ? c.stock + ' left' : '';
+    const hasCustomPrice = tempOrderCustomerId != null &&
+      S.customerPricing[tempOrderCustomerId] &&
+      S.customerPricing[tempOrderCustomerId][c.name] !== undefined;
+    const stockInfo = c.trackStock !== false && c.stock != null ? c.stock + ' in stock' : '';
+
+    // Section header
+    if (lastWasAssigned === null && isAssigned && !query) {
+      html += `<div style="padding:8px 16px;font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:0.5px;background:var(--primary-light)">Assigned to this customer</div>`;
+    } else if (lastWasAssigned === true && !isAssigned && !query) {
+      html += `<div style="padding:8px 16px;font-size:11px;font-weight:700;color:var(--text-sec);text-transform:uppercase;letter-spacing:0.5px;background:var(--bg)">All Products</div>`;
+    }
+    lastWasAssigned = isAssigned;
 
     html += `
-      <div class="neworder-product-chip ${isSelected ? 'selected' : ''} ${outOfStock ? 'out-of-stock' : ''}"
-           onclick="${outOfStock ? '' : `toggleNewOrderProduct('${escHtml(c.name)}')`}">
-        <div class="neworder-product-chip-name">${escHtml(c.name)}</div>
-        <div class="neworder-product-chip-price">${formatCurrency(price)}</div>
-        ${stockLabel ? `<div class="neworder-product-chip-stock" ${c.stock <= 5 ? 'style="color:var(--danger)"' : ''}>${stockLabel}</div>` : ''}
-        ${isSelected ? '<div style="color:var(--primary);font-size:18px;margin-top:2px">&#10003;</div>' : ''}
+      <div class="ppick-item ${isSelected ? 'selected' : ''}" style="${outOfStock ? 'opacity:0.4' : ''}"
+           onclick="${outOfStock ? '' : `toggleNewOrderProductFromPicker('${escHtml(c.name)}')`}">
+        <div class="ppick-item-info">
+          <div class="ppick-item-name" style="display:flex;align-items:center;gap:4px">
+            ${escHtml(c.name)}
+            ${isAssigned ? '<span class="badge badge-purple" style="font-size:9px;padding:1px 5px">Assigned</span>' : ''}
+            ${hasCustomPrice ? '<span class="badge badge-info" style="font-size:9px;padding:1px 5px">Special</span>' : ''}
+          </div>
+          <div class="ppick-item-detail">
+            ${escHtml(c.unit || 'unit')}${stockInfo ? ' &middot; ' + stockInfo : ''}${outOfStock ? ' &middot; <span style="color:var(--danger);font-weight:600">Out of stock</span>' : ''}
+          </div>
+        </div>
+        <div class="ppick-item-price">${formatCurrency(price)}</div>
+        <div class="ppick-item-check">
+          ${isSelected ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+        </div>
       </div>`;
   });
 
-  if (filtered.length === 0) {
-    html += '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted)">No products found</div>';
+  if (allProducts.length === 0) {
+    html = '<div style="padding:40px;text-align:center;color:var(--text-muted)">No products found</div>';
   }
 
-  html += '</div>';
-  return html;
+  list.innerHTML = html;
 }
 
-function buildNewOrderCartHtml(cartItems) {
-  let html = '';
-  cartItems.forEach((item, idx) => {
-    const actualIdx = tempOrderItems.indexOf(item);
-    const lineTotal = (item.qty || 0) * (item.price || 0);
-    html += `
-      <div class="neworder-cart-item">
-        <div class="neworder-cart-item-info">
-          <div class="neworder-cart-item-name">${escHtml(item.name)}</div>
-          <div class="neworder-cart-item-price">${formatCurrency(item.price)} each</div>
-        </div>
-        <div class="neworder-cart-item-controls">
-          <button class="qty-btn" onclick="newOrderChangeQty(${actualIdx},-1)">−</button>
-          <input type="number" class="qty-input" value="${item.qty}" min="1"
-                 onchange="newOrderSetQty(${actualIdx},parseInt(this.value)||1)"
-                 onclick="this.select()">
-          <button class="qty-btn" onclick="newOrderChangeQty(${actualIdx},1)">+</button>
-        </div>
-        <div class="neworder-cart-item-total">${formatCurrency(lineTotal)}</div>
-        <button style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);flex-shrink:0" onclick="newOrderRemoveItem(${actualIdx})">&#10005;</button>
-      </div>`;
-  });
-  return html;
-}
-
-function rerenderNewOrderProducts() {
-  // Preserve scroll
-  const body = document.getElementById('neworder-body');
-  const scrollPos = body ? body.scrollTop : 0;
-  renderNewOrderPage();
-  const newBody = document.getElementById('neworder-body');
-  if (newBody) newBody.scrollTop = scrollPos;
-  // Re-focus search
-  const searchInput = document.querySelector('#page-neworder .neworder-search-bar input');
-  if (searchInput) { searchInput.focus(); searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length); }
-}
-
-function toggleNewOrderProduct(productName) {
+function toggleNewOrderProductFromPicker(productName) {
   const existingIdx = tempOrderItems.findIndex(i => i.name === productName);
   if (existingIdx >= 0) {
     tempOrderItems.splice(existingIdx, 1);
@@ -217,7 +301,51 @@ function toggleNewOrderProduct(productName) {
       tempOrderItems.push({ name: productName, qty: 1, price });
     }
   }
-  rerenderNewOrderProducts();
+  // Re-filter to update checkmarks
+  const searchInput = document.getElementById('ppick-search-input');
+  filterNewOrderProductPicker(searchInput ? searchInput.value : '');
+}
+
+// ── Cart with editable prices ──
+
+function buildNewOrderCartHtml(cartItems) {
+  let html = '';
+  cartItems.forEach((item) => {
+    const actualIdx = tempOrderItems.indexOf(item);
+    const lineTotal = (item.qty || 0) * (item.price || 0);
+    html += `
+      <div class="neworder-cart-item">
+        <div class="neworder-cart-item-info">
+          <div class="neworder-cart-item-name">${escHtml(item.name)}</div>
+          <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+            <span style="font-size:12px;color:var(--text-sec)">&pound;</span>
+            <input type="number" step="0.01" value="${item.price.toFixed(2)}"
+                   onchange="newOrderSetPrice(${actualIdx},parseFloat(this.value)||0)"
+                   onclick="this.select()"
+                   style="width:60px;font-size:13px;font-weight:600;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--bg);text-align:center">
+            <span style="font-size:11px;color:var(--text-muted)">each</span>
+          </div>
+        </div>
+        <div class="neworder-cart-item-controls">
+          <button class="qty-btn" onclick="newOrderChangeQty(${actualIdx},-1)">&minus;</button>
+          <input type="number" class="qty-input" value="${item.qty}" min="1"
+                 onchange="newOrderSetQty(${actualIdx},parseInt(this.value)||1)"
+                 onclick="this.select()">
+          <button class="qty-btn" onclick="newOrderChangeQty(${actualIdx},1)">+</button>
+        </div>
+        <div class="neworder-cart-item-total">${formatCurrency(lineTotal)}</div>
+        <button style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);flex-shrink:0" onclick="newOrderRemoveItem(${actualIdx})">&#10005;</button>
+      </div>`;
+  });
+  return html;
+}
+
+function rerenderNewOrderKeepScroll() {
+  const body = document.getElementById('neworder-body');
+  const scrollPos = body ? body.scrollTop : 0;
+  renderNewOrderPage();
+  const newBody = document.getElementById('neworder-body');
+  if (newBody) newBody.scrollTop = scrollPos;
 }
 
 function newOrderChangeQty(idx, delta) {
@@ -225,7 +353,7 @@ function newOrderChangeQty(idx, delta) {
   const newQty = (tempOrderItems[idx].qty || 1) + delta;
   if (newQty < 1) return;
   tempOrderItems[idx].qty = newQty;
-  rerenderNewOrderProducts();
+  rerenderNewOrderKeepScroll();
 }
 
 function newOrderSetQty(idx, qty) {
@@ -236,13 +364,26 @@ function newOrderSetQty(idx, qty) {
   const total = cartItems.reduce((s, i) => s + (i.qty || 0) * (i.price || 0), 0);
   const totalEl = document.querySelector('.neworder-total-value');
   if (totalEl) totalEl.textContent = formatCurrency(total);
+  // Update line total
+  const lineTotal = tempOrderItems[idx].qty * tempOrderItems[idx].price;
+  const cartIdx = cartItems.indexOf(tempOrderItems[idx]);
+  const lineTotalEls = document.querySelectorAll('.neworder-cart-item-total');
+  if (lineTotalEls[cartIdx]) lineTotalEls[cartIdx].textContent = formatCurrency(lineTotal);
+}
+
+function newOrderSetPrice(idx, price) {
+  if (!tempOrderItems[idx]) return;
+  tempOrderItems[idx].price = Math.max(0, price);
+  rerenderNewOrderKeepScroll();
 }
 
 function newOrderRemoveItem(idx) {
   tempOrderItems.splice(idx, 1);
   if (tempOrderItems.length === 0) tempOrderItems.push({ name: '', qty: 1, price: 0 });
-  rerenderNewOrderProducts();
+  rerenderNewOrderKeepScroll();
 }
+
+// ── Customer Picker ──
 
 function openNewOrderCustomerPicker() {
   if (editingOrderId) return;
@@ -302,6 +443,8 @@ function pickNewOrderCustomer(stopId) {
   renderNewOrderPage();
 }
 
+// ── Save ──
+
 function saveNewOrderPage() {
   if (_btnLock) return;
   _btnLock = true;
@@ -320,7 +463,7 @@ function saveNewOrderPage() {
   }
 
   const note = document.getElementById('neworder-note')?.value || '';
-  const deliveryDate = document.getElementById('neworder-delivery-date')?.value || '';
+  const deliveryDate = tempOrderDeliveryDate;
 
   let newOrderId = null;
   if (editingOrderId && existingOrder) {
