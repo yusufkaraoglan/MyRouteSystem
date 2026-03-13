@@ -314,3 +314,73 @@ function getPrice(stopId, productName) {
   const cat = S.catalog.find(c => c.name === productName);
   return cat ? cat.price : 0;
 }
+
+// ── Stock Warning System ──────────────────────────────────
+
+function getLowStockItems(threshold) {
+  if (threshold === undefined) threshold = 10;
+  return S.catalog.filter(c =>
+    c.trackStock !== false && c.stock != null && c.stock <= threshold
+  ).sort((a, b) => a.stock - b.stock);
+}
+
+function getOutOfStockItems() {
+  return S.catalog.filter(c =>
+    c.trackStock !== false && c.stock != null && c.stock <= 0
+  );
+}
+
+function buildStockWarningBannerHtml() {
+  const outOfStock = getOutOfStockItems();
+  const lowStock = getLowStockItems(10);
+  if (lowStock.length === 0) return '';
+
+  const outCount = outOfStock.length;
+  const lowCount = lowStock.length - outCount;
+  let msg = '';
+  if (outCount > 0 && lowCount > 0) {
+    msg = `${outCount} out of stock, ${lowCount} low stock`;
+  } else if (outCount > 0) {
+    msg = `${outCount} product${outCount > 1 ? 's' : ''} out of stock`;
+  } else {
+    msg = `${lowCount} product${lowCount > 1 ? 's' : ''} low on stock`;
+  }
+
+  return `
+    <div class="stock-warning-banner" onclick="showStockWarningModal()">
+      <svg class="stock-warning-banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <span class="stock-warning-banner-text">${msg}</span>
+      <span class="stock-warning-banner-count">${lowStock.length} items &rsaquo;</span>
+    </div>`;
+}
+
+function showStockWarningModal() {
+  const lowStock = getLowStockItems(10);
+  if (lowStock.length === 0) { appAlert('All stock levels are OK.'); return; }
+
+  let itemsHtml = '';
+  lowStock.forEach(c => {
+    const color = c.stock <= 0 ? 'var(--danger)' : c.stock <= 5 ? 'var(--warning)' : 'var(--info)';
+    const label = c.stock <= 0 ? 'OUT' : c.stock;
+    itemsHtml += `
+      <div class="stock-warning-modal-item">
+        <div>
+          <div class="stock-warning-modal-item-name">${escHtml(c.name)}</div>
+          <div style="font-size:12px;color:var(--text-sec)">${escHtml(c.unit || 'unit')} &middot; ${formatCurrency(c.price)}</div>
+        </div>
+        <div class="stock-warning-modal-item-stock" style="background:${color}">${label}</div>
+      </div>`;
+  });
+
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">Stock Warnings</div>
+    <div style="background:var(--card);border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)">
+      ${itemsHtml}
+    </div>
+    <button class="btn btn-primary btn-block mt-2" onclick="closeModal();showPage('catalog')">Go to Catalog</button>
+  `);
+}

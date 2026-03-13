@@ -260,7 +260,8 @@ function showPage(name) {
       pg === name ||
       (name === 'profile' && pg === 'customers') ||
       (name === 'map' && pg === 'settings') ||
-      (name === 'catalog' && pg === 'settings')
+      (name === 'catalog' && pg === 'settings') ||
+      (name === 'neworder' && pg === 'orders')
     );
   });
   renderCurrentPage();
@@ -276,6 +277,7 @@ function renderCurrentPage() {
     case 'settings': renderSettings(); break;
     case 'map': renderMapPage(); break;
     case 'catalog': renderCatalog(); break;
+    case 'neworder': renderNewOrderPage(); break;
     case 'delivery-history': reportTab = 'history'; showPage('reports'); break;
   }
 }

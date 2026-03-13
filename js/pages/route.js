@@ -60,6 +60,7 @@ function renderRoute() {
         <input type="text" placeholder="Search all customers..." value="${escHtml(routeSearchTerm)}" oninput="routeSearchTerm=this.value;renderRouteSearchResults()">
       </div>
     </div>
+    ${buildStockWarningBannerHtml()}
     <div id="route-search-results" class="${routeSearchTerm ? '' : 'hidden'}"></div>
     <div id="route-main-content" class="${routeSearchTerm ? 'hidden' : ''}">
     <div class="week-toggle">
