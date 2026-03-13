@@ -7,22 +7,22 @@ function renderCustomers(fullRender) {
   if (!isSearchUpdate) {
     let html = `
       <header class="topbar">
-        <h1>Müşteriler</h1>
+        <h1>Customers</h1>
         <div class="topbar-actions">
           <span class="badge badge-outline">${STOPS.length}</span>
-          <button class="btn btn-primary btn-sm" onclick="showAddCustomerModal()">+ Ekle</button>
+          <button class="btn btn-primary btn-sm" onclick="showAddCustomerModal()">+ Add</button>
         </div>
       </header>
       <div class="page-body">
         <div class="search-bar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" placeholder="Müşteri ara..." value="${escHtml(S.customersSearch)}" oninput="S.customersSearch=this.value;renderCustomerResults()">
+          <input type="text" placeholder="Search customer..." value="${escHtml(S.customersSearch)}" oninput="S.customersSearch=this.value;renderCustomerResults()">
         </div>
         <div class="chip-group">
-          <button class="chip ${S.customersFilter==='all'?'active':''}" onclick="S.customersFilter='all';renderCustomers(true)">Tümü</button>
-          <button class="chip ${S.customersFilter==='A'?'active':''}" onclick="S.customersFilter='A';renderCustomers(true)">Hafta A</button>
-          <button class="chip ${S.customersFilter==='B'?'active':''}" onclick="S.customersFilter='B';renderCustomers(true)">Hafta B</button>
-          <button class="chip ${S.customersFilter==='none'?'active':''}" onclick="S.customersFilter='none';renderCustomers(true)">Atanmamış</button>
+          <button class="chip ${S.customersFilter==='all'?'active':''}" onclick="S.customersFilter='all';renderCustomers(true)">All</button>
+          <button class="chip ${S.customersFilter==='A'?'active':''}" onclick="S.customersFilter='A';renderCustomers(true)">Week A</button>
+          <button class="chip ${S.customersFilter==='B'?'active':''}" onclick="S.customersFilter='B';renderCustomers(true)">Week B</button>
+          <button class="chip ${S.customersFilter==='none'?'active':''}" onclick="S.customersFilter='none';renderCustomers(true)">Unassigned</button>
         </div>
         <div id="customers-results"></div>
       </div>`;
@@ -49,7 +49,7 @@ function renderCustomerResults() {
 
   let html = '';
   if (stops.length === 0) {
-    html = `<div class="empty-state"><p><b>Müşteri bulunamadı</b></p></div>`;
+    html = `<div class="empty-state"><p><b>No customers found</b></p></div>`;
   } else {
     stops.forEach(s => {
       const dayId = S.assign[s.id];
@@ -64,8 +64,8 @@ function renderCustomerResults() {
             <div class="customer-area">${escHtml(s.c)} &middot; ${escHtml(s.p)}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-            ${dayObj ? `<span class="badge" style="background:${dayObj.color}20;color:${dayObj.color};font-size:10px">${dayObj.week}/${dayObj.label.slice(0,3)}</span>` : '<span class="badge badge-outline" style="font-size:10px">Yok</span>'}
-            ${pending > 0 ? `<span class="badge badge-warning" style="font-size:10px">${pending} bekleyen</span>` : ''}
+            ${dayObj ? `<span class="badge" style="background:${dayObj.color}20;color:${dayObj.color};font-size:10px">${dayObj.week}/${dayObj.label.slice(0,3)}</span>` : '<span class="badge badge-outline" style="font-size:10px">None</span>'}
+            ${pending > 0 ? `<span class="badge badge-warning" style="font-size:10px">${pending} pending</span>` : ''}
             ${debt > 0 ? `<span class="badge badge-danger" style="font-size:10px">${formatCurrency(debt)}</span>` : ''}
           </div>
         </div>`;
@@ -77,42 +77,42 @@ function renderCustomerResults() {
 function showAddCustomerModal() {
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">Müşteri Ekle</div>
+    <div class="modal-title">Add Customer</div>
     <div class="form-group">
-      <label class="form-label">İsim</label>
-      <input class="input" id="add-cust-name" placeholder="Müşteri adı">
+      <label class="form-label">Name</label>
+      <input class="input" id="add-cust-name" placeholder="Customer name">
     </div>
     <div class="form-group">
-      <label class="form-label">Adres</label>
-      <input class="input" id="add-cust-addr" placeholder="Sokak adresi">
+      <label class="form-label">Address</label>
+      <input class="input" id="add-cust-addr" placeholder="Street address">
     </div>
     <div class="form-group">
-      <label class="form-label">Şehir / Bölge</label>
-      <input class="input" id="add-cust-city" placeholder="Şehir veya bölge">
+      <label class="form-label">City / Area</label>
+      <input class="input" id="add-cust-city" placeholder="City or area">
     </div>
     <div class="form-group">
-      <label class="form-label">Posta Kodu</label>
-      <input class="input" id="add-cust-post" placeholder="Posta kodu">
+      <label class="form-label">Postcode</label>
+      <input class="input" id="add-cust-post" placeholder="Postcode">
     </div>
     <div class="form-group">
-      <label class="form-label">Ad Soyad (İletişim)</label>
-      <input class="input" id="add-cust-cn" placeholder="Ad Soyad">
+      <label class="form-label">Contact Name</label>
+      <input class="input" id="add-cust-cn" placeholder="Full name">
     </div>
     <div class="form-group">
-      <label class="form-label">Cep Telefonu</label>
+      <label class="form-label">Mobile Phone</label>
       <input class="input" id="add-cust-ph" type="tel" placeholder="07xxx xxxxxx">
     </div>
     <div class="form-group">
       <label class="form-label">Email</label>
       <input class="input" id="add-cust-em" type="email" placeholder="email@ornek.com">
     </div>
-    <button class="btn btn-primary btn-block" onclick="saveNewCustomer()">Müşteriyi Kaydet</button>
+    <button class="btn btn-primary btn-block" onclick="saveNewCustomer()">Save Customer</button>
   `);
 }
 
 async function saveNewCustomer() {
   const name = document.getElementById('add-cust-name').value.trim();
-  if (!name) { appAlert('İsim gerekli.'); return; }
+  if (!name) { appAlert('Name is required.'); return; }
   const maxId = STOPS.reduce((m, s) => Math.max(m, s.id), 0);
   const stop = {
     id: maxId + 1,
@@ -126,6 +126,10 @@ async function saveNewCustomer() {
   };
   STOPS.push(stop);
   save.stops();
+  await DB.saveCustomer({
+    id: stop.id, name: stop.n, address: stop.a, city: stop.c,
+    postcode: stop.p, note: '', lat: null, lng: null
+  });
   await geocodeStop(stop, { force: true });
   closeModal();
   renderCustomers();

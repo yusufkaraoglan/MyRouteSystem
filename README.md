@@ -1,16 +1,22 @@
 # Costadoro Routes CRM
 
-Costadoro Coffee dağıtım rota yönetim uygulaması.
+Coffee delivery route management application for Costadoro Coffee.
 
-- **Tek dosya mimarisi** — tüm uygulama `index.html` içinde (~4571 satır)
-- **Mobil öncelikli** — telefonda saha kullanımı için optimize
-- **Vanilla stack** — HTML/CSS/JS + Leaflet.js (harita) + Supabase (sync)
+- **Modular architecture** — split into separate JS modules under `js/` and `js/pages/`
+- **Mobile-first** — optimized for field use on phone
+- **Vanilla stack** — HTML/CSS/JS + Tailwind CSS (CDN) + Leaflet.js (maps) + Supabase (sync)
 
-## Özellikler
+## Features
 
-- 103+ müşteri, Week A/B x 5 gün rota planı
-- Sipariş oluşturma, stok takibi, teslimat yönetimi
-- Müşteriye özel fiyatlandırma
-- Ürün kataloğu (stok badge'leri, günlük ürün desteği)
-- Raporlar ve Excel export
+- 100+ customers, Week A/B x 5-day route plan
+- Order creation, stock tracking, delivery management
+- Customer-specific pricing
+- Product catalog (stock badges, daily product support)
+- Reports and Excel export
 - Offline-first + Supabase cloud sync
+- JSON data backup/restore
+- Drag-and-drop route ordering
+- Debt tracking with payment history
+- Recurring orders
+- Interactive map with Leaflet.js
+- PWA with service worker caching

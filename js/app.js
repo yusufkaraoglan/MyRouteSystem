@@ -41,6 +41,15 @@ let editingOrderId = null;
 let reportTab = 'overview';
 let dhSearchTerm = '';
 
+// ── Double-click protection utility ────────────────────────
+
+let _btnLock = false;
+function btnLock(fn) {
+  if (_btnLock) return;
+  _btnLock = true;
+  try { fn(); } finally { setTimeout(() => _btnLock = false, 500); }
+}
+
 // ── Legacy load (from localStorage, for backward compat) ──
 
 function loadStateLegacy() {
@@ -81,7 +90,8 @@ async function loadStateFromDB() {
 
   // Map customers to STOPS format for backward compat
   STOPS = customers.map(c => ({
-    id: c.id, n: c.name, a: c.address, c: c.city, p: c.postcode
+    id: c.id, n: c.name, a: c.address, c: c.city, p: c.postcode,
+    cn: c.contact_name || '', ph: c.phone || '', em: c.email || ''
   }));
 
   S.assign = assignments;
@@ -134,13 +144,45 @@ const save = {
       note: S.cnotes[s.id] || '', contact_name: s.cn || '',
       phone: s.ph || '', email: s.em || ''
     })));
+    // Persist each customer to Supabase
+    STOPS.forEach(s => {
+      DB.saveCustomer({
+        id: s.id, name: s.n, address: s.a, city: s.c, postcode: s.p,
+        lat: (S.geo[s.id] && S.geo[s.id].lat) || null,
+        lng: (S.geo[s.id] && S.geo[s.id].lng) || null,
+        note: S.cnotes[s.id] || '', contact_name: s.cn || '',
+        phone: s.ph || '', email: s.em || ''
+      });
+    });
   },
-  assign: () => { cacheSet('assignments', S.assign); },
-  routeOrder: () => { cacheSet('route_order', S.routeOrder); },
+  assign: () => {
+    cacheSet('assignments', S.assign);
+    // Persist each assignment to Supabase
+    Object.entries(S.assign).forEach(([customerId, dayId]) => {
+      DB.setAssignment(customerId, dayId);
+    });
+  },
+  routeOrder: () => {
+    cacheSet('route_order', S.routeOrder);
+    // Persist each day's route order to Supabase
+    Object.entries(S.routeOrder).forEach(([dayId, customerIds]) => {
+      DB.saveRouteOrder(dayId, Array.isArray(customerIds) ? customerIds : []);
+    });
+  },
   geo: () => { /* stored in customers table via save.stops */ },
   orders: () => { cacheSet('orders', S.orders); },
   debts: () => { cacheSet('debts', S.debts); },
-  debtHistory: () => { cacheSet('debt_history', S.debtHistory); },
+  debtHistory: () => {
+    cacheSet('debt_history', S.debtHistory);
+    // Persist debt history entries to Supabase
+    Object.entries(S.debtHistory).forEach(([customerId, entries]) => {
+      if (Array.isArray(entries)) {
+        entries.forEach(entry => {
+          DB.addDebtHistoryEntry(customerId, entry);
+        });
+      }
+    });
+  },
   cnotes: () => { /* stored in customers table via save.stops */ },
   catalog: () => {
     cacheSet('products', S.catalog.map(c => ({
@@ -148,10 +190,30 @@ const save = {
       stock: c.stock ?? null, track_stock: c.trackStock !== false,
       sort_order: c.sort_order || 0
     })));
+    // Persist each product to Supabase
+    S.catalog.forEach(c => {
+      DB.saveProduct({
+        name: c.name, unit: c.unit || '1', price: c.price || 0,
+        stock: c.stock ?? null, track_stock: c.trackStock !== false,
+        sort_order: c.sort_order || 0
+      });
+    });
   },
-  pricing: () => { cacheSet('customer_pricing', S.customerPricing); },
+  pricing: () => {
+    cacheSet('customer_pricing', S.customerPricing);
+    // Persist each customer's pricing to Supabase
+    Object.entries(S.customerPricing).forEach(([customerId, pricingMap]) => {
+      DB.setCustomerPricing(customerId, pricingMap || {});
+    });
+  },
   customerProducts: () => cacheSet('customer_products', S.customerProducts),
-  recurringOrders: () => { cacheSet('recurring_orders', S.recurringOrders); }
+  recurringOrders: () => {
+    cacheSet('recurring_orders', S.recurringOrders);
+    // Persist each recurring order to Supabase
+    Object.entries(S.recurringOrders).forEach(([customerId, data]) => {
+      DB.setRecurringOrder(customerId, data);
+    });
+  }
 };
 
 // Legacy save helpers (still used by existing code during transition)
@@ -225,7 +287,7 @@ function appAlert(msg) {
       <div class="modal-handle"></div>
       <div style="padding:24px 20px;text-align:center">
         <p style="font-size:15px;margin-bottom:20px">${msg}</p>
-        <button class="btn btn-primary btn-block" onclick="closeModal();(${resolve})()" >Tamam</button>
+        <button class="btn btn-primary btn-block" onclick="closeModal();(${resolve})()">OK</button>
       </div>
     `);
   });
@@ -240,8 +302,8 @@ function appConfirm(msg) {
       <div style="padding:24px 20px;text-align:center">
         <p style="font-size:15px;margin-bottom:20px">${msg}</p>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-outline btn-block" id="confirm-no">Hayır</button>
-          <button class="btn btn-primary btn-block" id="confirm-yes">Evet</button>
+          <button class="btn btn-outline btn-block" id="confirm-no">No</button>
+          <button class="btn btn-primary btn-block" id="confirm-yes">Yes</button>
         </div>
       </div>
     `);
@@ -311,12 +373,12 @@ async function init() {
           try {
             const needed = await checkMigrationNeeded();
             if (needed === true) {
-              showToast('Veriler yeni sisteme aktarılıyor...', 'info', 10000);
+              showToast('Migrating data to new system...', 'info', 10000);
               const ok = await runMigration();
               if (ok) {
                 cacheSet('db_migrated', true);
                 await loadStateFromDB();
-                showToast('Veri göçü tamamlandı!', 'success');
+                showToast('Data migration complete!', 'success');
               }
             }
           } catch (e) {
@@ -401,7 +463,7 @@ async function pushAllToSupabase() {
     const v = legacyGet(k, null);
     if (v !== null) await sbSet(k, v);
   }
-  showToast('Tüm veriler buluta yüklendi.', 'success');
+  showToast('All data uploaded to cloud.', 'success');
 }
 
 document.addEventListener('DOMContentLoaded', init);
@@ -409,10 +471,9 @@ document.addEventListener('DOMContentLoaded', init);
 // Register service worker
 if ('serviceWorker' in navigator) {
   const swCode = `
-    const CACHE = 'costadoro-v4';
+    const CACHE = 'costadoro-v5';
     const URLS = ['./', 'css/app.css', 'js/db.js', 'js/utils.js', 'js/app.js',
-      'js/migrate.js', 'js/components/modal.js', 'js/components/order-form.js',
-      'js/components/delivery.js', 'js/components/product-picker.js', 'js/components/customer-picker.js',
+      'js/migrate.js',
       'js/pages/route.js', 'js/pages/orders.js', 'js/pages/customers.js', 'js/pages/profile.js',
       'js/pages/reports.js', 'js/pages/settings.js', 'js/pages/catalog.js', 'js/pages/map.js',
       'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',

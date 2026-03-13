@@ -1,156 +1,175 @@
-# FEATURES.md — Özellik ve Fonksiyon Referansı
+# FEATURES.md — Feature and Function Reference
 
-## Sayfalar (9 sayfa)
+## Pages (8 pages)
 
-> Alt navigasyonda 5 buton: Route, Orders, Customers, Reports, Settings.
-> Catalog, Map, Delivery History sayfaları Settings altından erişilir.
-> Profile sayfası müşteri adına tıklayarak açılır.
+> Bottom navigation has 5 buttons: Route, Orders, Customers, Reports, Settings.
+> Catalog and Map pages are accessed from Settings.
+> Profile page opens by clicking a customer name.
 
 ---
 
 ### Route (`page-route`) — Nav: Route
-Günlük ziyaret takibi ve rota yönetimi.
+Daily visit tracking and route management.
 
-**Özellikler:**
-- Week A/B seçimi + gün sekmeleri (Mon–Fri)
-- Gün tablarında pending sipariş göstergesi (turuncu nokta)
-- Her müşteri kartı: isim, adres, posta kodu, pending badge
-- Checkbox ile teslimat işaretleme → delivery modal
-- Sürükle-bırak ile rota sıralaması (touch + mouse)
-- Alt bar: delivered sayısı, Cash/Bank/Unpaid toplamları
-- Route summary share, Excel export, import butonları
+**Features:**
+- Week A/B selection + day tabs (Mon-Fri)
+- Pending order indicator on day tabs (orange dot)
+- Each customer card: name, address, postcode, pending badge
+- Checkbox for delivery marking -> delivery modal
+- Drag-and-drop route ordering (touch + mouse)
+- Bottom bar: delivered count, Cash/Bank/Unpaid totals
+- Route summary share, Excel export, import buttons
+- Visit mode for customers with no pending orders
+- Debt collection during visits
 
 ---
 
 ### Orders (`page-orders`) — Nav: Orders
-Sipariş listesi ve yönetimi.
+Order list and management.
 
-**Özellikler:**
-- Arama (müşteri adına göre)
-- Filtre: All / Pending / Delivered
-- Sıralama: Tarih / İsim / Tutar / Gün / Manuel
-- Manuel sıralamada yukarı/aşağı ok butonları
-- Her sipariş kartında müşteri adı + Week/Day badge
-- Deliver, Edit, Remove butonları
-- FAB (+) butonu ile yeni sipariş oluşturma
-- Yeni sipariş formu tam sayfa overlay olarak açılır
+**Features:**
+- Search (by customer name)
+- Filter: All / Pending / Delivered
+- Sort: Date / Name / Amount / Day / Manual
+- Manual sorting with drag-and-drop
+- Each order card shows customer name + Week/Day badge
+- Deliver, Edit, Remove buttons
+- FAB (+) button for new order creation
+- New order form opens as full-page overlay
+- Customer picker with search
+- Product picker with stock status
+- Double-click protection on save
 
-**Yeni Sipariş Formu:**
-- Müşteri seçimi (picker)
-- Ürün ekleme (product picker — stok durumu gösterilir)
-- Miktar (−/+) ve fiyat düzenlenebilir
-- Toplam otomatik hesaplanır
-- Teslimat tarihi + not alanı
-- Stok takibi olan ürünlerde stok düşer
+**New Order Form:**
+- Customer selection (full-screen picker)
+- Product adding (product picker — stock status shown)
+- Quantity (-/+) and price editable
+- Total calculated automatically
+- Delivery date + note field
+- Stock decremented for tracked products
 
 ---
 
 ### Customers (`page-customers`) — Nav: Customers
-Müşteri listesi ve yönetimi.
+Customer list and management.
 
-**Özellikler:**
-- 103+ müşteri listesi (alfabetik)
-- Arama filtresi
-- Filtre: All / Week A / Week B / Unassigned
-- Her kartta: avatar, isim, adres, Week/Day badge
-- Müşteri adına tıkla → Profil sayfası
-- "+ Add" butonu ile yeni müşteri ekleme
+**Features:**
+- 100+ customer list (alphabetical)
+- Search filter
+- Filter: All / Week A / Week B / Unassigned
+- Each card: avatar, name, address, Week/Day badge, pending count, debt
+- Click customer name -> Profile page
+- "+ Add" button for new customer with contact details
 
 ---
 
 ### Profile (`page-profile`)
-Müşteri detay sayfası.
+Customer detail page.
 
-**Özellikler:**
-- Müşteri bilgileri (adres, şehir, posta kodu)
-- Atandığı gün badge'i
-- Kalıcı müşteri notu
-- Toplam sipariş sayısı, toplam harcama, ortalama
-- En çok sipariş edilen ürünler (top 5)
-- Sipariş geçmişi listesi
-- Borç durumu ve geçmişi
-- Hızlı sipariş, tekrar sipariş butonları
+**Features:**
+- Customer info (address, city, postcode, contact, phone, email)
+- Assigned day badge
+- Persistent customer notes
+- Total order count, total spend, average
+- Top ordered products (top 5)
+- Order history list
+- Debt status and history with clear/add functionality
+- Quick order, recurring order buttons
+- Customer-specific pricing management
+- Edit customer, delete customer
+- Day assignment/unassignment
+- All changes persist to Supabase DB
 
 ---
 
 ### Reports (`page-reports`) — Nav: Reports
-Raporlar ve analitik.
+Reports and analytics.
 
-**Özellikler:**
-- Overview / Products / Customers / Debts / Export sekmeleri
-- Tarih aralığı filtresi (This Week / This Month / Custom)
-- Toplam ciro, sipariş sayısı, ortalama
-- Ödeme dağılımı (Cash / Bank / Unpaid)
-- Ürün bazlı satış tablosu (miktar, ciro)
-- Müşteri bazlı harcama tablosu
-- Borçlu müşteriler listesi
-- Excel export (çok sheet'li)
+**Features:**
+- Overview / Products / Customers / Debts / Export / History tabs
+- Date range filter (Today / This Week / This Month / Custom)
+- Total revenue, delivery count, visit count, average order
+- Payment breakdown (Cash / Bank / Unpaid) with progress bars
+- Product-based sales table (quantity, revenue)
+- Customer-based spending table (top 30)
+- Debtor customers list
+- Product sales report with PDF and Excel export
+- Delivery history grouped by week with customer breakdown
 
 ---
 
 ### Settings (`page-settings`) — Nav: Settings
-Uygulama ayarları hub'ı.
+Application settings hub.
 
-**Alt sayfalar:**
-- **Product Catalog** → `page-catalog`
-- **Harita** → `page-map`
-- **Delivery History** → `page-delivery-history`
+**Sub-pages:**
+- **Product Catalog** -> `page-catalog`
+- **Map** -> `page-map`
 
-**Diğer ayarlar:**
-- Supabase sync durumu ve kurulumu
-- JSON dışa/içe aktarma (veri yedekleme)
-- Reset all data
-
----
-
-### Catalog (`page-catalog`) — Settings altından
-Ürün kataloğu yönetimi.
-
-**Özellikler:**
-- Ürün ekleme formu (isim, birim, fiyat, stok)
-- Her üründe renkli stok badge (yeşil/sarı/kırmızı)
-- Stok −/+ butonları ile hızlı ayarlama (scroll korunur)
-- "Stok ekle" input + Ekle butonu
-- Edit modu: isim, birim, fiyat, stok değiştirme
-- "Stok takibi yapma" checkbox (günlük ürünler)
-- Ürün silme (edit modundan)
-- `trackStock: false` olan ürünlerde stok alanı gizlenir
+**Other settings:**
+- Import from Excel
+- Export to Excel
+- JSON data backup/restore
+- Geocode all customers
+- Reset all data (danger zone)
 
 ---
 
-### Map (`page-map`) — Settings altından
-Leaflet.js ile interaktif harita.
+### Catalog (`page-catalog`) — From Settings
+Product catalog management.
 
-**Özellikler:**
-- Müşteri konumları marker olarak
-- Week A / Week B / All filtresi
-- Marker popup (cafe adı, adres, gün)
+**Features:**
+- Product add form (name, unit, price, stock)
+- Colored stock badge on each product (green/yellow/red)
+- Stock -/+ buttons for quick adjustment (scroll preserved)
+- "Add stock" input + Add button
+- Edit mode: name, unit, price, stock changes
+- "Don't track stock" checkbox (daily products)
+- Delete product (from edit mode)
+- `trackStock: false` products hide stock fields
+
+---
+
+### Map (`page-map`) — From Settings
+Interactive map with Leaflet.js.
+
+**Features:**
+- Customer locations as markers with route order numbers
+- All / Week A / Week B / Unassigned filter
+- Marker popup (cafe name, address, day, assign/profile buttons)
+- Route lines connecting stops per day
 - OpenStreetMap geocoding
+- Day assignment from map
+- Tooltip visibility based on zoom level
 
 ---
 
-### Delivery History (`page-delivery-history`) — Settings altından
-Teslimat geçmişi sayfası.
+## Order Flow
+
+1. Orders -> FAB (+) -> New order form (full page)
+2. Select customer -> Add products (product picker)
+3. Edit price/quantity -> Save
+4. Appears in Orders list as "pending"
+5. Deliver -> Payment modal -> Select Cash/Bank/Unpaid
+6. Stock automatically decremented (for trackStock=true products)
+7. Debt info shown if applicable
+8. All changes persisted to Supabase
 
 ---
 
-## Sipariş Akışı
+## Stock Management
 
-1. Orders → FAB (+) → Yeni sipariş formu (tam sayfa)
-2. Müşteri seç → Ürün ekle (product picker)
-3. Fiyat/miktar düzenle → Kaydet
-4. Orders listesinde "pending" olarak görünür
-5. Deliver → Ödeme modalı → Cash/Bank/Unpaid seç
-6. Stok otomatik düşer (trackStock=true ürünlerde)
-7. Borç varsa borç bilgisi gösterilir
+- Each catalog item has `stock` (number|null) and `trackStock` (boolean)
+- `trackStock: false` -> daily product, no stock control
+- Stock decremented when order is created
+- Stock difference calculated when order is edited
+- Products with stock 0 shown as disabled in product picker
+- Stock <=5: red badge, <=20: yellow badge, >20: green badge
 
 ---
 
-## Stok Yönetimi
+## Recurring Orders
 
-- Her catalog item'da `stock` (number|null) ve `trackStock` (boolean) alanı
-- `trackStock: false` → günlük ürün, stok kontrolü yapılmaz
-- Sipariş oluşturulduğunda stok düşer
-- Sipariş düzenlendiğinde fark hesaplanır
-- Stok 0 olan ürünler product picker'da disabled gösterilir
-- Stok ≤5: kırmızı badge, ≤20: sarı badge, >20: yeşil badge
+- Set up recurring order templates per customer
+- Created from the last delivered or pending order
+- Auto-created on assigned route days if no pending orders exist
+- Can be updated or removed from profile page

@@ -170,7 +170,6 @@ body.modal-open .page{touch-action:none}
 .customer-card{display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:8px;cursor:pointer;transition:all .15s}
 .customer-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.08)}
 .customer-card:active{background:var(--bg)}
-.customer-card:active{background:var(--bg)}
 .customer-avatar{width:40px;height:40px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0}
 .customer-info{flex:1;min-width:0}
 .customer-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

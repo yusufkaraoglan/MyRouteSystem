@@ -102,7 +102,7 @@ async function geocodeStop(stop, opts = {}) {
     return true;
   }
   if (!silent) {
-    const msg = lastError ? 'Adres konumu guncellenemedi: ' + lastError.message : 'Bu adres haritada bulunamadi.';
+    const msg = lastError ? 'Could not geocode address: ' + lastError.message : 'Address not found on map.';
     appAlert(msg);
   }
   return false;
@@ -110,15 +110,15 @@ async function geocodeStop(stop, opts = {}) {
 
 async function geocodeAllStops() {
   const missing = STOPS.filter(s => !S.geo[s.id] || !S.geo[s.id].lat);
-  if (missing.length === 0) { appAlert('Tüm müşteriler zaten geocode edilmiş.'); return; }
-  appAlert(`${missing.length} müşteri geocode ediliyor...`);
+  if (missing.length === 0) { appAlert('All customers are already geocoded.'); return; }
+  appAlert(`Geocoding ${missing.length} customers...`);
   let done = 0;
   for (const stop of missing) {
     await geocodeStop(stop, { force: true, silent: true });
     done++;
     if (done < missing.length) await new Promise(r => setTimeout(r, 1100));
   }
-  appAlert(`${done} müşteri geocode edildi.`);
+  appAlert(`${done} customers geocoded.`);
   if (curPage === 'map') refreshMapMarkers();
 }
 
@@ -180,7 +180,7 @@ function validateTrackedStockChange(prevItems, nextItems) {
     if (!catItem) return;
     const available = (catItem.stock || 0) + (prevMap[name] || 0);
     const needed = nextMap[name] || 0;
-    if (needed > available) shortages.push(`${name} (${available} mevcut, ${needed} istendi)`);
+    if (needed > available) shortages.push(`${name} (${available} available, ${needed} requested)`);
   });
   return shortages;
 }
@@ -201,7 +201,7 @@ function applyTrackedStockChange(prevItems, nextItems) {
   });
   return {
     changed: touched.length > 0,
-    lowStockWarnings: touched.filter(item => item.stock <= 5).map(item => `${item.name}: ${item.stock} kaldi`)
+    lowStockWarnings: touched.filter(item => item.stock <= 5).map(item => `${item.name}: ${item.stock} remaining`)
   };
 }
 
@@ -226,8 +226,8 @@ function getOrderDebtImpact(order) {
 function getOrderDebtNote(order) {
   const impact = getOrderDebtImpact(order);
   if (impact <= 0) return '';
-  if (order.payMethod === 'unpaid') return 'Teslimat - odenmedi';
-  return `Teslimat - eksik nakit (${formatCurrency(impact)})`;
+  if (order.payMethod === 'unpaid') return 'Delivery - unpaid';
+  return `Delivery - short cash (${formatCurrency(impact)})`;
 }
 
 function addOrderDebtEffect(order) {
@@ -275,7 +275,7 @@ function reconcileOrderDebtEffect(prevOrder, nextOrder) {
     const unresolved = roundMoney(Math.max(0, prevImpact - removed));
     if (unresolved > 0) {
       S.debts[stopId] = Math.max(0, roundMoney((S.debts[stopId] || 0) - unresolved));
-      addDebtAdjustmentEntry(stopId, unresolved, 'Siparis borc duzeltmesi', prevOrder.id);
+      addDebtAdjustmentEntry(stopId, unresolved, 'Order debt correction', prevOrder.id);
       changed = true;
     }
   }

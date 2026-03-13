@@ -1,105 +1,110 @@
-# PROJECT.md — Mimari ve Teknik Detaylar
+# PROJECT.md — Architecture and Technical Details
 
-## Uygulama Nedir?
+## What is the Application?
 
-Costadoro Coffee'nin Kent ve Londra bölgelerinde ~103 kafede kahve dağıtımı yapan Yusuf için özel geliştirilmiş rota yönetim sistemi.
+A custom-built route management system for Yusuf, who delivers coffee to ~103 cafes in the Kent and London regions for Costadoro Coffee.
 
-**Temel iş akışı:**
-1. 103+ müşteri iki haftalık rotaya (Week A / Week B) dağıtılmış
-2. Her hafta 5 gün (Mon–Fri) × 2 hafta = 10 günlük plan
-3. Saha'da telefon ile ziyaret takibi + sipariş/ödeme kaydı
-4. Ofiste bilgisayar ile rota planlama ve analiz
+**Core workflow:**
+1. 103+ customers distributed across a two-week rotation (Week A / Week B)
+2. 5 days per week (Mon-Fri) x 2 weeks = 10-day plan
+3. Mobile phone in the field for visit tracking + order/payment recording
+4. Computer in the office for route planning and analysis
 
 ---
 
-## Teknik Mimari
+## Technical Architecture
 
 ```
-index.html (tek dosya, ~4571 satır)
-├── <style>           CSS — tema, responsive, bileşen stilleri
-├── <body>            HTML sayfaları + modallar
-│   ├── page-route          Günlük rota / ziyaret takibi
-│   ├── page-orders         Sipariş listesi (pending/delivered)
-│   ├── page-customers      Müşteri listesi + CRUD
-│   ├── page-profile        Müşteri profil detayı
-│   ├── page-reports        Raporlar / dashboard
-│   ├── page-settings       Ayarlar (katalog, harita, sync, yedekleme)
-│   ├── page-catalog        Ürün kataloğu yönetimi
-│   ├── page-map            Leaflet harita
-│   └── page-delivery-history  Teslimat geçmişi
-├── CDN Scripts       XLSX, Leaflet
-└── <script>          JavaScript — tüm iş mantığı
+index.html
+├── Tailwind CSS CDN        (utility-first CSS framework)
+├── css/app.css              Custom component styles
+├── js/db.js                 Supabase REST + localStorage cache + offline queue
+├── js/utils.js              Utility functions (format, geocode, calculations)
+├── js/app.js                State, navigation, modal, init, service worker
+├── js/migrate.js            Data migration (cr4_store -> relational tables)
+└── js/pages/
+    ├── route.js             Daily route / visit tracking
+    ├── orders.js            Order list (pending/delivered) + order form
+    ├── customers.js         Customer list + CRUD
+    ├── profile.js           Customer profile detail
+    ├── reports.js           Reports / dashboard
+    ├── settings.js          Settings (backup, data management)
+    ├── catalog.js           Product catalog + recurring orders
+    └── map.js               Leaflet map + import/export
 ```
 
 ---
 
-## Navigasyon Yapısı
+## Navigation Structure
 
-### Alt Nav Bar (5 buton)
-| Buton | Sayfa | Açıklama |
-|-------|-------|----------|
-| Route | `page-route` | Günlük rota + ziyaret takibi |
-| Orders | `page-orders` | Sipariş listesi + yeni sipariş |
-| Customers | `page-customers` | Müşteri listesi + ekleme |
-| Reports | `page-reports` | Raporlar / dashboard |
-| Settings | `page-settings` | Ayarlar hub (katalog, harita, sync, yedek) |
+### Bottom Nav Bar (5 buttons)
+| Button | Page | Description |
+|--------|------|-------------|
+| Route | `page-route` | Daily route + visit tracking |
+| Orders | `page-orders` | Order list + new order |
+| Customers | `page-customers` | Customer list + add |
+| Reports | `page-reports` | Reports / dashboard |
+| Settings | `page-settings` | Settings hub (catalog, map, backup) |
 
-### Settings Alt Sayfaları
-| Sayfa | Erişim |
-|-------|--------|
-| `page-catalog` | Settings → Product Catalog |
-| `page-map` | Settings → Harita |
-| `page-delivery-history` | Settings → Teslimat Geçmişi |
+### Settings Sub-pages
+| Page | Access |
+|------|--------|
+| `page-catalog` | Settings -> Product Catalog |
+| `page-map` | Settings -> Map |
 
-### Profil Sayfası
-| Sayfa | Erişim |
-|-------|--------|
-| `page-profile` | Customers listesinden veya Order kartından müşteri adına tıkla |
+### Profile Page
+| Page | Access |
+|------|--------|
+| `page-profile` | Click customer name from Customers list or Order card |
 
 ---
 
-## Veri Modelleri
+## Data Models
 
-### STOPS (Müşteri Durağı)
+### STOPS (Customer Stop)
 ```js
 {
   id: number,        // unique
-  n: string,         // Cafe adı (örn: "ABBEY CAFE")
-  a: string,         // Adres satırı
-  c: string,         // Şehir (örn: "Gravesend")
-  p: string,         // Posta kodu (örn: "DA11 0BB")
+  n: string,         // Cafe name (e.g. "ABBEY CAFE")
+  a: string,         // Address line
+  c: string,         // City (e.g. "Gravesend")
+  p: string,         // Postcode (e.g. "DA11 0BB")
+  cn: string,        // Contact name
+  ph: string,        // Phone
+  em: string,        // Email
 }
 ```
 
-### DAYS (Gün Tanımları) — sabit, 10 gün
+### DAYS (Day Definitions) — fixed, 10 days
 ```js
 {
-  id: string,        // örn: "wA0" (Week A Monday)
+  id: string,        // e.g. "wA0" (Week A Monday)
   label: string,     // "Monday"
   week: "A" | "B",
-  color: string,     // hex renk kodu
-  ci: number,        // renk index'i (0–9)
+  color: string,     // hex color code
+  ci: number,        // color index (0-9)
 }
 ```
 
-**ID formatı:** `w{WEEK}{DAY_INDEX}` → `wA0`=WeekA Mon, `wB3`=WeekB Thu
+**ID format:** `w{WEEK}{DAY_INDEX}` -> `wA0`=WeekA Mon, `wB3`=WeekB Thu
 
-### State (S objesi) — localStorage + Supabase'de saklanır
+### State (S object) — stored in localStorage + Supabase
 
-| Key | Tip | Açıklama |
-|-----|-----|----------|
-| `assign` | `{stopId: dayId}` | Hangi stop hangi güne atanmış |
-| `routeOrder` | `{dayId: [stopId, ...]}` | Gün içi sıralama |
-| `geo` | `{stopId: {lat, lng}}` | Geocoded koordinatlar |
-| `orders` | `{orderId: OrderObj}` | Tüm siparişler (UUID key) |
-| `debts` | `{stopId: number}` | Birikmiş borç (£) |
-| `cnotes` | `{stopId: string}` | Kalıcı müşteri notları |
-| `debtHistory` | `{stopId: [TxObj, ...]}` | Borç işlem geçmişi |
-| `catalog` | `[CatalogItem, ...]` | Global ürün kataloğu |
-| `customerPricing` | `{stopId: {productName: price}}` | Müşteriye özel fiyatlar |
-| `stops` | `[Stop, ...]` | Düzenlenmiş stop listesi |
+| Key | Type | Description |
+|-----|------|-------------|
+| `assign` | `{stopId: dayId}` | Which stop is assigned to which day |
+| `routeOrder` | `{dayId: [stopId, ...]}` | Intra-day ordering |
+| `geo` | `{stopId: {lat, lng}}` | Geocoded coordinates |
+| `orders` | `{orderId: OrderObj}` | All orders (UUID key) |
+| `debts` | `{stopId: number}` | Accumulated debt (£) |
+| `cnotes` | `{stopId: string}` | Persistent customer notes |
+| `debtHistory` | `{stopId: [TxObj, ...]}` | Debt transaction history |
+| `catalog` | `[CatalogItem, ...]` | Global product catalog |
+| `customerPricing` | `{stopId: {productName: price}}` | Customer-specific prices |
+| `customerProducts` | `{stopId: {...}}` | Customer product preferences |
+| `recurringOrders` | `{stopId: {items: [...]}}` | Recurring order templates |
 
-### Order Objesi (V2)
+### Order Object (V2)
 ```js
 {
   id: string,           // UUID
@@ -109,8 +114,10 @@ index.html (tek dosya, ~4571 satır)
   deliveryDate: string, // YYYY-MM-DD
   status: "pending" | "delivered",
   payMethod: "cash" | "bank" | "unpaid" | "visit" | null,
+  cashPaid: number,     // amount paid in cash (for partial payments)
   createdAt: ISO8601,
   deliveredAt: ISO8601 | null,
+  debtEntryIds: [string], // linked debt history entry IDs
 }
 ```
 
@@ -118,67 +125,68 @@ index.html (tek dosya, ~4571 satır)
 ```js
 {
   name: string,
-  unit: string,        // "1" gibi birim
+  unit: string,        // e.g. "1kg", "250g"
   price: number,
-  stock: number | null, // null = stok takibi yok
-  trackStock: boolean,  // false = günlük ürün, stok takibi yapılmaz
+  stock: number | null, // null = no stock tracking
+  trackStock: boolean,  // false = daily product, no stock tracking
 }
 ```
 
 ---
 
-## Storage Mimarisi
+## Storage Architecture
 
 ### Hybrid localStorage + Supabase
 
 ```
-Yazma:  lsSave(key, value)
-          ├── localStorage['cr4_' + key]  (anlık)
-          └── Supabase REST API (async, fire-and-forget)
+Write:  save.*(key)
+          ├── cacheSet(key, value)  -> localStorage['cr5_' + key] (instant)
+          └── DB.*(data)            -> Supabase REST API (async)
 
-Okuma:  lsGet(key, default)
-          └── localStorage['cr4_' + key]  (hız için sadece local)
+Read:   loadStateFromDB() or loadStateLegacy()
+          └── localStorage cache (for speed)
 
-Sync:   syncFromSupabase()
-          ├── Supabase'den tüm satırları çek
-          ├── localStorage'ı güncelle
-          └── Tüm sayfaları yeniden render et
+Sync:   syncAll()
+          ├── Pull all tables from Supabase
+          ├── Update localStorage cache
+          └── Re-render current page
 ```
 
-**Not:** Supabase SDK kullanılmıyor — saf `fetch()` ile REST API çağrısı.
+**Note:** Supabase SDK is NOT used — pure `fetch()` REST API calls.
 
 ---
 
-## CSS Mimarisi
+## CSS Architecture
 
-### Tema Değişkenleri (`:root`)
+### Theme Variables (`:root`)
 ```css
---bg: #F5F5F5        /* Sayfa arkaplanı */
---card: #FFFFFF      /* Kart arkaplanı */
---border: #EAECF0    /* Hafif border */
---text: #1A1A1A      /* Ana metin */
---text-sec: #6B7280  /* İkincil metin */
---text-muted: #9CA3AF /* Soluk metin */
---primary: #E85D3A   /* Costadoro turuncu */
---success: #12B76A   /* Yeşil */
---danger: #F04438    /* Kırmızı */
---warning: #F79009   /* Uyarı */
---info: #2E90FA      /* Bilgi mavisi */
+--bg: #F5F5F7        /* Page background */
+--card: #FFFFFF      /* Card background */
+--border: #E5E7EB    /* Light border */
+--text: #111827      /* Primary text */
+--text-sec: #6B7280  /* Secondary text */
+--text-muted: #9CA3AF /* Muted text */
+--primary: #E85D3A   /* Costadoro orange */
+--success: #12B76A   /* Green */
+--danger: #F04438    /* Red */
+--warning: #F79009   /* Warning */
+--info: #2E90FA      /* Info blue */
 ```
 
-### Tasarım Sistemi
-- Font: Inter (Google Fonts)
+### Design System
+- Font: Inter (system-ui fallback)
 - Border-radius: `--radius` (12px), `--radius-sm` (8px)
 - Mobile-first responsive
-- Safe area: `env(safe-area-inset-bottom)` ile iPhone notch desteği
-- Chip/toggle sistemi filtreler için
+- Safe area: `env(safe-area-inset-bottom)` for iPhone notch support
+- Chip/toggle system for filters
+- Tailwind CSS CDN for utility classes
 
 ---
 
-## Bilinen Sınırlamalar
+## Known Limitations
 
-1. **Tek kullanıcı** — çok kullanıcılı çakışma çözümü yok (last-write-wins)
-2. **Büyük veri** — `orders` objesi zamanla büyüyebilir
-3. **Offline ilk açılış** — internet yoksa Supabase sync olmaz
-4. **Geocoding** — OpenStreetMap Nominatim rate-limit var
-5. **Excel export** — SheetJS CDN gerektirir
+1. **Single user** — no multi-user conflict resolution (last-write-wins)
+2. **Large data** — `orders` object can grow over time
+3. **Offline first load** — Supabase sync won't work without internet
+4. **Geocoding** — OpenStreetMap Nominatim has rate limits
+5. **Excel export** — requires SheetJS CDN

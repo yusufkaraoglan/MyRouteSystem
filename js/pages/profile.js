@@ -23,7 +23,7 @@ function renderProfile() {
     <header class="topbar">
       <button class="btn-ghost" onclick="showPage('${profilePreviousPage}')" style="font-size:18px;padding:8px">&larr;</button>
       <h1 style="flex:1;text-align:center;font-size:16px">${escHtml(stop.n)}</h1>
-      <button class="btn-ghost" onclick="showEditCustomerModal()" style="font-size:13px;color:var(--primary)">Düzenle</button>
+      <button class="btn-ghost" onclick="showEditCustomerModal()" style="font-size:13px;color:var(--primary)">Edit</button>
     </header>
     <div class="page-body">
       <!-- Info Card -->
@@ -31,7 +31,7 @@ function renderProfile() {
         <div class="profile-avatar">${getCustomerInitials(stop.n)}</div>
         <div style="font-size:12px;color:var(--text-sec);margin-top:4px">${escHtml(stop.a)}</div>
         <div style="font-size:12px;color:var(--text-sec)">${escHtml(stop.c)} &middot; ${escHtml(stop.p)}</div>
-        ${dayObj ? `<div style="margin-top:8px"><span class="badge" style="background:${dayObj.color}20;color:${dayObj.color}">Hafta ${dayObj.week} - ${dayObj.label}</span></div>` : '<div style="margin-top:8px"><span class="badge badge-outline">Atanmamış</span></div>'}
+        ${dayObj ? `<div style="margin-top:8px"><span class="badge" style="background:${dayObj.color}20;color:${dayObj.color}">Week ${dayObj.week} - ${dayObj.label}</span></div>` : '<div style="margin-top:8px"><span class="badge badge-outline">Unassigned</span></div>'}
         ${note ? `<div style="margin-top:8px;font-size:12px;color:var(--text-sec);font-style:italic">"${escHtml(note)}"</div>` : ''}
         ${(stop.cn || stop.ph || stop.em) ? `
           <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px;align-items:center;font-size:13px">
@@ -49,36 +49,36 @@ function renderProfile() {
       <div class="action-bar">
         <button class="action-btn" onclick="showAssignModal()">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          Gün Ata
+          Assign Day
         </button>
         <button class="action-btn" onclick="showCustomerProductsModal()">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-          Ürünler
+          Products
         </button>
         <button class="action-btn" onclick="showPricingModal()">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-          Fiyat
+          Pricing
         </button>
         <button class="action-btn" onclick="showNoteModal()">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          Not
+          Note
         </button>
         <button class="action-btn" onclick="showNewOrderModal(${stop.id})">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-          Sipariş
+          Order
         </button>
       </div>
 
       <!-- Debt -->
-      <div class="section-head"><h3>Borç Durumu</h3></div>
+      <div class="section-head"><h3>Debt Status</h3></div>
       <div class="debt-card">
         <div class="flex-between">
           <span class="debt-amount ${debt > 0 ? 'text-danger' : 'text-success'}">${formatCurrency(debt)}</span>
         </div>
         <div class="debt-actions">
-          <button class="btn btn-outline btn-sm" onclick="showAddDebtModal()">Borç Ekle</button>
-          <button class="btn btn-success btn-sm" onclick="showClearDebtModal()" ${debt <= 0 ? 'disabled' : ''}>Borç Tahsil</button>
-          <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger)" onclick="removeAllDebt()" ${debt <= 0 ? 'disabled' : ''}>Borç Sil</button>
+          <button class="btn btn-outline btn-sm" onclick="showAddDebtModal()">Add Debt</button>
+          <button class="btn btn-success btn-sm" onclick="showClearDebtModal()" ${debt <= 0 ? 'disabled' : ''}>Collect Debt</button>
+          <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger)" onclick="removeAllDebt()" ${debt <= 0 ? 'disabled' : ''}>Clear Debt</button>
         </div>
       </div>
 
@@ -91,41 +91,41 @@ function renderProfile() {
         <div style="margin:8px 0">
           <button class="btn btn-block" style="background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;gap:8px" onclick="quickReorder(${stop.id},'${lastDelivered.id}')">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            Son Siparişi Tekrarla
+            Repeat Last Order
           </button>
           <div class="text-muted" style="font-size:11px;text-align:center;margin-top:4px">${lastDelivered.items.map(i => i.qty + 'x ' + escHtml(i.name)).join(', ')} — ${formatCurrency(calcOrderTotal(lastDelivered))}</div>
         </div>` : '';
       })()}
 
       <!-- Pending Orders -->
-      <div class="section-head"><h3>Bekleyen Siparişler (${pending.length})</h3></div>`;
+      <div class="section-head"><h3>Pending Orders (${pending.length})</h3></div>`;
 
   if (pending.length === 0) {
-    html += `<p class="text-muted" style="font-size:13px;padding:8px 0">Bekleyen sipariş yok</p>`;
+    html += `<p class="text-muted" style="font-size:13px;padding:8px 0">No pending orders</p>`;
   } else {
     pending.forEach(o => {
       html += `
         <div class="order-card">
           <div class="order-card-head">
-            <div class="order-card-date">${formatDateTime(o.createdAt)}${o.deliveryDate ? ` · Teslimat: ${o.deliveryDate}` : ''}</div>
-            <span class="badge badge-warning">bekleyen</span>
+            <div class="order-card-date">${formatDateTime(o.createdAt)}${o.deliveryDate ? ` · Delivery: ${o.deliveryDate}` : ''}</div>
+            <span class="badge badge-warning">pending</span>
           </div>
           <div class="order-card-items">${o.items.map(i => `${i.qty}x ${escHtml(i.name)}`).join(', ')}</div>
           <div class="order-card-footer">
             <span class="order-card-total">${formatCurrency(calcOrderTotal(o))}</span>
-            <button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">Sil</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">Delete</button>
           </div>
         </div>`;
     });
   }
 
-  html += `<div class="section-head"><h3>Sipariş Geçmişi</h3></div>`;
+  html += `<div class="section-head"><h3>Order History</h3></div>`;
   if (recentDelivered.length === 0) {
-    html += `<p class="text-muted" style="font-size:13px;padding:8px 0">Teslimat geçmişi yok</p>`;
+    html += `<p class="text-muted" style="font-size:13px;padding:8px 0">No delivery history</p>`;
   } else {
     recentDelivered.forEach(o => {
       const isVisit = o.payMethod === 'visit';
-      const badgeLabel = isVisit ? 'ziyaret' : 'teslim';
+      const badgeLabel = isVisit ? 'visit' : 'delivered';
       const badgeClass = isVisit ? 'badge-purple' : 'badge-success';
       const payLabel = o.payMethod === 'visit' ? '' : o.payMethod === 'cash' && o.cashPaid !== undefined && o.cashPaid < calcOrderTotal(o) ? `cash (partial ${formatCurrency(o.cashPaid)})` : (o.payMethod || '');
       html += `
@@ -141,8 +141,8 @@ function renderProfile() {
             <span class="text-muted" style="font-size:12px">${payLabel}</span>
           </div>
           <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:4px">
-            <button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" onclick="showEditDeliveredOrderModal('${o.id}')">Düzenle</button>
-            <button class="btn-ghost" style="font-size:11px;color:var(--danger);padding:2px 6px" onclick="deleteOrder('${o.id}')">Sil</button>
+            <button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" onclick="showEditDeliveredOrderModal('${o.id}')">Edit</button>
+            <button class="btn-ghost" style="font-size:11px;color:var(--danger);padding:2px 6px" onclick="deleteOrder('${o.id}')">Delete</button>
           </div>
         </div>`;
     });
@@ -152,7 +152,7 @@ function renderProfile() {
   const dhRaw = S.debtHistory[stop.id] || [];
   const dh = dhRaw.map((h, i) => ({...h, _idx: i})).filter(h => h.type !== 'visit' && h.amount > 0);
   if (dh.length > 0) {
-    html += `<div class="section-head"><h3>Borç Geçmişi</h3></div>`;
+    html += `<div class="section-head"><h3>Debt History</h3></div>`;
     dh.slice(0, 15).forEach(h => {
       html += `<div class="card" style="padding:10px;margin-bottom:6px">
         <div class="flex-between">
@@ -177,7 +177,7 @@ function renderProfile() {
 }
 
 async function deleteOrder(orderId) {
-  if (!(await appConfirm('Bu kaydı silmek istediğinize emin misiniz?'))) return;
+  if (!(await appConfirm('Are you sure you want to delete this record?'))) return;
   const order = S.orders[orderId];
   if (!order) return;
 
@@ -208,22 +208,22 @@ function showEditDeliveredOrderModal(orderId) {
 
   let modalHtml = `
     <div class="modal-handle"></div>
-    <div class="modal-title">${isVisit ? 'Ziyaret Duzenle' : 'Teslimat Duzenle'}</div>
+    <div class="modal-title">${isVisit ? 'Edit Visit' : 'Edit Delivery'}</div>
     <div class="form-group">
-      <label class="form-label">Tarih</label>
+      <label class="form-label">Date</label>
       <input class="input" type="datetime-local" id="edit-del-date" value="${dateVal}">
     </div>`;
 
   if (isVisit) {
     modalHtml += `
     <div class="form-group">
-      <label class="form-label">Not</label>
+      <label class="form-label">Note</label>
       <textarea class="textarea" id="edit-del-note" rows="2">${escHtml(o.note || o.deliveryNote || '')}</textarea>
     </div>`;
   } else {
     modalHtml += `
     <div class="form-group">
-      <label class="form-label">Odeme Yontemi</label>
+      <label class="form-label">Payment Method</label>
       <select class="input" id="edit-del-pay" onchange="toggleEditDeliveredCash(this.value)">
         <option value="cash" ${o.payMethod==='cash'?'selected':''}>Cash</option>
         <option value="bank" ${o.payMethod==='bank'?'selected':''}>Bank</option>
@@ -231,19 +231,19 @@ function showEditDeliveredOrderModal(orderId) {
       </select>
     </div>
     <div class="form-group ${o.payMethod==='cash'?'':'hidden'}" id="edit-del-cash-wrap">
-      <label class="form-label">Nakit Alinan Tutar</label>
+      <label class="form-label">Cash Amount Received</label>
       <input class="input" type="number" step="0.01" id="edit-del-cash" value="${cashValue.toFixed(2)}"
              data-total="${total}" oninput="updateEditDeliveredCashHint()">
       <div class="text-muted" style="font-size:12px;margin-top:4px" id="edit-del-cash-hint"></div>
     </div>
     <div class="form-group">
-      <label class="form-label">Teslimat Notu</label>
+      <label class="form-label">Delivery Note</label>
       <textarea class="textarea" id="edit-del-note" rows="2">${escHtml(o.deliveryNote || '')}</textarea>
     </div>`;
   }
 
   modalHtml += `
-    <button class="btn btn-primary btn-block mt-2" onclick="saveEditDeliveredOrder('${orderId}')">Kaydet</button>`;
+    <button class="btn btn-primary btn-block mt-2" onclick="saveEditDeliveredOrder('${orderId}')">Save</button>`;
   openModal(modalHtml);
   if (!isVisit) updateEditDeliveredCashHint();
 }
@@ -262,7 +262,7 @@ function updateEditDeliveredCashHint() {
   const total = roundMoney(parseFloat(input.dataset.total) || 0);
   const paid = roundMoney(Math.max(0, parseFloat(input.value) || 0));
   const remaining = roundMoney(Math.max(0, total - paid));
-  hint.innerHTML = remaining > 0 ? `<span style="color:var(--danger)">${formatCurrency(remaining)} borca eklenecek</span>` : '';
+  hint.innerHTML = remaining > 0 ? `<span style="color:var(--danger)">${formatCurrency(remaining)} will be added to debt</span>` : '';
 }
 
 function saveEditDeliveredOrder(orderId) {
@@ -310,37 +310,37 @@ function showEditCustomerModal() {
   if (!stop) return;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">Müşteri Düzenle</div>
+    <div class="modal-title">Edit Customer</div>
     <div class="form-group">
-      <label class="form-label">İsim</label>
+      <label class="form-label">Name</label>
       <input class="input" id="edit-cust-name" value="${escHtml(stop.n)}">
     </div>
     <div class="form-group">
-      <label class="form-label">Adres</label>
+      <label class="form-label">Address</label>
       <input class="input" id="edit-cust-addr" value="${escHtml(stop.a)}">
     </div>
     <div class="form-group">
-      <label class="form-label">Şehir / Bölge</label>
+      <label class="form-label">City / Area</label>
       <input class="input" id="edit-cust-city" value="${escHtml(stop.c)}">
     </div>
     <div class="form-group">
-      <label class="form-label">Posta Kodu</label>
+      <label class="form-label">Postcode</label>
       <input class="input" id="edit-cust-post" value="${escHtml(stop.p)}">
     </div>
     <div class="form-group">
-      <label class="form-label">Ad Soyad (İletişim)</label>
+      <label class="form-label">Contact Name</label>
       <input class="input" id="edit-cust-cn" value="${escHtml(stop.cn||'')}">
     </div>
     <div class="form-group">
-      <label class="form-label">Cep Telefonu</label>
+      <label class="form-label">Mobile Phone</label>
       <input class="input" id="edit-cust-ph" type="tel" value="${escHtml(stop.ph||'')}">
     </div>
     <div class="form-group">
       <label class="form-label">Email</label>
       <input class="input" id="edit-cust-em" type="email" value="${escHtml(stop.em||'')}">
     </div>
-    <button class="btn btn-primary btn-block mb-1" onclick="saveEditCustomer()">Kaydet</button>
-    <button class="btn btn-danger btn-block" onclick="deleteCustomer()">Müşteriyi Sil</button>
+    <button class="btn btn-primary btn-block mb-1" onclick="saveEditCustomer()">Save</button>
+    <button class="btn btn-danger btn-block" onclick="deleteCustomer()">Delete Customer</button>
   `);
 }
 
@@ -356,6 +356,7 @@ async function saveEditCustomer() {
   stop.ph = document.getElementById('edit-cust-ph').value.trim();
   stop.em = document.getElementById('edit-cust-em').value.trim();
   save.stops();
+  await DB.saveCustomer({id: stop.id, name: stop.n, address: stop.a, city: stop.c, postcode: stop.p, note: S.cnotes[stop.id] || '', lat: (S.geo[stop.id]&&S.geo[stop.id].lat)||null, lng: (S.geo[stop.id]&&S.geo[stop.id].lng)||null});
   if (previousAddressKey !== getStopAddressKey(stop)) {
     await geocodeStop(stop, { force: true });
     if (leafletMap) refreshMapMarkers();
@@ -365,11 +366,12 @@ async function saveEditCustomer() {
 }
 
 async function deleteCustomer() {
-  if (!(await appConfirm('Bu müşteriyi silmek istediğinize emin misiniz?<br>Bu işlem geri alınamaz.'))) return;
+  if (!(await appConfirm('Are you sure you want to delete this customer?<br>This action cannot be undone.'))) return;
   STOPS = STOPS.filter(s => s.id !== profileStopId);
   delete S.assign[profileStopId];
   save.stops();
   save.assign();
+  await DB.deleteCustomer(profileStopId);
   closeModal();
   showPage('customers');
 }
@@ -383,10 +385,10 @@ function showAssignModal() {
   const currentDay = S.assign[stop.id];
 
   let html = `<div class="modal-handle"></div>
-    <div class="modal-title">Gün Ata - ${escHtml(stop.n)}</div>`;
+    <div class="modal-title">Assign Day - ${escHtml(stop.n)}</div>`;
 
   ['A', 'B'].forEach(week => {
-    html += `<div style="font-size:13px;font-weight:600;color:var(--text-sec);margin:12px 0 6px">Hafta ${week}</div>`;
+    html += `<div style="font-size:13px;font-weight:600;color:var(--text-sec);margin:12px 0 6px">Week ${week}</div>`;
     DAYS.filter(d => d.week === week).forEach(d => {
       const isActive = currentDay === d.id;
       html += `<button class="btn ${isActive ? 'btn-primary' : 'btn-outline'} btn-block mb-1"
@@ -398,7 +400,7 @@ function showAssignModal() {
   });
 
   if (currentDay) {
-    html += `<button class="btn btn-danger btn-block mt-2" onclick="unassignFromDay()">Rotadan Çıkar</button>`;
+    html += `<button class="btn btn-danger btn-block mt-2" onclick="unassignFromDay()">Remove from Route</button>`;
   }
 
   openModal(html);
@@ -407,6 +409,7 @@ function showAssignModal() {
 function assignToDay(dayId) {
   S.assign[profileStopId] = dayId;
   save.assign();
+  DB.setAssignment(profileStopId, dayId);
   closeModal();
   renderProfile();
 }
@@ -414,6 +417,7 @@ function assignToDay(dayId) {
 function unassignFromDay() {
   delete S.assign[profileStopId];
   save.assign();
+  DB.removeAssignment(profileStopId);
   closeModal();
   renderProfile();
 }
@@ -428,16 +432,16 @@ function showCustomerProductsModal() {
 
   if (S.catalog.length === 0) {
     openModal(`<div class="modal-handle"></div>
-      <div class="modal-title">Müşteri Ürünleri</div>
-      <p class="text-muted text-center" style="padding:20px">Katalogda ürün yok. Önce Ayarlar'dan ürün ekleyin.</p>
-      <button class="btn btn-outline btn-block" onclick="closeModal()">Kapat</button>
+      <div class="modal-title">Customer Products</div>
+      <p class="text-muted text-center" style="padding:20px">No products in catalog. Add products from Settings first.</p>
+      <button class="btn btn-outline btn-block" onclick="closeModal()">Close</button>
     `);
     return;
   }
 
   let html = `<div class="modal-handle"></div>
-    <div class="modal-title">Ürünler - ${escHtml(stop.n)}</div>
-    <p class="text-muted mb-2" style="font-size:12px">Bu müşterinin kullandığı ürünleri seçin.</p>`;
+    <div class="modal-title">Products - ${escHtml(stop.n)}</div>
+    <p class="text-muted mb-2" style="font-size:12px">Select products this customer uses.</p>`;
 
   S.catalog.forEach((c, i) => {
     const checked = assigned.includes(c.name);
@@ -451,7 +455,7 @@ function showCustomerProductsModal() {
     </label>`;
   });
 
-  html += `<button class="btn btn-primary btn-block mt-2" onclick="saveCustomerProducts()">Kaydet</button>`;
+  html += `<button class="btn btn-primary btn-block mt-2" onclick="saveCustomerProducts()">Save</button>`;
   openModal(html);
 }
 
@@ -481,26 +485,26 @@ function showPricingModal() {
 
   if (S.catalog.length === 0) {
     openModal(`<div class="modal-handle"></div>
-      <div class="modal-title">Özel Fiyatlandırma</div>
-      <p class="text-muted text-center" style="padding:20px">Katalogda ürün yok. Önce Ayarlar'dan ürün ekleyin.</p>
-      <button class="btn btn-outline btn-block" onclick="closeModal()">Kapat</button>
+      <div class="modal-title">Custom Pricing</div>
+      <p class="text-muted text-center" style="padding:20px">No products in catalog. Add products from Settings first.</p>
+      <button class="btn btn-outline btn-block" onclick="closeModal()">Close</button>
     `);
     return;
   }
 
   let html = `<div class="modal-handle"></div>
-    <div class="modal-title">Özel Fiyat - ${escHtml(stop.n)}</div>
-    <p class="text-muted mb-2" style="font-size:12px">Varsayılan katalog fiyatı için boş bırakın.</p>`;
+    <div class="modal-title">Custom Pricing - ${escHtml(stop.n)}</div>
+    <p class="text-muted mb-2" style="font-size:12px">Leave empty for default catalog price.</p>`;
 
   S.catalog.forEach((c, i) => {
     const val = cp[c.name] !== undefined ? cp[c.name] : '';
     html += `<div class="flex-between mb-1">
-      <div><div style="font-weight:500">${escHtml(c.name)}</div><div class="text-muted" style="font-size:12px">Varsayılan: ${formatCurrency(c.price)}</div></div>
+      <div><div style="font-weight:500">${escHtml(c.name)}</div><div class="text-muted" style="font-size:12px">Default: ${formatCurrency(c.price)}</div></div>
       <input class="input" type="number" step="0.01" style="width:90px;text-align:right" id="cp-${i}" value="${val}" placeholder="${c.price}">
     </div>`;
   });
 
-  html += `<button class="btn btn-primary btn-block mt-2" onclick="savePricing()">Fiyatları Kaydet</button>`;
+  html += `<button class="btn btn-primary btn-block mt-2" onclick="savePricing()">Save Prices</button>`;
   openModal(html);
 }
 
@@ -512,6 +516,7 @@ function savePricing() {
   });
   S.customerPricing[profileStopId] = cp;
   save.pricing();
+  DB.setCustomerPricing(profileStopId, cp);
   closeModal();
 }
 
@@ -521,11 +526,11 @@ function savePricing() {
 function showNoteModal() {
   const note = S.cnotes[profileStopId] || '';
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">Müşteri Notu</div>
+    <div class="modal-title">Customer Note</div>
     <div class="form-group">
       <textarea class="textarea" id="note-text" rows="4">${escHtml(note)}</textarea>
     </div>
-    <button class="btn btn-primary btn-block" onclick="saveNote()">Notu Kaydet</button>
+    <button class="btn btn-primary btn-block" onclick="saveNote()">Save Note</button>
   `);
 }
 
@@ -534,6 +539,7 @@ function saveNote() {
   if (note) S.cnotes[profileStopId] = note;
   else delete S.cnotes[profileStopId];
   save.cnotes();
+  DB.saveCustomer({id: profileStopId, name: getStop(profileStopId).n, address: getStop(profileStopId).a, city: getStop(profileStopId).c, postcode: getStop(profileStopId).p, note: note || ''});
   closeModal();
   renderProfile();
 }
@@ -543,23 +549,23 @@ function saveNote() {
 // ══════════════════════════════════════════════════════════════
 function showAddDebtModal() {
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">Borç Ekle</div>
+    <div class="modal-title">Add Debt</div>
     <div class="form-group">
-      <label class="form-label">Tutar</label>
+      <label class="form-label">Amount</label>
       <input class="input" type="number" step="0.01" id="debt-amount" placeholder="0.00">
     </div>
     <div class="form-group">
-      <label class="form-label">Not (opsiyonel)</label>
-      <input class="input" id="debt-note" placeholder="Sebep...">
+      <label class="form-label">Note (optional)</label>
+      <input class="input" id="debt-note" placeholder="Reason...">
     </div>
-    <button class="btn btn-primary btn-block" onclick="addDebt()">Borç Ekle</button>
+    <button class="btn btn-primary btn-block" onclick="addDebt()">Add Debt</button>
   `);
 }
 
 function addDebt() {
   const amount = parseFloat(document.getElementById('debt-amount').value) || 0;
-  if (amount <= 0) { appAlert('Geçerli bir tutar girin.'); return; }
-  const note = document.getElementById('debt-note').value.trim() || 'Manuel giriş';
+  if (amount <= 0) { appAlert('Please enter a valid amount.'); return; }
+  const note = document.getElementById('debt-note').value.trim() || 'Manual entry';
 
   S.debts[profileStopId] = (S.debts[profileStopId] || 0) + amount;
   if (!S.debtHistory[profileStopId]) S.debtHistory[profileStopId] = [];
@@ -569,6 +575,7 @@ function addDebt() {
   save.debts();
   save.debtHistory();
   DB.setDebt(profileStopId, S.debts[profileStopId]);
+  DB.addDebtHistoryEntry(profileStopId, {amount, note, date: new Date().toISOString()});
   closeModal();
   renderProfile();
 }
@@ -576,20 +583,20 @@ function addDebt() {
 function showClearDebtModal() {
   const debt = S.debts[profileStopId] || 0;
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">Borç Tahsil Et</div>
-    <p class="mb-2">Mevcut borç: <b>${formatCurrency(debt)}</b></p>
+    <div class="modal-title">Collect Debt</div>
+    <p class="mb-2">Current debt: <b>${formatCurrency(debt)}</b></p>
     <div class="form-group">
-      <label class="form-label">Tahsil edilecek tutar</label>
+      <label class="form-label">Amount to collect</label>
       <input class="input" type="number" step="0.01" id="clear-amount" value="${debt.toFixed(2)}">
     </div>
     <div class="form-group">
-      <label class="form-label">Ödeme Yöntemi</label>
+      <label class="form-label">Payment Method</label>
       <div class="pay-options">
-        <div class="pay-opt selected" onclick="selectClearMethod('cash',this)" id="clear-cash">Nakit</div>
-        <div class="pay-opt" onclick="selectClearMethod('bank',this)" id="clear-bank">Banka</div>
+        <div class="pay-opt selected" onclick="selectClearMethod('cash',this)" id="clear-cash">Cash</div>
+        <div class="pay-opt" onclick="selectClearMethod('bank',this)" id="clear-bank">Bank</div>
       </div>
     </div>
-    <button class="btn btn-success btn-block" onclick="clearDebt()">Borç Tahsil Et</button>
+    <button class="btn btn-success btn-block" onclick="clearDebt()">Collect Debt</button>
   `);
 }
 
@@ -620,7 +627,7 @@ function clearDebt() {
 async function removeAllDebt() {
   const debt = S.debts[profileStopId] || 0;
   if (debt <= 0) return;
-  if (!(await appConfirm(formatCurrency(debt) + ' tutarındaki tüm borcu silmek istediğinize emin misiniz?<br>Bu işlem ödeme kaydı oluşturmaz.'))) return;
+  if (!(await appConfirm(formatCurrency(debt) + ' debt - are you sure you want to clear all debt?<br>This will not create a payment record.'))) return;
   S.debts[profileStopId] = 0;
   save.debts();
   DB.setDebt(profileStopId, 0);
@@ -633,16 +640,16 @@ function showEditDebtHistoryModal(stopId, idx) {
   const h = dh[idx];
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">Borç Kaydını Düzenle</div>
+    <div class="modal-title">Edit Debt Record</div>
     <div class="form-group">
-      <label class="form-label">Tutar</label>
+      <label class="form-label">Amount</label>
       <input class="input" type="number" step="0.01" id="edit-dh-amount" value="${h.amount}">
     </div>
     <div class="form-group">
       <label class="form-label">Note</label>
       <input class="input" id="edit-dh-note" value="${escHtml(h.note || '')}">
     </div>
-    <button class="btn btn-primary btn-block" onclick="saveEditDebtHistory(${stopId},${idx})">Kaydet</button>
+    <button class="btn btn-primary btn-block" onclick="saveEditDebtHistory(${stopId},${idx})">Save</button>
   `);
 }
 
@@ -669,7 +676,7 @@ function saveEditDebtHistory(stopId, idx) {
 }
 
 async function removeDebtHistory(stopId, idx) {
-  if (!(await appConfirm('Bu borç kaydını silmek istediğinize emin misiniz?'))) return;
+  if (!(await appConfirm('Are you sure you want to delete this debt record?'))) return;
   const dh = S.debtHistory[stopId];
   if (!dh || !dh[idx]) return;
   const h = dh[idx];

@@ -27,7 +27,7 @@ async function runMigration() {
     if (statusEl) statusEl.textContent = msg;
   };
 
-  log('Göç başlıyor...');
+  log('Migration starting...');
 
   try {
     // 1. Migrate customers (STOPS)
@@ -36,7 +36,7 @@ async function runMigration() {
     const cnotes = legacyGet('cnotes', {});
 
     if (stops.length > 0) {
-      log(`${stops.length} müşteri aktarılıyor...`);
+      log(`Migrating ${stops.length} customers...`);
       const customerRows = stops.map(s => ({
         id: s.id,
         name: s.n,
@@ -54,7 +54,7 @@ async function runMigration() {
     // 2. Migrate catalog → products
     const catalog = legacyGet('catalog', []);
     if (catalog.length > 0) {
-      log(`${catalog.length} ürün aktarılıyor...`);
+      log(`Migrating ${catalog.length} products...`);
       const productRows = catalog.map((c, i) => ({
         name: c.name,
         unit: c.unit || '1',
@@ -70,7 +70,7 @@ async function runMigration() {
     const assign = legacyGet('assign', {});
     const assignEntries = Object.entries(assign).filter(([, v]) => v);
     if (assignEntries.length > 0) {
-      log(`${assignEntries.length} gün ataması aktarılıyor...`);
+      log(`Migrating ${assignEntries.length} day assignments...`);
       const assignRows = assignEntries.map(([cid, dayId]) => ({
         customer_id: parseInt(cid),
         day_id: dayId
@@ -82,7 +82,7 @@ async function runMigration() {
     const routeOrder = legacyGet('routeOrder', {});
     const roEntries = Object.entries(routeOrder);
     if (roEntries.length > 0) {
-      log('Rota sıralaması aktarılıyor...');
+      log('Migrating route order...');
       const roRows = [];
       roEntries.forEach(([dayId, cids]) => {
         if (Array.isArray(cids)) {
@@ -100,7 +100,7 @@ async function runMigration() {
     const ordersV2 = legacyGet('ordersV2', {});
     const orderEntries = Object.values(ordersV2);
     if (orderEntries.length > 0) {
-      log(`${orderEntries.length} sipariş aktarılıyor...`);
+      log(`Migrating ${orderEntries.length} orders...`);
 
       // Insert orders in batches of 50
       const batchSize = 50;
@@ -137,7 +137,7 @@ async function runMigration() {
           await dbInsert('order_items', itemRows);
         }
 
-        log(`Siparişler: ${Math.min(i + batchSize, orderEntries.length)}/${orderEntries.length}`);
+        log(`Orders: ${Math.min(i + batchSize, orderEntries.length)}/${orderEntries.length}`);
       }
     }
 
@@ -145,7 +145,7 @@ async function runMigration() {
     const debts = legacyGet('debts', {});
     const debtEntries = Object.entries(debts).filter(([, v]) => v != null);
     if (debtEntries.length > 0) {
-      log(`${debtEntries.length} borç kaydı aktarılıyor...`);
+      log(`Migrating ${debtEntries.length} debt records...`);
       const debtRows = debtEntries.map(([cid, amount]) => ({
         customer_id: parseInt(cid),
         amount: amount || 0
@@ -157,7 +157,7 @@ async function runMigration() {
     const debtHistory = legacyGet('debtHistory', {});
     const dhEntries = Object.entries(debtHistory);
     if (dhEntries.length > 0) {
-      log('Borç geçmişi aktarılıyor...');
+      log('Migrating debt history...');
       const dhRows = [];
       dhEntries.forEach(([cid, entries]) => {
         if (Array.isArray(entries)) {
@@ -183,7 +183,7 @@ async function runMigration() {
     // 8. Migrate customer pricing
     const pricing = legacyGet('customerPricing', null) || legacyGet('stopCatalog', {});
     if (pricing && Object.keys(pricing).length > 0) {
-      log('Müşteri fiyatları aktarılıyor...');
+      log('Migrating customer pricing...');
       const pRows = [];
       Object.entries(pricing).forEach(([cid, products]) => {
         if (products && typeof products === 'object') {
@@ -207,7 +207,7 @@ async function runMigration() {
     const recurring = legacyGet('recurringOrders', {});
     const recEntries = Object.entries(recurring);
     if (recEntries.length > 0) {
-      log('Tekrarlayan siparişler aktarılıyor...');
+      log('Migrating recurring orders...');
       const recRows = recEntries.map(([cid, data]) => ({
         customer_id: parseInt(cid),
         items: data.items || [],
@@ -232,11 +232,11 @@ async function runMigration() {
     // Sync all into new cache
     await syncAll();
 
-    log('Göç tamamlandı!');
+    log('Migration complete!');
     return true;
 
   } catch (e) {
-    log('Göç hatası: ' + e.message);
+    log('Migration error: ' + e.message);
     console.error('Migration error:', e);
     return false;
   }

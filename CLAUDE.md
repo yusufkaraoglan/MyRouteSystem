@@ -1,98 +1,108 @@
 # CLAUDE.md — Costadoro Route CRM
 
-> Bu dosya Claude Code için hazırlanmıştır. Projeye devam etmeden önce bu dosyayı ve referans verilen diğer MD dosyalarını oku.
+> This file is prepared for Claude Code. Read this file and the referenced MD files before continuing with the project.
 
 ---
 
-## Projeye Genel Bakış
+## Project Overview
 
-**Costadoro Routes** — Costadoro Coffee markalı kahve dağıtımı için geliştirilmiş, mobil öncelikli rota yönetim uygulaması.
+**Costadoro Routes** — A mobile-first route management application developed for Costadoro Coffee branded coffee distribution.
 
-- **Sahip:** Yusuf (işletme sahibı, geliştirici değil — "vibe coding" yaklaşımı)
-- **Kullanım:** Saha'da telefon + ofiste bilgisayar
-- **Dil:** Türkçe UI, İngilizce kod
-- **Teknoloji:** Vanilla HTML/CSS/JS + Leaflet.js + Supabase
+- **Owner:** Yusuf (business owner, not a developer — "vibe coding" approach)
+- **Usage:** Phone in the field + computer in the office
+- **Language:** English UI, English code
+- **Technology:** Vanilla HTML/CSS/JS + Tailwind CSS (CDN) + Leaflet.js + Supabase
 
-**Modüler dosya mimarisi** (v2, Mart 2026'da tek dosyadan ayrıldı):
+**Modular file architecture** (v2, split from single file in March 2026):
 
 ---
 
-## Dosya Yapısı
+## File Structure
 
 ```
-index.html              ← HTML kabuk (sayfa div'leri + nav + script yüklemeleri)
-index_old.html          ← Eski tek dosya yedek (4700+ satır)
+index.html              <- HTML shell (page divs + nav + script loads + Tailwind CDN)
+index_old.html          <- Old single-file backup (4700+ lines)
 css/
-  app.css               ← Tüm CSS stilleri (~400 satır)
+  app.css               <- All CSS styles (~410 lines)
 js/
-  db.js                 ← Supabase REST + localStorage cache + offline queue
-  utils.js              ← Yardımcı fonksiyonlar (format, geocode, hesaplama)
-  app.js                ← State, navigation, modal, init, service worker
-  migrate.js            ← Eski cr4_store → yeni tablolara veri göçü
-  pages.js              ← Tüm sayfa render fonksiyonları (~3460 satır)
+  db.js                 <- Supabase REST + localStorage cache + offline queue
+  utils.js              <- Utility functions (format, geocode, calculations)
+  app.js                <- State, navigation, modal, init, service worker
+  migrate.js            <- Old cr4_store -> new tables data migration
+  pages/
+    route.js            <- Route page (daily delivery, drag-and-drop)
+    orders.js           <- Orders page (order form, product picker)
+    customers.js        <- Customers list page
+    profile.js          <- Customer profile (debt, pricing, notes)
+    reports.js          <- Reports (overview, products, customers, debts, export)
+    settings.js         <- Settings page (JSON backup)
+    catalog.js          <- Product catalog + recurring orders + reset
+    map.js              <- Map page (Leaflet) + import/export + route share
 migration/
-  001_create_tables.sql ← Supabase'de yeni tabloları oluşturan SQL
-CLAUDE.md               ← Bu dosya
-PROJECT.md              ← Proje detayları, mimari, veri yapıları
-FEATURES.md             ← Tüm özellikler ve fonksiyon referansı
-ROADMAP.md              ← Yapılacaklar ve geliştirme fikirleri
-README.md               ← Kısa proje açıklaması
+  001_create_tables.sql <- SQL to create new tables in Supabase
+CLAUDE.md               <- This file
+PROJECT.md              <- Project details, architecture, data models
+FEATURES.md             <- All features and function reference
+ROADMAP.md              <- Planned features and development ideas
+README.md               <- Short project description
 ```
 
 ---
 
-## Kritik Geliştirme Kuralları
+## Critical Development Rules
 
-### 1. Dosya Organizasyonu
-- **CSS:** `css/app.css` — tüm stiller burada
-- **JS:** `js/` klasörü — her modülün ayrı dosyası
-- **HTML:** `index.html` — sadece sayfa div'leri ve script yüklemeleri
-- Script yükleme sırası: `db.js → utils.js → app.js → migrate.js → pages.js`
+### 1. File Organization
+- **CSS:** `css/app.css` — all styles here
+- **JS:** `js/` folder — each module has its own file, pages in `js/pages/`
+- **HTML:** `index.html` — only page divs and script loads
+- Script load order: `db.js -> utils.js -> app.js -> migrate.js -> pages/*.js`
 
-### 2. Brace Dengesi Kontrolü
-Her değişiklikten sonra JS'in brace/parantez dengesini kontrol et:
+### 2. Brace Balance Check
+Check JS brace/parenthesis balance after every change:
 ```bash
-# Tüm dosyaları kontrol et:
-for f in js/*.js; do node -c "$f"; done
+# Check all files:
+for f in js/*.js js/pages/*.js; do node -c "$f"; done
 ```
-**Geçmişte bu hata projeyi tamamen çökertti** — `clearDebt()` fonksiyonunun kapanış `}` eksikti.
+**This error has crashed the project before** — `clearDebt()` function was missing its closing `}`.
 
-### 3. Çift Katmanlı Storage (Geçiş Döneminde)
+### 3. Dual-Layer Storage (Transition Period)
 
-**Eski sistem (cr4_store):**
-- `lsSave(key, value)` → localStorage + Supabase cr4_store
-- `lsGet(key, default)` → localStorage'dan okur
-- `syncFromSupabase()` → cr4_store'dan çekip localStorage'ı günceller
+**Old system (cr4_store):**
+- `lsSave(key, value)` -> localStorage + Supabase cr4_store
+- `lsGet(key, default)` -> reads from localStorage
+- `syncFromSupabase()` -> pulls from cr4_store and updates localStorage
 
-**Yeni sistem (ilişkisel tablolar):**
-- `DB.saveCustomer(data)` → customers tablosuna + cache
-- `DB.getOrders()` → orders tablosundan + cache
-- `cacheGet/cacheSet` → cr5_ prefix ile localStorage
-- `syncAll()` → tüm tablolardan çekip cache günceller
+**New system (relational tables):**
+- `DB.saveCustomer(data)` -> customers table + cache
+- `DB.getOrders()` -> from orders table + cache
+- `cacheGet/cacheSet` -> cr5_ prefix in localStorage
+- `syncAll()` -> pulls from all tables and updates cache
 
-**Geçiş mantığı:** `cacheGet('db_migrated', false)` true ise yeni DB kullanılır.
+**Transition logic:** If `cacheGet('db_migrated', false)` is true, new DB is used.
 
-### 4. State Değişikliklerinde Save Çağır
+**Save functions now persist to both localStorage AND Supabase** via `save.*` helpers in app.js.
+
+### 4. Call Save on State Changes
 ```js
-S.debts[stopId] = yeniDeger;
-save.debts();  // ← MUTLAKA çağır
+S.debts[stopId] = newValue;
+save.debts();  // <- MUST call this
 ```
 
-### 5. Yeni Sayfa Ekleme
-1. `index.html`'de `<div class="page" id="page-ISIM">` ekle
-2. `app.js` → `renderCurrentPage()` fonksiyonuna `case 'ISIM': renderISIM(); break;` ekle
-3. `pages.js`'e `renderISIM()` fonksiyonunu ekle
-4. Gerekirse `app.js` → `showPage()` nav mapping güncelle
+### 5. Adding New Pages
+1. Add `<div class="page" id="page-NAME">` in `index.html`
+2. `app.js` -> add `case 'NAME': renderNAME(); break;` to `renderCurrentPage()`
+3. Create `js/pages/NAME.js` with `renderNAME()` function
+4. If needed, update `app.js` -> `showPage()` nav mapping
 
-**Mevcut sayfalar:** route, orders, customers, profile, reports, settings, catalog, map
+**Existing pages:** route, orders, customers, profile, reports, settings, catalog, map
 
-**Alt navigasyon (5 buton):** Route, Orders, Customers, Reports, Settings
+**Bottom navigation (5 buttons):** Route, Orders, Customers, Reports, Settings
 
-### 6. Türkçe UI
-Tüm kullanıcıya görünen metinler Türkçe olmalı. Kod yorumları İngilizce veya Türkçe olabilir.
+### 6. English UI
+All user-visible text must be in English. Code comments can be in English.
 
-### 7. Scroll Pozisyonu Koruma
-Sayfa içi güncellemelerde scroll pozisyonunu kaydet/geri yükle:
+### 7. Scroll Position Preservation
+Save/restore scroll position on in-page updates:
 ```js
 const body = document.querySelector('#page-xyz .page-body');
 const scrollPos = body ? body.scrollTop : 0;
@@ -101,42 +111,46 @@ const newBody = document.querySelector('#page-xyz .page-body');
 if (newBody) newBody.scrollTop = scrollPos;
 ```
 
-### 8. Sipariş Formu Tam Sayfa
-Yeni sipariş/düzenleme formu `openModal()` yerine tam sayfa overlay (`order-form-overlay`) kullanır.
+### 8. Order Form Full Page
+New order/edit forms use a full-page overlay (`order-form-overlay`) instead of `openModal()`.
+
+### 9. Double-Click Protection
+Use `btnLock(fn)` from app.js for actions like saving orders to prevent duplicate submissions.
 
 ---
 
-## Veritabanı (Supabase)
+## Database (Supabase)
 
 ```
 Project: ClientRotaCrm
 URL: https://mvvvqloqwjimlbqeotsd.supabase.co
-Anon Key: (js/db.js içinde)
-RLS: kapalı (DISABLE ROW LEVEL SECURITY)
+Anon Key: (in js/db.js)
+RLS: disabled (DISABLE ROW LEVEL SECURITY)
 ```
 
-### Eski Tablo (geçiş döneminde korunuyor)
+### Old Table (preserved during transition)
 - `cr4_store` (key TEXT PRIMARY KEY, value JSONB, updated_at TIMESTAMPTZ)
 
-### Yeni Tablolar (migration/001_create_tables.sql)
-- `customers` — müşteriler (id, name, address, city, postcode, lat, lng, note)
-- `products` — ürün kataloğu
-- `assignments` — müşteri → gün ataması
-- `route_order` — gün içi rota sırası
-- `orders` — siparişler
-- `order_items` — sipariş kalemleri
-- `debts` — güncel borç bakiyesi
-- `debt_history` — borç işlem geçmişi
-- `customer_pricing` — müşteri özel fiyatları
-- `recurring_orders` — tekrarlayan sipariş şablonları
-- `app_settings` — uygulama ayarları (key-value)
-- `migrations` — göç takibi
+### New Tables (migration/001_create_tables.sql)
+- `customers` — customers (id, name, address, city, postcode, lat, lng, note, contact_name, phone, email)
+- `products` — product catalog
+- `assignments` — customer -> day assignment
+- `route_order` — intra-day route ordering
+- `orders` — orders
+- `order_items` — order line items
+- `debts` — current debt balance
+- `debt_history` — debt transaction history
+- `customer_pricing` — customer-specific pricing
+- `recurring_orders` — recurring order templates
+- `app_settings` — application settings (key-value)
+- `migrations` — migration tracking
 
 ---
 
-## Bağımlılıklar (CDN)
+## Dependencies (CDN)
 
 ```html
+<script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js">
@@ -144,13 +158,13 @@ RLS: kapalı (DISABLE ROW LEVEL SECURITY)
 
 ---
 
-## Hızlı Başlangıç
+## Quick Start
 
-Claude Code'un projeye başlamadan önce yapması gerekenler:
+Things Claude Code should do before starting on the project:
 
-- [ ] Bu dosyayı oku
-- [ ] `js/app.js` — state yapısı ve navigation'ı anla
-- [ ] `js/db.js` — storage katmanını anla
-- [ ] `js/pages.js` — sayfa render fonksiyonlarını incele
-- [ ] Değişiklik yapmadan önce brace dengesi kontrolü yap
-- [ ] Her değişiklik sonrası `node -c` ile syntax doğrula
+- [ ] Read this file
+- [ ] `js/app.js` — understand state structure and navigation
+- [ ] `js/db.js` — understand the storage layer
+- [ ] `js/pages/*.js` — review page render functions
+- [ ] Run brace balance check before making changes
+- [ ] Validate syntax with `node -c` after every change

@@ -1,28 +1,30 @@
 'use strict';
+let _btnLock = false;
+
 function renderOrders(fullRender) {
   const isSearchUpdate = !fullRender && document.getElementById('orders-results');
 
   if (!isSearchUpdate) {
     let html = `
       <header class="topbar">
-        <h1>Siparişler</h1>
+        <h1>Orders</h1>
         <div class="topbar-actions">
-          <span class="badge badge-outline" id="orders-pending-badge">${Object.values(S.orders).filter(o=>o.status==='pending'&&o.payMethod!=='visit').length} bekleyen</span>
+          <span class="badge badge-outline" id="orders-pending-badge">${Object.values(S.orders).filter(o=>o.status==='pending'&&o.payMethod!=='visit').length} pending</span>
         </div>
       </header>
       <div class="page-body">
         <div class="search-bar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" placeholder="Müşteri ara..." value="${escHtml(S.ordersSearch)}" oninput="S.ordersSearch=this.value;renderOrderResults()">
+          <input type="text" placeholder="Search customer..." value="${escHtml(S.ordersSearch)}" oninput="S.ordersSearch=this.value;renderOrderResults()">
         </div>
         <div class="chip-group">
-          <button class="chip ${S.ordersFilter==='pending'?'active':''}" onclick="S.ordersFilter='pending';renderOrders(true)">Bekleyen</button>
-          <button class="chip ${S.ordersFilter==='delivered'?'active':''}" onclick="S.ordersFilter='delivered';renderOrders(true)">Teslim Edildi</button>
-          <button class="chip ${S.ordersFilter==='all'?'active':''}" onclick="S.ordersFilter='all';renderOrders(true)">Tümü</button>
+          <button class="chip ${S.ordersFilter==='pending'?'active':''}" onclick="S.ordersFilter='pending';renderOrders(true)">Pending</button>
+          <button class="chip ${S.ordersFilter==='delivered'?'active':''}" onclick="S.ordersFilter='delivered';renderOrders(true)">Delivered</button>
+          <button class="chip ${S.ordersFilter==='all'?'active':''}" onclick="S.ordersFilter='all';renderOrders(true)">All</button>
         </div>
         <div id="orders-results"></div>
       </div>
-      <button class="fab" onclick="showNewOrderModal()" aria-label="Yeni Sipariş">
+      <button class="fab" onclick="showNewOrderModal()" aria-label="New Order">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>`;
     document.getElementById('page-orders').innerHTML = html;
@@ -65,7 +67,7 @@ function renderOrderResults() {
 
   // Update badge
   const badge = document.getElementById('orders-pending-badge');
-  if (badge) badge.textContent = Object.values(S.orders).filter(o=>o.status==='pending'&&o.payMethod!=='visit').length + ' bekleyen';
+  if (badge) badge.textContent = Object.values(S.orders).filter(o=>o.status==='pending'&&o.payMethod!=='visit').length + ' pending';
 
   const isPending = S.ordersFilter === 'pending';
   const locked = S.ordersLockedOrders || [];
@@ -74,7 +76,7 @@ function renderOrderResults() {
   if (orders.length === 0) {
     html = `<div class="empty-state">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-      <p><b>Sipariş bulunamadı</b></p><p>+ butonuyla yeni sipariş oluşturun</p></div>`;
+      <p><b>No orders found</b></p><p>Create a new order with the + button</p></div>`;
   } else {
     if (isPending) {
       html += `<div id="orders-drag-list">`;
@@ -91,7 +93,7 @@ function renderOrderResults() {
         <div class="order-card-v2${isPending ? ' draggable-order' : ''}" data-order-id="${o.id}" ${isPending && !isLocked ? 'draggable="true"' : ''}>
           <div class="order-card-v2-header">
             ${isPending ? `<div class="order-drag-row">
-              <button class="order-lock-btn${isLocked ? ' locked' : ''}" onclick="event.stopPropagation();toggleOrderLock('${o.id}')" title="${isLocked ? 'Kilidi aç' : 'Kilitle'}">
+              <button class="order-lock-btn${isLocked ? ' locked' : ''}" onclick="event.stopPropagation();toggleOrderLock('${o.id}')" title="${isLocked ? 'Unlock' : 'Lock'}">
                 ${isLocked ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>' : '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>'}
               </button>
             </div>` : ''}
@@ -104,10 +106,10 @@ function renderOrderResults() {
             ${isDelivered ? `<span style="font-size:11px;color:var(--text-muted)">${o.payMethod || ''} · ${formatDate(o.deliveredAt)}</span>` : ''}
             <div class="order-card-v2-actions">
               ${o.status === 'pending' ? `
-                <button class="btn btn-success btn-sm" onclick="showDeliveryFromOrder('${o.id}')">Teslim</button>
-                <button class="btn btn-outline btn-sm" onclick="showEditOrderModal('${o.id}')">Düzenle</button>
+                <button class="btn btn-success btn-sm" onclick="showDeliveryFromOrder('${o.id}')">Deliver</button>
+                <button class="btn btn-outline btn-sm" onclick="showEditOrderModal('${o.id}')">Edit</button>
               ` : ''}
-              <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger)" onclick="deleteOrderFromList('${o.id}')">Sil</button>
+              <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger)" onclick="deleteOrderFromList('${o.id}')">Delete</button>
             </div>
           </div>
         </div>`;
@@ -271,7 +273,7 @@ function quickReorder(customerId, lastOrderId) {
   tempOrderCustomerId = customerId;
   tempOrderItems = lastOrder.items.map(i => ({ name: i.name, qty: i.qty, price: i.price }));
   tempOrderDeliveryDate = '';
-  renderOrderFormModal('Tekrar Sipariş', lastOrder.note || '');
+  renderOrderFormModal('Reorder', lastOrder.note || '');
 }
 
 function closeOrderForm() {
@@ -285,7 +287,7 @@ function showNewOrderModal(preCustomerId) {
   tempOrderItems = [{ name: '', qty: 1, price: 0 }];
   tempOrderCustomerId = preCustomerId != null ? preCustomerId : null;
   tempOrderDeliveryDate = '';
-  renderOrderFormModal('Yeni Sipariş');
+  renderOrderFormModal('New Order');
 }
 
 function showEditOrderModal(orderId) {
@@ -296,7 +298,7 @@ function showEditOrderModal(orderId) {
   tempOrderItems = order.items.map(i => ({ ...i }));
   if (tempOrderItems.length === 0) tempOrderItems = [{ name: '', qty: 1, price: 0 }];
   tempOrderDeliveryDate = order.deliveryDate || '';
-  renderOrderFormModal('Sipariş Düzenle', order.note || '');
+  renderOrderFormModal('Edit Order', order.note || '');
 }
 
 function renderOrderFormModal(title, existingNote) {
@@ -359,37 +361,37 @@ function renderOrderFormModal(title, existingNote) {
     </div>
     <div class="order-form-body">
       <div class="form-group">
-        <label class="form-label">Müşteri</label>
+        <label class="form-label">Customer</label>
         <div class="input" id="cust-display"
              onclick="${editingOrderId ? '' : 'openCustomerPicker()'}"
              style="cursor:${editingOrderId ? 'default' : 'pointer'};color:${selectedStop ? 'var(--text)' : 'var(--text-muted)'};${editingOrderId ? 'opacity:0.6' : ''}">
-          ${selectedStop ? escHtml(selectedStop.n) : 'Müşteri seçmek için dokunun...'}
+          ${selectedStop ? escHtml(selectedStop.n) : 'Tap to select a customer...'}
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Ürünler${itemCount > 0 ? ' (' + itemCount + ')' : ''}</label>
-        <div id="order-items-list">${itemsHtml || '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:13px">Henüz ürün eklenmedi</div>'}</div>
+        <label class="form-label">Products${itemCount > 0 ? ' (' + itemCount + ')' : ''}</label>
+        <div id="order-items-list">${itemsHtml || '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:13px">No products added yet</div>'}</div>
         <button class="btn btn-outline btn-block mt-1" onclick="openProductPicker()" style="gap:6px">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Ürün Ekle
+          Add Product
         </button>
       </div>
       <div class="flex-between mb-2" style="padding:12px;background:var(--card);border-radius:var(--radius-sm)">
-        <span style="font-weight:700;font-size:16px">Toplam</span>
+        <span style="font-weight:700;font-size:16px">Total</span>
         <span style="font-weight:700;font-size:18px;color:var(--primary)" id="order-total">${formatCurrency(total)}</span>
       </div>
       <div class="form-group">
-        <label class="form-label">Teslimat Tarihi</label>
+        <label class="form-label">Delivery Date</label>
         <input class="input" type="date" id="order-delivery-date" value="${tempOrderDeliveryDate}" min="${new Date().toISOString().split('T')[0]}" onchange="tempOrderDeliveryDate=this.value">
-        <div class="text-muted" style="font-size:11px;margin-top:4px">${tempOrderDeliveryDate ? '' : 'Boş bırakılırsa bugün için geçerli'}</div>
+        <div class="text-muted" style="font-size:11px;margin-top:4px">${tempOrderDeliveryDate ? '' : 'If left empty, defaults to today'}</div>
       </div>
       <div class="form-group">
-        <label class="form-label">Not (opsiyonel)</label>
+        <label class="form-label">Note (optional)</label>
         <textarea class="textarea" id="order-note" rows="2" style="min-height:50px">${existingNote !== undefined ? escHtml(existingNote) : ''}</textarea>
       </div>
     </div>
     <div class="order-form-footer">
-      <button class="btn btn-primary btn-block" onclick="saveOrder()">${editingOrderId ? 'Siparişi Güncelle' : 'Siparişi Kaydet'}</button>
+      <button class="btn btn-primary btn-block" onclick="saveOrder()">${editingOrderId ? 'Update Order' : 'Save Order'}</button>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -401,7 +403,7 @@ function changeOrderItemQty(idx, delta) {
   const newQty = (tempOrderItems[idx].qty || 1) + delta;
   if (newQty < 1) return;
   tempOrderItems[idx].qty = newQty;
-  renderOrderFormModal(editingOrderId ? 'Sipariş Düzenle' : 'Yeni Sipariş');
+  renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
 }
 
 function setOrderItemQty(idx, qty) {
@@ -436,7 +438,7 @@ function openProductPicker() {
   overlay.innerHTML = `
     <div class="ppick-header">
       <button class="btn-ghost" onclick="closeProductPicker()" style="font-size:20px;padding:4px">&larr;</button>
-      <input type="text" id="ppick-search" placeholder="Ürün ara..." autofocus
+      <input type="text" id="ppick-search" placeholder="Search product..." autofocus
              oninput="filterProductPicker(this.value)">
     </div>
     <div class="ppick-list" id="ppick-list"></div>
@@ -455,14 +457,14 @@ function closeProductPicker() {
 
 function doneProductPicker() {
   closeProductPicker();
-  renderOrderFormModal(editingOrderId ? 'Sipariş Düzenle' : 'Yeni Sipariş');
+  renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
 }
 
 function updateDoneBtn() {
   const btn = document.getElementById('ppick-done-btn');
   if (!btn) return;
   const count = tempOrderItems.filter(i => i.name).length;
-  btn.textContent = count > 0 ? 'Tamam (' + count + ' seçildi)' : 'Tamam';
+  btn.textContent = count > 0 ? 'Done (' + count + ' selected)' : 'Done';
 }
 
 function filterProductPicker(q) {
@@ -479,7 +481,7 @@ function filterProductPicker(q) {
     const outOfStock = c.trackStock !== false && c.stock != null && c.stock <= 0;
     return `<div class="ppick-item${isSelected ? ' selected' : ''}${outOfStock ? ' out-of-stock' : ''}" onclick="${outOfStock ? '' : `toggleProductInOrder('${escHtml(c.name)}')`}" style="${outOfStock ? 'opacity:0.4;pointer-events:none' : ''}">
       <div class="ppick-item-info">
-        <div class="ppick-item-name">${escHtml(c.name)}${outOfStock ? ' <span style="color:var(--danger);font-size:11px">(Stok yok)</span>' : (c.trackStock !== false && c.stock != null ? ` <span style="color:var(--text-sec);font-size:11px">(${c.stock})</span>` : '')}</div>
+        <div class="ppick-item-name">${escHtml(c.name)}${outOfStock ? ' <span style="color:var(--danger);font-size:11px">(Out of stock)</span>' : (c.trackStock !== false && c.stock != null ? ` <span style="color:var(--text-sec);font-size:11px">(${c.stock})</span>` : '')}</div>
         <div class="ppick-item-detail">${escHtml(c.unit || 'No unit')}</div>
       </div>
       <div class="ppick-item-price">${formatCurrency(tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, c.name) : c.price)}</div>
@@ -488,7 +490,7 @@ function filterProductPicker(q) {
   }).join('');
 
   if (filtered.length === 0) {
-    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">Ürün bulunamadı</div>';
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">Product not found</div>';
   }
 }
 
@@ -518,7 +520,7 @@ function openCustomerPicker() {
   overlay.innerHTML = `
     <div class="cpick-header">
       <button class="btn-ghost" onclick="closeCustomerPicker()" style="font-size:20px;padding:4px">&larr;</button>
-      <input type="text" id="cpick-search" placeholder="Müşteri ara..." autofocus
+      <input type="text" id="cpick-search" placeholder="Search customer..." autofocus
              oninput="filterCPicker(this.value)">
     </div>
     <div class="cpick-list" id="cpick-list"></div>
@@ -534,8 +536,8 @@ function filterCPicker(q) {
   let filtered = STOPS;
   if (query) filtered = STOPS.filter(s =>
     s.n.toLowerCase().includes(query) ||
-    s.c.toLowerCase().includes(query) ||
-    s.p.toLowerCase().includes(query)
+    (s.c||'').toLowerCase().includes(query) ||
+    (s.p||'').toLowerCase().includes(query)
   );
   filtered.sort((a, b) => a.n.localeCompare(b.n));
   list.innerHTML = filtered.map(s =>
@@ -564,7 +566,7 @@ function updateOrderItem(idx, field, value) {
     const price = tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, value) : (S.catalog.find(c => c.name === value)?.price || 0);
     tempOrderItems[idx].price = price;
   }
-  renderOrderFormModal(editingOrderId ? 'Sipariş Düzenle' : 'Yeni Sipariş');
+  renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
 }
 
 function updateOrderPrices() {
@@ -573,7 +575,7 @@ function updateOrderPrices() {
       item.price = tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, item.name) : (S.catalog.find(c => c.name === item.name)?.price || 0);
     }
   });
-  renderOrderFormModal(editingOrderId ? 'Sipariş Düzenle' : 'Yeni Sipariş');
+  renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
 }
 
 function addOrderItem() {
@@ -583,19 +585,23 @@ function addOrderItem() {
 function removeOrderItem(idx) {
   tempOrderItems.splice(idx, 1);
   if (tempOrderItems.length === 0) tempOrderItems.push({ name: '', qty: 1, price: 0 });
-  renderOrderFormModal(editingOrderId ? 'Sipariş Düzenle' : 'Yeni Sipariş');
+  renderOrderFormModal(editingOrderId ? 'Edit Order' : 'New Order');
 }
 
 function saveOrder() {
-  if (tempOrderCustomerId == null) { appAlert('Lütfen bir müşteri seçin.'); return; }
+  if (_btnLock) return;
+  _btnLock = true;
+  setTimeout(() => _btnLock = false, 500);
+
+  if (tempOrderCustomerId == null) { appAlert('Please select a customer.'); return; }
   const items = tempOrderItems.filter(i => i.name && i.qty > 0);
-  if (items.length === 0) { appAlert('Lütfen en az bir ürün ekleyin.'); return; }
+  if (items.length === 0) { appAlert('Please add at least one product.'); return; }
 
   const existingOrder = editingOrderId ? S.orders[editingOrderId] : null;
   const previousItems = existingOrder ? (existingOrder.items || []) : [];
   const stockIssues = validateTrackedStockChange(previousItems, items);
   if (stockIssues.length > 0) {
-    appAlert('Yetersiz stok: ' + stockIssues.join(', '));
+    appAlert('Insufficient stock: ' + stockIssues.join(', '));
     return;
   }
 
@@ -626,7 +632,7 @@ function saveOrder() {
   if (stockChange.changed) {
     save.catalog();
     if (stockChange.lowStockWarnings.length > 0) {
-      setTimeout(() => appAlert('Dusuk stok:<br>' + stockChange.lowStockWarnings.join('<br>')), 300);
+      setTimeout(() => appAlert('Low stock:<br>' + stockChange.lowStockWarnings.join('<br>')), 300);
     }
   }
 

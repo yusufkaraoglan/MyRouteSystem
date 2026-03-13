@@ -1,117 +1,126 @@
-# ROADMAP.md — Planlanan Özellikler ve Geliştirme Fikirleri
+# ROADMAP.md — Planned Features and Development Ideas
 
-## Tamamlananlar
+## Completed
 
-### Temel Altyapı
-- [x] 103+ müşteri, Leaflet harita
-- [x] Week A/B x 5 gün rotası
-- [x] Sürükle-bırak sıralama (Route sayfası)
+### Core Infrastructure
+- [x] 100+ customers, Leaflet map
+- [x] Week A/B x 5-day rotation
+- [x] Drag-and-drop route ordering (Route page)
 - [x] OpenStreetMap geocoding
-- [x] Excel export (rota, raporlar)
-- [x] JSON veri yedekleme/geri yükleme
+- [x] Excel export (route, reports)
+- [x] JSON data backup/restore
+- [x] Modular file architecture (split from single file)
+- [x] Tailwind CSS CDN integration
+- [x] English UI throughout
+- [x] Supabase DB persistence in all save functions
 
-### Sipariş ve Ödeme
-- [x] Tam sayfa sipariş formu (yeni/düzenle)
-- [x] Product picker ile ürün seçimi
-- [x] Fiyat düzenlenebilir sipariş kalemleri
-- [x] Ödeme yöntemi: Cash / Bank / Unpaid
-- [x] Stok takibi (sipariş oluşturulduğunda otomatik düşme)
-- [x] Sipariş sıralama: Tarih / İsim / Tutar / Gün / Manuel
-- [x] Orders listesinde hafta/gün badge'i
+### Orders and Payments
+- [x] Full-page order form (new/edit)
+- [x] Product picker for item selection
+- [x] Editable price order items
+- [x] Payment methods: Cash / Bank / Unpaid
+- [x] Stock tracking (auto-decrement on order creation)
+- [x] Order sorting: Date / Name / Amount / Day / Manual
+- [x] Week/day badge on order cards
+- [x] Double-click protection on order save
 
-### Müşteri Yönetimi
-- [x] Müşteri CRUD (ekle/düzenle/sil)
+### Customer Management
+- [x] Customer CRUD (add/edit/delete)
 - [x] Excel/CSV import
-- [x] Kalıcı müşteri notları
-- [x] Müşteri profil sayfası (sipariş geçmişi, top ürünler, borç)
-- [x] Müşteriye özel fiyat (customerPricing)
-- [x] Filtreler: All / Week A / Week B / Unassigned
+- [x] Persistent customer notes
+- [x] Customer profile page (order history, top products, debt)
+- [x] Customer-specific pricing (customerPricing)
+- [x] Filters: All / Week A / Week B / Unassigned
+- [x] Contact details (name, phone, email)
 
-### Katalog
-- [x] Global ürün kataloğu (ad, birim, fiyat, stok)
-- [x] Renkli stok badge'leri (yeşil/sarı/kırmızı)
-- [x] Stok ekleme/çıkarma (scroll korunur)
-- [x] Günlük ürün desteği (trackStock: false)
-- [x] Edit modu (ad, birim, fiyat, stok, günlük toggle)
+### Catalog
+- [x] Global product catalog (name, unit, price, stock)
+- [x] Colored stock badges (green/yellow/red)
+- [x] Stock add/remove (scroll preserved)
+- [x] Daily product support (trackStock: false)
+- [x] Edit mode (name, unit, price, stock, daily toggle)
 
-### Borç Yönetimi
-- [x] Borç takibi
-- [x] Borç geçmişi
-- [x] Hızlı ödeme formu
+### Debt Management
+- [x] Debt tracking
+- [x] Debt history with add/clear entries
+- [x] Quick payment form
+- [x] Debt collection during visits
 
-### Raporlar
-- [x] Overview / Products / Customers / Debts / Export sekmeleri
-- [x] Tarih aralığı filtresi
-- [x] Excel rapor export (çok sheet'li)
+### Reports
+- [x] Overview / Products / Customers / Debts / Export / History tabs
+- [x] Date range filter (Today / Week / Month / Custom)
+- [x] Product sales report with PDF and Excel export
+- [x] Delivery history grouped by week
 
 ### Route
-- [x] Pending sipariş göstergesi gün tablarında
-- [x] Route summary share
-- [x] Delivery modal
+- [x] Pending order indicator on day tabs
+- [x] Route summary share (clipboard/native share)
+- [x] Delivery modal with payment options
+- [x] Visit mode (no pending orders)
+- [x] Recurring orders auto-creation
 
-### Sync
-- [x] Supabase hybrid storage
-- [x] Offline-first (localStorage önbellek)
-- [x] Sync UI (kurulum + durum)
-
----
-
-## Bekleyen Özellikler
-
-### Yüksek Öncelik
-
-#### 1. Rota Optimizasyonu
-Şu an manuel sıralama var.
-
-**Yapılacak:**
-- En yakın komşu algoritması ile otomatik sıralama
-- Veya Google Maps / OSRM API entegrasyonu
+### Sync & Storage
+- [x] Supabase hybrid storage (dual-layer)
+- [x] Offline-first (localStorage cache)
+- [x] New relational DB tables
+- [x] Data migration from cr4_store to new tables
+- [x] PWA service worker caching
 
 ---
 
-#### 2. Haftalık/Aylık Ciro Grafiği
-Raporlarda sayılar var ama görsel grafik yok.
+## Pending Features
 
-**Yapılacak:**
-- Canvas/SVG çizgi grafik
-- Haftalık bar chart
+### High Priority
 
----
+#### 1. Route Optimization
+Currently manual ordering only.
 
-### Orta Öncelik
-
-#### 3. Push Notification / Hatırlatıcı
-Sabah belirli saatte "bugünün rotası" bildirimi.
-
-#### 4. PWA Desteği
-Uygulamayı telefona "yükle" özelliği.
-
-#### 5. WhatsApp Sipariş Özeti
-Günün siparişlerini WhatsApp mesajı olarak formatlama.
+**TODO:**
+- Nearest neighbor algorithm for auto-ordering
+- Or Google Maps / OSRM API integration
 
 ---
 
-### Düşük Öncelik
+#### 2. Weekly/Monthly Revenue Charts
+Reports have numbers but no visual charts.
 
-#### 6. Çoklu Kullanıcı / Ekip
+**TODO:**
+- Canvas/SVG line chart
+- Weekly bar chart
+
+---
+
+### Medium Priority
+
+#### 3. Push Notification / Reminders
+Morning notification with "today's route" at a set time.
+
+#### 4. WhatsApp Order Summary
+Format day's orders as a WhatsApp message.
+
+---
+
+### Low Priority
+
+#### 5. Multi-User / Team
 Supabase Auth + Row Level Security
 
-#### 7. Coğrafi Bölge Bazlı Sıralama
-Kent / Londra bölge toggle + bölge filtresi
+#### 6. Geographic Region Sorting
+Kent / London region toggle + region filter
 
 ---
 
-## Teknik Borçlar
+## Technical Debt
 
-### Yüksek
-- [ ] Orders veri büyümesi — eski siparişleri arşivleme
-- [ ] Error handling — sync hata durumlarında kullanıcı bilgilendirme
-- [ ] Conflict resolution — timestamp bazlı merge
+### High
+- [ ] Orders data growth — archive old orders
+- [ ] Error handling — user notification on sync errors
+- [ ] Conflict resolution — timestamp-based merge
 
-### Orta
-- [ ] Batch Supabase writes — debounce ile toplu yazma
-- [ ] Geocoding retry mekanizması
+### Medium
+- [ ] Batch Supabase writes — debounce for bulk writes
+- [ ] Geocoding retry mechanism
 
-### Düşük
-- [ ] Kod organizasyonu — 4500+ satır tek dosya
-- [ ] CSS cleanup — inline style'lar class'a taşınabilir
+### Low
+- [ ] CSS cleanup — inline styles could be moved to Tailwind classes
+- [ ] Further Tailwind CSS adoption across all page templates
