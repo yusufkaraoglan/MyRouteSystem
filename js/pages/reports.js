@@ -2,6 +2,8 @@
 // REPORTS PAGE
 // ══════════════════════════════════════════════════════════════
 function renderReports() {
+  const body = document.querySelector('#page-reports .page-body');
+  const scrollPos = body ? body.scrollTop : 0;
   const data = calcReportData();
 
   let html = `
@@ -65,17 +67,15 @@ function renderReports() {
   html += `</div>`;
   document.getElementById('page-reports').innerHTML = html;
 
+  const newBody = document.querySelector('#page-reports .page-body');
+  if (newBody) newBody.scrollTop = scrollPos;
+
   if (reportTab === 'overview') {
     renderOverviewCharts(data);
   }
 }
 
 function renderOverviewTab(data) {
-  const total = data.totalRevenue;
-  const cashPct = total > 0 ? (data.payments.cash / total * 100).toFixed(0) : 0;
-  const bankPct = total > 0 ? (data.payments.bank / total * 100).toFixed(0) : 0;
-  const unpaidPct = total > 0 ? (data.payments.unpaid / total * 100).toFixed(0) : 0;
-
   return `
     <div class="report-hero-card">
       <div class="report-hero-label">Total Revenue</div>
@@ -452,7 +452,7 @@ function calcProductSalesReport() {
       const parts = [];
       let primaryType = 'unpaid';
       if (cashPaid > 0) { parts.push({ text: formatCurrency(cashPaid), type: 'cash' }); primaryType = 'cash'; }
-      if (bankPaid > 0) { parts.push({ text: 'Bank', type: 'bank' }); if (primaryType === 'unpaid') primaryType = 'bank'; }
+      if (bankPaid > 0) { parts.push({ text: formatCurrency(bankPaid), type: 'bank' }); if (primaryType === 'unpaid') primaryType = 'bank'; }
       if (unpaidTotal > 0) { parts.push({ text: 'Not Paid', type: 'unpaid' }); }
       if (parts.length === 0) parts.push({ text: 'Not Paid', type: 'unpaid' });
       return { parts, type: primaryType, unpaidAmount: unpaidTotal };
@@ -488,7 +488,6 @@ function calcProductSalesReport() {
       const parts = [{ text: formatCurrency(entry.amount), type: payMethod }];
       if (payMethod === 'cash') totalCash += entry.amount;
       else totalBank += entry.amount;
-      totalUnpaid = Math.max(0, totalUnpaid - entry.amount);
       rows.push({
         name: stop.n,
         rawDate: entry.date || '',
@@ -621,7 +620,7 @@ function renderDeliveryHistoryContent() {
   });
 
   const sortedWeeks = Object.keys(weeks).sort((a, b) => b.localeCompare(a));
-  const ref = new Date(2026, 2, 2);
+  const ref = new Date(2026, 2, 2); // Week A/B reference: 2 March 2026 = Monday of Week A
   function weekLabel(mondayStr) {
     const mon = new Date(mondayStr);
     const diffDays = Math.floor((mon - ref) / 86400000);

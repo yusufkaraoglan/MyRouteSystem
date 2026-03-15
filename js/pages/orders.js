@@ -589,7 +589,7 @@ function removeOrderItem(idx) {
 function saveOrder() {
   if (_btnLock) return;
   _btnLock = true;
-  setTimeout(() => _btnLock = false, 500);
+  setTimeout(() => _btnLock = false, 1500);
 
   if (tempOrderCustomerId == null) { appAlert('Please select a customer.'); return; }
   const items = tempOrderItems.filter(i => i.name && i.qty > 0);

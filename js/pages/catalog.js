@@ -192,7 +192,7 @@ function saveCatalogEdit(idx) {
   if (!name) { appAlert('Product name is required.'); return; }
   const oldName = S.catalog[idx].name;
   if (name !== oldName && S.catalog.some(c => c.name === name)) { appAlert('This product already exists.'); return; }
-  const noStockChecked = document.getElementById('cat-edit-nostock-' + idx)?.checked;
+  const noStockChecked = document.getElementById('cat-edit-nostock-' + idx)?.checked || false;
   let stock = S.catalog[idx].stock;
   if (noStockChecked) {
     stock = null;

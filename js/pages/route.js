@@ -354,7 +354,8 @@ function applyRouteDrop(srcId, targetId, dayId) {
   const dstIdx = sorted.indexOf(targetId);
   if (srcIdx < 0 || dstIdx < 0) return;
   sorted.splice(srcIdx, 1);
-  sorted.splice(dstIdx, 0, srcId);
+  const adjustedDst = srcIdx < dstIdx ? dstIdx - 1 : dstIdx;
+  sorted.splice(adjustedDst, 0, srcId);
   S.routeOrder[dayId] = sorted;
   save.routeOrder();
 

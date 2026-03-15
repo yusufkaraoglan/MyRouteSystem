@@ -47,7 +47,7 @@ let _btnLock = false;
 function btnLock(fn) {
   if (_btnLock) return;
   _btnLock = true;
-  try { fn(); } finally { setTimeout(() => _btnLock = false, 500); }
+  try { fn(); } finally { setTimeout(() => _btnLock = false, 1500); }
 }
 
 // ── Legacy load (from localStorage, for backward compat) ──
@@ -171,7 +171,7 @@ const save = {
       DB.saveRouteOrder(dayId, Array.isArray(customerIds) ? customerIds : []);
     });
   },
-  geo: () => { /* stored in customers table via save.stops */ },
+  geo: () => { save.stops(); },
   orders: (changedOrderIds) => {
     cacheSet('orders', S.orders);
     // Also persist changed orders to Supabase
@@ -211,7 +211,7 @@ const save = {
     cacheSet('products', mapped);
     // Persist to Supabase without cache updates (cache already set above)
     mapped.forEach(p => {
-      dbInsert('products', p, { upsert: true }).catch(e => console.warn('save product failed:', p.name, e));
+      dbInsert('products', p, { upsert: true }).catch(e => { if (typeof dbLog === 'function') dbLog(`save product FAILED: ${p.name} - ${e.message}`); });
     });
   },
   pricing: () => {
@@ -532,8 +532,9 @@ async function init() {
   const savedPage = localStorage.getItem('lastPage') || 'route';
   if (savedPage === 'profile') {
     const savedId = localStorage.getItem('lastProfileId');
-    if (savedId && getStop(parseInt(savedId))) {
-      profileStopId = parseInt(savedId);
+    const parsedId = parseInt(savedId);
+    if (savedId && !isNaN(parsedId) && getStop(parsedId)) {
+      profileStopId = parsedId;
       showPage('profile');
     } else {
       showPage('route');
@@ -545,10 +546,13 @@ async function init() {
   // Periodic sync
   const useNewDB = cacheGet('db_migrated', false);
   if (useNewDB) {
+    let _syncInProgress = false;
     const doSync = async () => {
-      if (!_dbReady) return; // skip sync if tables don't exist
+      if (!_dbReady || _syncInProgress) return;
+      _syncInProgress = true;
       const ok = await syncAll();
       if (ok) { await loadStateFromDB(); renderCurrentPage(); }
+      _syncInProgress = false;
     };
     setInterval(() => { if (navigator.onLine) doSync(); }, 5 * 60 * 1000);
     window.addEventListener('online', () => { doSync(); flushOfflineQueue(); });
@@ -581,6 +585,7 @@ async function syncFromSupabase() {
     renderCurrentPage();
   } catch (e) {
     console.warn('Sync error:', e.message);
+    showToast('Sync failed: ' + e.message, 'error', 4000);
   }
 }
 

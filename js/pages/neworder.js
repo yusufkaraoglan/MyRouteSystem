@@ -40,7 +40,7 @@ function renderNewOrderPage() {
 
   // Calculate cart
   const cartItems = tempOrderItems.filter(i => i.name);
-  const total = cartItems.reduce((s, i) => s + (i.qty || 0) * (i.price || 0), 0);
+  const total = roundMoney(cartItems.reduce((s, i) => s + (i.qty || 0) * (i.price || 0), 0));
 
   // Existing note
   const noteEl = document.getElementById('neworder-note');
@@ -403,11 +403,14 @@ function pickNewOrderCustomer(stopId) {
   tempOrderCustomerId = stopId;
   closeNewOrderCustomerPicker();
   // Update prices for selected customer
+  let pricesChanged = false;
   tempOrderItems.forEach(item => {
     if (item.name) {
-      item.price = getPrice(stopId, item.name);
+      const newPrice = getPrice(stopId, item.name);
+      if (item.price !== newPrice) { item.price = newPrice; pricesChanged = true; }
     }
   });
+  if (pricesChanged) showToast('Prices updated for this customer', 'info', 2000);
   renderNewOrderPage();
 }
 
@@ -416,7 +419,7 @@ function pickNewOrderCustomer(stopId) {
 function saveNewOrderPage() {
   if (_btnLock) return;
   _btnLock = true;
-  setTimeout(() => _btnLock = false, 500);
+  setTimeout(() => _btnLock = false, 1500);
 
   if (tempOrderCustomerId == null) { appAlert('Please select a customer.'); return; }
   const items = tempOrderItems.filter(i => i.name && i.qty > 0);

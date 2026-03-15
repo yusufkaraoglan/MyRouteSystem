@@ -140,8 +140,9 @@ async function dbUpsert(table, data) {
 // ── Offline Queue Flush ────────────────────────────────────
 
 async function flushOfflineQueue() {
-  if (isSyncing || offlineQueue.length === 0) return;
+  if (isSyncing || offlineQueue.length === 0 || !navigator.onLine) return;
   isSyncing = true;
+  let retries = 0;
   while (offlineQueue.length > 0) {
     const op = offlineQueue[0];
     let ok = false;
@@ -149,8 +150,12 @@ async function flushOfflineQueue() {
       if (op.action === 'insert') ok = await dbInsert(op.table, op.data, op.opts);
       else if (op.action === 'update') ok = await dbUpdate(op.table, op.match, op.data);
       else if (op.action === 'delete') ok = await dbDelete(op.table, op.match);
-      if (ok) offlineQueue.shift();
-      else break;
+      if (ok) { offlineQueue.shift(); retries = 0; }
+      else {
+        retries++;
+        if (retries >= 3) { offlineQueue.shift(); retries = 0; } // Skip permanently failed ops
+        else break;
+      }
     } catch {
       break;
     }
@@ -297,7 +302,8 @@ const DB = {
     // Update cache
     const all = cacheGet('products', []);
     if (result && result[0]) {
-      const idx = all.findIndex(x => (x.id && x.id === result[0].id) || x.name === data.name);
+      let idx = all.findIndex(x => x.id && x.id === result[0].id);
+      if (idx < 0) idx = all.findIndex(x => x.name === data.name);
       if (idx >= 0) all[idx] = result[0];
       else all.push(result[0]);
       cacheSet('products', all);
@@ -416,9 +422,9 @@ const DB = {
       })));
     }
     if (typeof dbLog === 'function') dbLog(`saveOrder OK: ${order.id} status=${order.status}`);
-    // Update cache
+    // Update cache (always update since local state is source of truth)
     const map = cacheGet('orders', {});
-    map[order.id] = order;
+    map[order.id] = { ...order };
     cacheSet('orders', map);
   },
 
@@ -444,9 +450,10 @@ const DB = {
   },
 
   async setDebt(customerId, amount) {
-    await dbUpsert('debts', { customer_id: customerId, amount });
+    const numAmount = parseFloat(amount) || 0;
+    await dbUpsert('debts', { customer_id: customerId, amount: numAmount });
     const map = cacheGet('debts', {});
-    map[customerId] = amount;
+    map[customerId] = numAmount;
     cacheSet('debts', map);
   },
 
@@ -674,6 +681,7 @@ async function syncAll() {
     return true;
   } catch (e) {
     console.error('syncAll error:', e.message);
+    if (typeof showToast === 'function') showToast('Cloud sync failed', 'error', 3000);
     return false;
   }
 }

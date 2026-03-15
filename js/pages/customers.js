@@ -43,7 +43,7 @@ function renderCustomerResults() {
 
   if (S.customersSearch) {
     const q = S.customersSearch.toLowerCase();
-    stops = stops.filter(s => s.n.toLowerCase().includes(q) || s.c.toLowerCase().includes(q) || s.p.toLowerCase().includes(q));
+    stops = stops.filter(s => (s.n||'').toLowerCase().includes(q) || (s.c||'').toLowerCase().includes(q) || (s.p||'').toLowerCase().includes(q));
   }
   stops.sort((a, b) => a.n.localeCompare(b.n));
 
@@ -113,7 +113,7 @@ function showAddCustomerModal() {
 async function saveNewCustomer() {
   const name = document.getElementById('add-cust-name').value.trim();
   if (!name) { appAlert('Name is required.'); return; }
-  const maxId = STOPS.reduce((m, s) => Math.max(m, s.id), 0);
+  const maxId = STOPS.length > 0 ? STOPS.reduce((m, s) => Math.max(m, s.id), 0) : 0;
   const stop = {
     id: maxId + 1,
     n: name.toUpperCase(),
