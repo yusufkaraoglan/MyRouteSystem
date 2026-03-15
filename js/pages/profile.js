@@ -364,7 +364,16 @@ async function saveEditCustomer() {
 }
 
 async function deleteCustomer() {
-  if (!(await appConfirm('Are you sure you want to delete this customer?<br>This action cannot be undone.'))) return;
+  const pendingCount = getStopOrders(profileStopId, 'pending').length;
+  const debt = S.debts[profileStopId] || 0;
+  let msg = 'Are you sure you want to delete this customer?';
+  if (pendingCount > 0 || debt > 0) {
+    msg += '<br><br>';
+    if (pendingCount > 0) msg += `<span style="color:var(--warning)">${pendingCount} pending order${pendingCount > 1 ? 's' : ''} will be orphaned.</span><br>`;
+    if (debt > 0) msg += `<span style="color:var(--danger)">${formatCurrency(debt)} debt will be lost.</span><br>`;
+  }
+  msg += '<br>This action cannot be undone.';
+  if (!(await appConfirm(msg))) return;
   STOPS = STOPS.filter(s => s.id !== profileStopId);
   delete S.assign[profileStopId];
   save.stops();
@@ -533,6 +542,7 @@ function showNoteModal() {
 }
 
 function saveNote() {
+  if (profileStopId == null) return;
   const note = document.getElementById('note-text').value.trim();
   if (note) S.cnotes[profileStopId] = note;
   else delete S.cnotes[profileStopId];

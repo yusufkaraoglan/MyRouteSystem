@@ -214,7 +214,7 @@ function importExcel(file) {
         const row = data[i];
         if (!row || !row[0]) continue;
         const name = String(row[0]).trim().toUpperCase();
-        if (STOPS.some(s => s.n === name)) continue;
+        if (STOPS.some(s => s.n.toUpperCase() === name)) continue;
         maxId++;
         STOPS.push({
           id: maxId,

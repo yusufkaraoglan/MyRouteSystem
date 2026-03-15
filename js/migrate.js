@@ -87,7 +87,7 @@ async function runMigration() {
       roEntries.forEach(([dayId, cids]) => {
         if (Array.isArray(cids)) {
           cids.forEach((cid, i) => {
-            roRows.push({ day_id: dayId, customer_id: cid, position: i });
+            roRows.push({ day_id: dayId, customer_id: parseInt(cid), position: i });
           });
         }
       });
