@@ -202,6 +202,7 @@ body.modal-open .page{touch-action:none}
 .custom-dates input{flex:1;padding:8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px}
 .progress-bar{height:8px;background:var(--bg);border-radius:4px;overflow:hidden;margin-top:6px}
 .progress-fill{height:100%;border-radius:4px;transition:width .3s}
+.chart-card{padding:12px;height:220px;position:relative}
 
 /* === SETTINGS === */
 .settings-section{margin-bottom:24px}
