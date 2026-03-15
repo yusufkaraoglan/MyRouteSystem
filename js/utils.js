@@ -12,7 +12,7 @@ function repairDebtHistoryTypes(dhMap) {
     if (!Array.isArray(entries)) return;
     entries.forEach(e => {
       if (!e.type) {
-        if (/payment received|paid/i.test(e.note)) e.type = 'clear';
+        if (/payment received|(?<!un)paid/i.test(e.note)) e.type = 'clear';
         else if (/correction|adjust/i.test(e.note)) e.type = 'adjust';
         else if (/visit/i.test(e.note)) e.type = 'visit';
         else e.type = 'add';

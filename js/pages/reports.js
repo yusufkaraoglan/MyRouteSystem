@@ -522,7 +522,11 @@ function exportProductReportPDF() {
     let payCell = '';
     r.payDisplay.parts.forEach(p => {
       const c = p.type === 'cash' ? '#12B76A' : p.type === 'bank' ? '#2E90FA' : '#F04438';
-      payCell += `<div style="color:${c};font-weight:600">${p.text}</div>`;
+      if (p.type === 'bank') {
+        payCell += `<div style="color:${c};font-weight:600">Bank</div><div style="color:${c};font-size:10px">(${p.text})</div>`;
+      } else {
+        payCell += `<div style="color:${c};font-weight:600">${p.text}</div>`;
+      }
     });
     if (r.payDisplay.unpaidAmount > 0 && r.payDisplay.type !== 'unpaid') {
       payCell += `<div style="color:#F04438;font-size:10px;font-weight:600">left: ${formatCurrency(r.payDisplay.unpaidAmount)}</div>`;
