@@ -316,6 +316,9 @@ function setReportRange(range) {
   } else if (range === 'month') {
     S.reportStart = today.toISOString().slice(0, 8) + '01';
     S.reportEnd = todayStr();
+  } else if (range === 'custom') {
+    if (!S.reportStart) S.reportStart = todayStr();
+    if (!S.reportEnd) S.reportEnd = todayStr();
   }
   renderReports();
 }

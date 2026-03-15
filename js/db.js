@@ -62,7 +62,7 @@ async function dbInsert(table, data, opts = {}) {
   try {
     const headers = { ...DB_HEADERS };
     if (opts.upsert) headers['Prefer'] = 'resolution=merge-duplicates';
-    if (opts.returnData) headers['Prefer'] = (headers['Prefer'] || '') + ',return=representation';
+    if (opts.returnData) headers['Prefer'] = (headers['Prefer'] ? headers['Prefer'] + ',' : '') + 'return=representation';
     const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
       method: 'POST',
       headers,
@@ -297,7 +297,7 @@ const DB = {
     // Update cache
     const all = cacheGet('products', []);
     if (result && result[0]) {
-      const idx = all.findIndex(x => x.name === data.name);
+      const idx = all.findIndex(x => (x.id && x.id === result[0].id) || x.name === data.name);
       if (idx >= 0) all[idx] = result[0];
       else all.push(result[0]);
       cacheSet('products', all);

@@ -537,7 +537,8 @@ function saveNote() {
   if (note) S.cnotes[profileStopId] = note;
   else delete S.cnotes[profileStopId];
   save.cnotes();
-  DB.saveCustomer({id: profileStopId, name: getStop(profileStopId).n, address: getStop(profileStopId).a, city: getStop(profileStopId).c, postcode: getStop(profileStopId).p, note: note || ''});
+  const stop = getStop(profileStopId);
+  if (stop) DB.saveCustomer({id: profileStopId, name: stop.n, address: stop.a, city: stop.c, postcode: stop.p, note: note || ''});
   closeModal();
   renderProfile();
 }
