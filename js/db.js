@@ -178,9 +178,9 @@ function parseDebtHistoryRow(r) {
   let note = r.note || '';
   let type = undefined;
   if (note.includes('|||')) {
-    const parts = note.split('|||');
-    note = parts[0];
-    type = parts[1] || undefined;
+    const idx = note.lastIndexOf('|||');
+    type = note.slice(idx + 3) || undefined;
+    note = note.slice(0, idx);
   }
   // Infer type from note if not encoded
   if (!type) {
