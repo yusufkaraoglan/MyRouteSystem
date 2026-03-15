@@ -1,4 +1,6 @@
 'use strict';
+let catalogSearchTerm = '';
+
 function renderCatalog() {
   let html = `
     <header class="topbar">
@@ -6,43 +8,67 @@ function renderCatalog() {
       <h1 style="flex:1;text-align:center;font-size:16px">Product Catalog</h1>
       <button class="btn btn-primary btn-sm" onclick="showAddProductModal()">+ Add</button>
     </header>
-    <div class="page-body">`;
+    <div class="search-bar" style="margin:0 12px 4px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="Search products..." value="${escHtml(catalogSearchTerm)}" oninput="catalogSearchTerm=this.value;renderCatalogGrid()">
+    </div>
+    <div class="page-body" id="catalog-grid-container">`;
 
-  if (S.catalog.length === 0) {
-    html += `<div class="empty-state" style="padding:60px 20px">
+  html += buildCatalogGridHtml();
+  html += `</div>`;
+  document.getElementById('page-catalog').innerHTML = html;
+}
+
+function buildCatalogGridHtml() {
+  const q = catalogSearchTerm.toLowerCase();
+  const filtered = S.catalog.filter(c => !q || c.name.toLowerCase().includes(q));
+
+  if (filtered.length === 0 && S.catalog.length === 0) {
+    return `<div class="empty-state" style="padding:60px 20px">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="56" height="56"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
       <p style="margin-top:12px"><b>No products yet</b></p>
       <p>Tap "+ Add" to create your first product</p>
     </div>`;
-  } else {
-    html += `<div class="catalog-grid">`;
-    S.catalog.forEach((c, i) => {
-      const stockColor = c.stock != null && c.stock <= 5 ? 'var(--danger)' : c.stock != null && c.stock <= 20 ? 'var(--warning)' : 'var(--success)';
-      const isDaily = c.trackStock === false;
-
-      html += `
-        <div class="catalog-card-v2" id="cat-card-${i}" onclick="showEditProductModal(${i})">
-          <div class="catalog-card-v2-top">
-            <div class="catalog-card-v2-name">${escHtml(c.name)}</div>
-            <div class="catalog-card-v2-price">${formatCurrency(c.price)}</div>
-          </div>
-          <div class="catalog-card-v2-meta">
-            <span class="text-muted">${escHtml(c.unit || 'unit')}</span>
-            ${isDaily
-              ? `<span class="badge badge-purple" style="font-size:10px">Daily</span>`
-              : `<span class="catalog-stock-pill" style="background:${stockColor}">${c.stock != null ? c.stock : '—'}</span>`
-            }
-          </div>
-          ${!isDaily && c.stock != null ? `
-          <div class="catalog-stock-bar">
-            <div class="catalog-stock-bar-fill" style="width:${Math.min(100, (c.stock / Math.max(c.stock, 50)) * 100)}%;background:${stockColor}"></div>
-          </div>` : ''}
-        </div>`;
-    });
-    html += `</div>`;
   }
+
+  if (filtered.length === 0) {
+    return `<div class="empty-state" style="padding:40px 20px">
+      <p class="text-muted">No products found</p>
+    </div>`;
+  }
+
+  let html = `<div class="catalog-grid">`;
+  filtered.forEach(c => {
+    const i = S.catalog.indexOf(c);
+    const stockColor = c.stock != null && c.stock <= 5 ? 'var(--danger)' : c.stock != null && c.stock <= 20 ? 'var(--warning)' : 'var(--success)';
+    const isDaily = c.trackStock === false;
+
+    html += `
+      <div class="catalog-card-v2" id="cat-card-${i}" onclick="showEditProductModal(${i})">
+        <div class="catalog-card-v2-top">
+          <div class="catalog-card-v2-name">${escHtml(c.name)}</div>
+          <div class="catalog-card-v2-price">${formatCurrency(c.price)}</div>
+        </div>
+        <div class="catalog-card-v2-meta">
+          <span class="text-muted">${escHtml(c.unit || 'unit')}</span>
+          ${isDaily
+            ? `<span class="badge badge-purple" style="font-size:10px">Daily</span>`
+            : `<span class="catalog-stock-pill" style="background:${stockColor}">${c.stock != null ? c.stock : '—'}</span>`
+          }
+        </div>
+        ${!isDaily && c.stock != null ? `
+        <div class="catalog-stock-bar">
+          <div class="catalog-stock-bar-fill" style="width:${Math.min(100, (c.stock / Math.max(c.stock, 50)) * 100)}%;background:${stockColor}"></div>
+        </div>` : ''}
+      </div>`;
+  });
   html += `</div>`;
-  document.getElementById('page-catalog').innerHTML = html;
+  return html;
+}
+
+function renderCatalogGrid() {
+  const container = document.getElementById('catalog-grid-container');
+  if (container) container.innerHTML = buildCatalogGridHtml();
 }
 
 function showAddProductModal() {
@@ -103,13 +129,7 @@ function showEditProductModal(idx) {
     ${!isDaily ? `
     <div class="form-group">
       <label class="form-label">Stock</label>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button class="qty-btn" onclick="catalogModalAdjustStock(${idx},-5)" style="font-size:12px">-5</button>
-        <button class="qty-btn" onclick="catalogModalAdjustStock(${idx},-1)">−</button>
-        <input class="input" id="cat-edit-stock-${idx}" value="${c.stock != null ? c.stock : ''}" type="number" placeholder="—" style="width:80px;text-align:center;font-size:18px;font-weight:700">
-        <button class="qty-btn" onclick="catalogModalAdjustStock(${idx},1)">+</button>
-        <button class="qty-btn" onclick="catalogModalAdjustStock(${idx},5)" style="font-size:12px">+5</button>
-      </div>
+      <input class="input" id="cat-edit-stock-${idx}" value="${c.stock != null ? c.stock : ''}" type="number" placeholder="—" style="text-align:center;font-size:18px;font-weight:700">
     </div>` : ''}
     <div class="form-group">
       <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
