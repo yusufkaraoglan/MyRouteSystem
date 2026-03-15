@@ -189,7 +189,7 @@ function parseDebtHistoryRow(r) {
   }
   // Infer type from note if not encoded
   if (!type) {
-    if (/payment received|paid/i.test(note)) type = 'clear';
+    if (/payment received|(?<!un)paid/i.test(note)) type = 'clear';
     else if (/correction|adjust/i.test(note)) type = 'adjust';
     else if (/visit/i.test(note)) type = 'visit';
     else type = 'add';
