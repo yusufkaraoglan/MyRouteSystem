@@ -119,114 +119,153 @@ function renderProfile() {
     });
   }
 
-  html += `<div class="section-head"><h3>Order History</h3></div>`;
-  if (recentDelivered.length === 0) {
-    html += `<p class="text-muted" style="font-size:13px;padding:8px 0">No delivery history</p>`;
-  } else {
-    recentDelivered.forEach(o => {
-      const isVisit = o.payMethod === 'visit';
-      const badgeLabel = isVisit ? 'visit' : 'delivered';
-      const badgeClass = isVisit ? 'badge-purple' : 'badge-success';
-      const payLabel = o.payMethod === 'visit' ? '' : o.payMethod === 'cash' && o.cashPaid !== undefined && o.cashPaid < calcOrderTotal(o) ? `cash (partial ${formatCurrency(o.cashPaid)})` : (o.payMethod || '');
+  // ── Unified Activity Timeline ──────────────────────────
+  // Combine orders + debt history + standalone payments into one list
+  const dhRaw = S.debtHistory[stop.id] || [];
+  const activity = [];
+
+  // Build a map of orderId -> debt history entries for grouping
+  const debtByOrder = {};
+  const standaloneDebt = [];
+  dhRaw.forEach((h, i) => {
+    if (h.type === 'visit' || h.amount <= 0) return;
+    const entry = { ...h, _idx: i };
+    if (h.orderId && S.orders[h.orderId]) {
+      if (!debtByOrder[h.orderId]) debtByOrder[h.orderId] = [];
+      debtByOrder[h.orderId].push(entry);
+    } else {
+      standaloneDebt.push(entry);
+    }
+  });
+
+  // Add delivered orders as activity items
+  recentDelivered.forEach(o => {
+    const isVisit = o.payMethod === 'visit';
+    const total = calcOrderTotal(o);
+    const debtEntries = debtByOrder[o.id] || [];
+    // Determine payment status
+    let payStatus, payColor, payIcon;
+    if (isVisit) {
+      payStatus = 'Visit'; payColor = 'var(--purple)'; payIcon = '';
+    } else if (o.payMethod === 'bank') {
+      payStatus = 'Paid by bank'; payColor = 'var(--success)'; payIcon = '&#x1f3e6; ';
+    } else if (o.payMethod === 'unpaid') {
+      payStatus = 'Not paid'; payColor = 'var(--danger)'; payIcon = '';
+    } else if (o.payMethod === 'cash') {
+      const cashPaid = o.cashPaid !== undefined ? o.cashPaid : total;
+      if (cashPaid >= total) {
+        payStatus = 'Paid cash'; payColor = 'var(--success)'; payIcon = '';
+      } else {
+        payStatus = `Partial cash (${formatCurrency(cashPaid)} of ${formatCurrency(total)})`; payColor = 'var(--warning)'; payIcon = '';
+      }
+    } else {
+      payStatus = o.payMethod || ''; payColor = 'var(--text-sec)'; payIcon = '';
+    }
+    activity.push({
+      type: 'order', date: o.deliveredAt || o.createdAt, order: o,
+      total, isVisit, payStatus, payColor, payIcon, debtEntries
+    });
+  });
+
+  // Add standalone debt entries (payments not linked to a specific order)
+  standaloneDebt.forEach(h => {
+    activity.push({
+      type: h.type === 'clear' ? 'payment' : 'debt',
+      date: h.date, entry: h
+    });
+  });
+
+  // Sort newest first
+  activity.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  html += `<div class="section-head"><h3>Activity</h3></div>`;
+  if (activity.length === 0) {
+    html += `<p class="text-muted" style="font-size:13px;padding:8px 0">No activity yet</p>`;
+  }
+  activity.slice(0, 30).forEach(a => {
+    if (a.type === 'order') {
+      const o = a.order;
+      const badgeLabel = a.isVisit ? 'visit' : 'delivered';
+      const badgeClass = a.isVisit ? 'badge-purple' : 'badge-success';
+      const hasUnpaidDebt = (o.payMethod === 'unpaid' || (o.payMethod === 'cash' && o.cashPaid !== undefined && o.cashPaid < a.total)) && a.total > 0;
+      const debtAmount = getOrderDebtImpact(o);
       html += `
-        <div class="order-card" style="opacity:0.85">
-          <div class="order-card-head">
-            <div class="order-card-date">${formatDateTime(o.deliveredAt)}</div>
+        <div class="card" style="padding:10px;margin-bottom:6px">
+          <div class="flex-between">
+            <div class="order-card-date">${formatDateTime(a.date)}</div>
             <span class="badge ${badgeClass}">${badgeLabel}</span>
           </div>
-          ${o.items.length > 0 ? `<div class="order-card-items">${o.items.map(i => `${i.qty}x ${escHtml(i.name)}`).join(', ')}</div>` : (o.note ? `<div class="order-card-items text-muted">${escHtml(o.note)}</div>` : '')}
-          ${o.deliveryNote ? `<div class="text-muted" style="font-size:12px;padding:2px 0;font-style:italic">📝 ${escHtml(o.deliveryNote)}</div>` : ''}
-          <div class="order-card-footer">
-            ${o.items.length > 0 ? `<span class="order-card-total">${formatCurrency(calcOrderTotal(o))}</span>` : '<span></span>'}
-            <span class="text-muted" style="font-size:12px">${payLabel}</span>
+          ${o.items.length > 0 ? `<div style="font-size:13px;font-weight:500;margin:4px 0">${o.items.map(i => i.qty + 'x ' + escHtml(i.name)).join(', ')}</div>` : (o.note ? `<div class="text-muted" style="font-size:13px;margin:4px 0">${escHtml(o.note)}</div>` : '')}
+          ${o.deliveryNote ? `<div class="text-muted" style="font-size:12px;font-style:italic">Note: ${escHtml(o.deliveryNote)}</div>` : ''}
+          <div class="flex-between" style="margin-top:4px">
+            ${o.items.length > 0 ? `<span style="font-size:14px;font-weight:600">${formatCurrency(a.total)}</span>` : '<span></span>'}
+            <span style="font-size:12px;color:${a.payColor}">${a.payIcon}${a.payStatus}</span>
           </div>
+          ${hasUnpaidDebt && debtAmount > 0 ? `
+          <div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:12px;color:var(--danger)">Owes ${formatCurrency(debtAmount)}</span>
+            <button class="btn btn-success btn-sm" style="font-size:11px;padding:3px 10px" onclick="showCollectOrderPayment('${o.id}')">Collect Payment</button>
+          </div>` : ''}
+          ${a.debtEntries.filter(e => e.type === 'clear').length > 0 ? a.debtEntries.filter(e => e.type === 'clear').map(e => `
+          <div style="margin-top:4px;padding:4px 8px;background:var(--success-light);border-radius:var(--radius-sm);display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:var(--success)">${escHtml(e.note || 'Payment received')}</span>
+            <span style="font-size:12px;font-weight:600;color:var(--success)">-${formatCurrency(e.amount)}</span>
+          </div>`).join('') : ''}
           <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:4px">
             <button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" onclick="showEditDeliveredOrderModal('${o.id}')">Edit</button>
             <button class="btn-ghost" style="font-size:11px;color:var(--danger);padding:2px 6px" onclick="deleteOrder('${o.id}')">Delete</button>
           </div>
         </div>`;
-    });
-  }
-
-  // Transactions: combine debt history + cash-paid deliveries
-  const dhRaw = S.debtHistory[stop.id] || [];
-  const transactions = [];
-
-  // Add debt history entries
-  dhRaw.forEach((h, i) => {
-    if (h.type === 'visit' || h.amount <= 0) return;
-    let note = h.note || h.type;
-    // Enrich note with order items if orderId exists but note lacks item details
-    if (h.orderId && S.orders[h.orderId] && !note.includes('—')) {
-      const items = (S.orders[h.orderId].items || []).map(i => i.qty + 'x ' + i.name).join(', ');
-      if (items) note += ' — ' + items;
+    } else if (a.type === 'payment') {
+      const e = a.entry;
+      html += `
+        <div class="card" style="padding:10px;margin-bottom:6px;border-left:3px solid var(--success)">
+          <div class="flex-between">
+            <span style="font-size:13px">${escHtml(e.note || 'Payment received')}</span>
+            <span style="font-size:13px;font-weight:600;color:var(--success)">-${formatCurrency(e.amount)}</span>
+          </div>
+          <div class="flex-between" style="margin-top:4px">
+            <div class="text-muted" style="font-size:11px">${formatDateTime(e.date)}</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" onclick="showEditDebtHistoryModal(${stop.id},${e._idx})">Edit</button>
+              <button class="btn-ghost" style="font-size:11px;color:var(--danger);padding:2px 6px" onclick="removeDebtHistory(${stop.id},${e._idx})">Remove</button>
+            </div>
+          </div>
+        </div>`;
+    } else if (a.type === 'debt') {
+      const e = a.entry;
+      html += `
+        <div class="card" style="padding:10px;margin-bottom:6px;border-left:3px solid var(--danger)">
+          <div class="flex-between">
+            <span style="font-size:13px">${escHtml(e.note || 'Debt added')}</span>
+            <span style="font-size:13px;font-weight:600;color:var(--danger)">+${formatCurrency(e.amount)}</span>
+          </div>
+          <div class="flex-between" style="margin-top:4px">
+            <div class="text-muted" style="font-size:11px">${formatDateTime(e.date)}</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" onclick="showEditDebtHistoryModal(${stop.id},${e._idx})">Edit</button>
+              <button class="btn-ghost" style="font-size:11px;color:var(--danger);padding:2px 6px" onclick="removeDebtHistory(${stop.id},${e._idx})">Remove</button>
+            </div>
+          </div>
+        </div>`;
     }
-    transactions.push({
-      date: h.date, amount: h.amount, type: h.type,
-      note, source: 'debt', _idx: i, orderId: h.orderId
-    });
   });
-
-  // Add fully cash-paid deliveries (no debt created, so not in debt history)
-  recentDelivered.forEach(o => {
-    if (o.payMethod !== 'cash') return;
-    const total = calcOrderTotal(o);
-    if (total <= 0) return;
-    const cashPaid = o.cashPaid !== undefined ? o.cashPaid : total;
-    if (cashPaid < total) return; // partial cash = already in debt history
-    // Check if there's already a debt history clear entry at same time (avoid duplicates)
-    const alreadyTracked = dhRaw.some(h =>
-      h.type === 'clear' && Math.abs(h.amount - total) < 0.01 &&
-      h.date && o.deliveredAt && h.date.slice(0, 16) === o.deliveredAt.slice(0, 16)
-    );
-    if (alreadyTracked) return;
-    transactions.push({
-      date: o.deliveredAt, amount: total, type: 'cash',
-      note: `Paid cash — ${o.items.map(i => i.qty + 'x ' + i.name).join(', ')}`,
-      source: 'order', orderId: o.id
-    });
-  });
-
-  // Sort by date, newest first
-  transactions.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-
-  if (transactions.length > 0) {
-    html += `<div class="section-head"><h3>Transactions</h3></div>`;
-    transactions.slice(0, 20).forEach(t => {
-      const colorMap = { add: 'var(--danger)', clear: 'var(--success)', cash: 'var(--success)' };
-      const signMap = { add: '+', clear: '-', cash: '' };
-      const color = colorMap[t.type] || 'var(--text-sec)';
-      const sign = signMap[t.type] || '';
-      html += `<div class="card" style="padding:10px;margin-bottom:6px">
-        <div class="flex-between">
-          <span style="font-size:13px;flex:1;min-width:0">${t.note}</span>
-          <span style="font-size:13px;font-weight:600;color:${color};white-space:nowrap;margin-left:8px">
-            ${sign}${formatCurrency(Math.abs(t.amount))}
-          </span>
-        </div>
-        <div class="flex-between" style="margin-top:4px">
-          <div class="text-muted" style="font-size:11px">${formatDateTime(t.date)}</div>
-          ${t.source === 'debt' ? `<div style="display:flex;gap:6px">
-            <button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" onclick="showEditDebtHistoryModal(${stop.id},${t._idx})">Edit</button>
-            <button class="btn-ghost" style="font-size:11px;color:var(--danger);padding:2px 6px" onclick="removeDebtHistory(${stop.id},${t._idx})">Remove</button>
-          </div>` : `<div style="display:flex;gap:6px;align-items:center">
-            <span class="badge badge-success" style="font-size:10px">cash</span>
-            <button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" onclick="showEditDeliveredOrderModal('${t.orderId}')">Edit</button>
-            <button class="btn-ghost" style="font-size:11px;color:var(--danger);padding:2px 6px" onclick="deleteOrder('${t.orderId}')">Delete</button>
-          </div>`}
-        </div>
-      </div>`;
-    });
-  }
 
   html += `</div>`; // page-body
   document.getElementById('page-profile').innerHTML = html;
 }
 
 async function deleteOrder(orderId) {
-  if (!(await appConfirm('Are you sure you want to delete this record?'))) return;
   const order = S.orders[orderId];
   if (!order) return;
+
+  // Check if this order has linked debt
+  const debtImpact = getOrderDebtImpact(order);
+  let msg = 'Are you sure you want to delete this record?';
+  if (debtImpact > 0) {
+    msg += `<br><br><span style="color:var(--danger)">This order has ${formatCurrency(debtImpact)} linked debt which will also be removed from the balance.</span>`;
+  }
+  if (!(await appConfirm(msg))) return;
 
   const stockChange = applyTrackedStockChange(order.items || [], []);
   const debtChanged = reconcileOrderDebtEffect(order, null);
@@ -651,13 +690,106 @@ function addDebt() {
   renderProfile();
 }
 
+function showCollectOrderPayment(orderId) {
+  const o = S.orders[orderId];
+  if (!o) return;
+  const debtAmount = getOrderDebtImpact(o);
+  if (debtAmount <= 0) { appAlert('No outstanding debt for this order.'); return; }
+  const items = o.items.map(i => i.qty + 'x ' + i.name).join(', ');
+  const today = new Date().toISOString().slice(0, 10);
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">Collect Payment</div>
+    <div class="card" style="padding:10px;margin-bottom:12px;background:var(--danger-light)">
+      <div style="font-size:13px;font-weight:500">${escHtml(items)}</div>
+      <div style="font-size:12px;color:var(--text-sec);margin-top:2px">${formatDateTime(o.deliveredAt)}</div>
+      <div style="font-size:14px;font-weight:600;color:var(--danger);margin-top:4px">Owes ${formatCurrency(debtAmount)}</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Amount to collect</label>
+      <input class="input" type="number" step="0.01" id="clear-amount" value="${debtAmount.toFixed(2)}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Payment Date</label>
+      <input class="input" type="date" id="clear-date" value="${today}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Payment Method</label>
+      <div class="pay-options">
+        <div class="pay-opt selected" onclick="selectClearMethod('cash',this)">Cash</div>
+        <div class="pay-opt" onclick="selectClearMethod('bank',this)">Bank</div>
+      </div>
+    </div>
+    <button class="btn btn-success btn-block" onclick="clearOrderDebt('${orderId}')">Collect Payment</button>
+  `);
+}
+
+function clearOrderDebt(orderId) {
+  const o = S.orders[orderId];
+  if (!o) return;
+  const debtAmount = getOrderDebtImpact(o);
+  const requested = parseFloat(document.getElementById('clear-amount').value) || 0;
+  const amount = roundMoney(Math.min(debtAmount, Math.max(0, requested)));
+  if (amount <= 0) return;
+  const dateInput = document.getElementById('clear-date');
+  const payDate = dateInput && dateInput.value ? new Date(dateInput.value + 'T12:00:00').toISOString() : new Date().toISOString();
+
+  // If fully paying, update the order's payment method
+  if (amount >= debtAmount) {
+    const prevOrder = JSON.parse(JSON.stringify(o));
+    o.payMethod = 'cash';
+    o.cashPaid = roundMoney(calcOrderTotal(o));
+    reconcileOrderDebtEffect(prevOrder, o);
+    save.orders([o.id]);
+  } else {
+    // Partial payment: reduce debt balance and add history entry
+    S.debts[profileStopId] = Math.max(0, roundMoney((S.debts[profileStopId] || 0) - amount));
+    const items = o.items.map(i => i.qty + 'x ' + i.name).join(', ');
+    createDebtHistoryEntry(profileStopId, {
+      date: payDate, amount, type: 'clear',
+      note: 'Payment received (' + clearDebtMethod + ') — ' + items,
+      orderId: o.id
+    });
+  }
+  save.debts();
+  save.debtHistory([profileStopId]);
+  DB.setDebt(profileStopId, S.debts[profileStopId] || 0);
+  closeModal();
+  renderProfile();
+}
+
 function showClearDebtModal() {
   const debt = S.debts[profileStopId] || 0;
   const today = new Date().toISOString().slice(0, 10);
-  openModal(`<div class="modal-handle"></div>
+
+  // Find unpaid orders for this customer
+  const unpaidOrders = getStopOrders(profileStopId, 'delivered')
+    .filter(o => getOrderDebtImpact(o) > 0)
+    .sort((a, b) => (b.deliveredAt || '').localeCompare(a.deliveredAt || ''));
+
+  let html = `<div class="modal-handle"></div>
     <div class="modal-title">Collect Debt</div>
-    <p class="mb-2">Current debt: <b>${formatCurrency(debt)}</b></p>
-    <div class="form-group">
+    <p class="mb-2">Current debt: <b>${formatCurrency(debt)}</b></p>`;
+
+  if (unpaidOrders.length > 0) {
+    html += `<div style="margin-bottom:12px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-sec);margin-bottom:6px">Unpaid Orders</div>`;
+    unpaidOrders.forEach(o => {
+      const owed = getOrderDebtImpact(o);
+      const items = o.items.map(i => i.qty + 'x ' + i.name).join(', ');
+      html += `<div class="card" style="padding:8px;margin-bottom:4px;cursor:pointer;border:1px solid var(--border)" onclick="closeModal();showCollectOrderPayment('${o.id}')">
+        <div class="flex-between">
+          <span style="font-size:12px">${escHtml(items)}</span>
+          <span style="font-size:12px;font-weight:600;color:var(--danger)">${formatCurrency(owed)}</span>
+        </div>
+        <div class="text-muted" style="font-size:11px">${formatDateTime(o.deliveredAt)}</div>
+      </div>`;
+    });
+    html += `<div style="font-size:11px;color:var(--text-sec);margin-top:4px;text-align:center">Tap an order to collect its payment</div></div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-sec);margin-bottom:8px">Or collect a custom amount</div>`;
+  }
+
+  html += `<div class="form-group">
       <label class="form-label">Amount to collect</label>
       <input class="input" type="number" step="0.01" id="clear-amount" value="${debt.toFixed(2)}">
     </div>
@@ -672,8 +804,10 @@ function showClearDebtModal() {
         <div class="pay-opt" onclick="selectClearMethod('bank',this)" id="clear-bank">Bank</div>
       </div>
     </div>
-    <button class="btn btn-success btn-block" onclick="clearDebt()">Collect Debt</button>
-  `);
+    <button class="btn btn-success btn-block" onclick="clearDebt()">Collect Debt</button>`;
+
+  if (unpaidOrders.length > 0) html += `</div>`;
+  openModal(html);
 }
 
 let clearDebtMethod = 'cash';
