@@ -155,9 +155,15 @@ function renderProfile() {
   // Add debt history entries
   dhRaw.forEach((h, i) => {
     if (h.type === 'visit' || h.amount <= 0) return;
+    let note = h.note || h.type;
+    // Enrich note with order items if orderId exists but note lacks item details
+    if (h.orderId && S.orders[h.orderId] && !note.includes('—')) {
+      const items = (S.orders[h.orderId].items || []).map(i => i.qty + 'x ' + i.name).join(', ');
+      if (items) note += ' — ' + items;
+    }
     transactions.push({
       date: h.date, amount: h.amount, type: h.type,
-      note: h.note || h.type, source: 'debt', _idx: i
+      note, source: 'debt', _idx: i, orderId: h.orderId
     });
   });
 
