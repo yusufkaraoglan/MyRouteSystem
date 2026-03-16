@@ -36,9 +36,10 @@ async function dbSelect(table, params = '') {
   }
 }
 
-// Check if required tables exist in Supabase
+// Check if required tables exist and RLS policies are configured
 async function checkDbTables() {
   try {
+    // 1) Check if tables exist
     const r = await fetch(`${SB_URL}/rest/v1/orders?select=id&limit=1`, {
       headers: DB_HEADERS
     });
@@ -48,8 +49,24 @@ async function checkDbTables() {
       if (typeof dbLog === 'function') dbLog('DB tables NOT found — cache-only mode');
       return false;
     }
+
+    // 2) Check if RLS policies allow writes (test with a dummy upsert to app_settings)
+    const testR = await fetch(`${SB_URL}/rest/v1/app_settings`, {
+      method: 'POST',
+      headers: { ...DB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify([{ key: '_health_check', value: new Date().toISOString() }])
+    });
+    if (testR.status === 403 || testR.status === 401) {
+      _dbReady = false;
+      const msg = 'Database connection blocked — RLS policies may be missing. Go to Settings for help.';
+      console.error(msg);
+      if (typeof dbLog === 'function') dbLog(msg);
+      if (typeof showToast === 'function') setTimeout(() => showToast(msg, 'error', 10000), 1500);
+      return false;
+    }
+
     _dbReady = true;
-    if (typeof dbLog === 'function') dbLog('DB tables OK');
+    if (typeof dbLog === 'function') dbLog('DB tables OK + RLS policies OK');
     return true;
   } catch (e) {
     console.warn('DB check failed:', e.message);

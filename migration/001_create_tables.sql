@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS customers (
   email TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT now()
 );
-ALTER TABLE customers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON customers FOR ALL USING (true) WITH CHECK (true);
 
 -- 2. Products (Catalog)
 CREATE TABLE IF NOT EXISTS products (
@@ -32,7 +33,8 @@ CREATE TABLE IF NOT EXISTS products (
   sort_order INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-ALTER TABLE products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON products FOR ALL USING (true) WITH CHECK (true);
 
 -- 3. Day Assignments (customer → day)
 CREATE TABLE IF NOT EXISTS assignments (
@@ -40,7 +42,8 @@ CREATE TABLE IF NOT EXISTS assignments (
   day_id TEXT NOT NULL,
   PRIMARY KEY (customer_id)
 );
-ALTER TABLE assignments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE assignments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON assignments FOR ALL USING (true) WITH CHECK (true);
 
 -- 4. Route Order (position within a day)
 CREATE TABLE IF NOT EXISTS route_order (
@@ -49,7 +52,8 @@ CREATE TABLE IF NOT EXISTS route_order (
   position INT DEFAULT 0,
   PRIMARY KEY (day_id, customer_id)
 );
-ALTER TABLE route_order DISABLE ROW LEVEL SECURITY;
+ALTER TABLE route_order ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON route_order FOR ALL USING (true) WITH CHECK (true);
 
 -- 5. Orders
 CREATE TABLE IF NOT EXISTS orders (
@@ -63,7 +67,8 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at TIMESTAMPTZ DEFAULT now(),
   delivered_at TIMESTAMPTZ
 );
-ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON orders FOR ALL USING (true) WITH CHECK (true);
 
 -- 6. Order Items
 CREATE TABLE IF NOT EXISTS order_items (
@@ -73,14 +78,16 @@ CREATE TABLE IF NOT EXISTS order_items (
   qty INT DEFAULT 1,
   price NUMERIC(10,2) DEFAULT 0
 );
-ALTER TABLE order_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON order_items FOR ALL USING (true) WITH CHECK (true);
 
 -- 7. Debts (current balance)
 CREATE TABLE IF NOT EXISTS debts (
   customer_id INT PRIMARY KEY REFERENCES customers(id) ON DELETE CASCADE,
   amount NUMERIC(10,2) DEFAULT 0
 );
-ALTER TABLE debts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE debts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON debts FOR ALL USING (true) WITH CHECK (true);
 
 -- 8. Debt History
 CREATE TABLE IF NOT EXISTS debt_history (
@@ -91,7 +98,8 @@ CREATE TABLE IF NOT EXISTS debt_history (
   order_id TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-ALTER TABLE debt_history DISABLE ROW LEVEL SECURITY;
+ALTER TABLE debt_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON debt_history FOR ALL USING (true) WITH CHECK (true);
 
 -- 9. Customer Pricing (per-customer price overrides)
 CREATE TABLE IF NOT EXISTS customer_pricing (
@@ -100,7 +108,8 @@ CREATE TABLE IF NOT EXISTS customer_pricing (
   price NUMERIC(10,2) NOT NULL,
   PRIMARY KEY (customer_id, product_name)
 );
-ALTER TABLE customer_pricing DISABLE ROW LEVEL SECURITY;
+ALTER TABLE customer_pricing ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON customer_pricing FOR ALL USING (true) WITH CHECK (true);
 
 -- 10. Recurring Orders (auto-order templates)
 CREATE TABLE IF NOT EXISTS recurring_orders (
@@ -109,7 +118,8 @@ CREATE TABLE IF NOT EXISTS recurring_orders (
   note TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT now()
 );
-ALTER TABLE recurring_orders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE recurring_orders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON recurring_orders FOR ALL USING (true) WITH CHECK (true);
 
 -- 11. App Settings (UI state, locked orders, etc.)
 CREATE TABLE IF NOT EXISTS app_settings (
@@ -117,7 +127,8 @@ CREATE TABLE IF NOT EXISTS app_settings (
   value JSONB,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON app_settings FOR ALL USING (true) WITH CHECK (true);
 
 -- 12. Migration tracking
 CREATE TABLE IF NOT EXISTS migrations (
@@ -125,7 +136,8 @@ CREATE TABLE IF NOT EXISTS migrations (
   name TEXT NOT NULL,
   executed_at TIMESTAMPTZ DEFAULT now()
 );
-ALTER TABLE migrations DISABLE ROW LEVEL SECURITY;
+ALTER TABLE migrations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON migrations FOR ALL USING (true) WITH CHECK (true);
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);

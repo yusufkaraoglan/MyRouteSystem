@@ -94,9 +94,32 @@ function renderSettings() {
           <div class="settings-item">
             <div>
               <div class="settings-item-label">Supabase Sync</div>
-              <div class="settings-item-desc" id="db-status-text">${_dbReady ? '<span style="color:var(--success)">Connected — Auto Sync</span>' : '<span style="color:var(--danger)">Tables not found — cache-only mode</span>'}</div>
+              <div class="settings-item-desc" id="db-status-text">${_dbReady ? '<span style="color:var(--success)">Connected — Auto Sync</span>' : '<span style="color:var(--danger)">Not connected — cache-only mode</span>'}</div>
             </div>
             ${!_dbReady ? `<button class="btn btn-primary btn-sm" onclick="showDbSetupModal()">Setup</button>` : `<span style="color:var(--success);font-size:20px">&#10003;</span>`}
+          </div>
+          ${_dbReady ? `
+          <div class="settings-item" onclick="forceSyncNow()" style="cursor:pointer">
+            <div>
+              <div class="settings-item-label">Sync Now</div>
+              <div class="settings-item-desc">Pull latest data from cloud</div>
+            </div>
+            <span style="color:var(--text-muted)">&#8635;</span>
+          </div>
+          <div class="settings-item" onclick="uploadAllData()" style="cursor:pointer">
+            <div>
+              <div class="settings-item-label">Re-upload All Data</div>
+              <div class="settings-item-desc">Push all local data to cloud</div>
+            </div>
+            <span style="color:var(--text-muted)">&uarr;</span>
+          </div>
+          ` : ''}
+          <div class="settings-item" onclick="recheckDbConnection()" style="cursor:pointer">
+            <div>
+              <div class="settings-item-label">Test Connection</div>
+              <div class="settings-item-desc">Check database tables and permissions</div>
+            </div>
+            <span style="color:var(--text-muted)">&#9889;</span>
           </div>
         </div>
       </div>
@@ -187,40 +210,52 @@ async function importJSON(input) {
 
 function _getSetupSQL() {
   return `CREATE TABLE IF NOT EXISTS customers (id SERIAL PRIMARY KEY, name TEXT NOT NULL, address TEXT DEFAULT '', city TEXT DEFAULT '', postcode TEXT DEFAULT '', lat DOUBLE PRECISION, lng DOUBLE PRECISION, note TEXT DEFAULT '', contact_name TEXT DEFAULT '', phone TEXT DEFAULT '', email TEXT DEFAULT '', created_at TIMESTAMPTZ DEFAULT now());
-ALTER TABLE customers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON customers FOR ALL USING (true) WITH CHECK (true);
 
 CREATE TABLE IF NOT EXISTS products (id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE, unit TEXT DEFAULT '1', price NUMERIC(10,2) DEFAULT 0, stock INT, track_stock BOOLEAN DEFAULT true, sort_order INT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT now());
-ALTER TABLE products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON products FOR ALL USING (true) WITH CHECK (true);
 
 CREATE TABLE IF NOT EXISTS assignments (customer_id INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE, day_id TEXT NOT NULL, PRIMARY KEY (customer_id));
-ALTER TABLE assignments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE assignments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON assignments FOR ALL USING (true) WITH CHECK (true);
 
 CREATE TABLE IF NOT EXISTS route_order (day_id TEXT NOT NULL, customer_id INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE, position INT DEFAULT 0, PRIMARY KEY (day_id, customer_id));
-ALTER TABLE route_order DISABLE ROW LEVEL SECURITY;
+ALTER TABLE route_order ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON route_order FOR ALL USING (true) WITH CHECK (true);
 
 CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, customer_id INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE, status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'delivered')), pay_method TEXT, cash_paid NUMERIC(10,2), delivery_date DATE, note TEXT DEFAULT '', created_at TIMESTAMPTZ DEFAULT now(), delivered_at TIMESTAMPTZ);
-ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON orders FOR ALL USING (true) WITH CHECK (true);
 
 CREATE TABLE IF NOT EXISTS order_items (id SERIAL PRIMARY KEY, order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE, product_name TEXT NOT NULL, qty INT DEFAULT 1, price NUMERIC(10,2) DEFAULT 0);
-ALTER TABLE order_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON order_items FOR ALL USING (true) WITH CHECK (true);
 
 CREATE TABLE IF NOT EXISTS debts (customer_id INT PRIMARY KEY REFERENCES customers(id) ON DELETE CASCADE, amount NUMERIC(10,2) DEFAULT 0);
-ALTER TABLE debts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE debts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON debts FOR ALL USING (true) WITH CHECK (true);
 
 CREATE TABLE IF NOT EXISTS debt_history (id SERIAL PRIMARY KEY, customer_id INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE, amount NUMERIC(10,2) DEFAULT 0, note TEXT DEFAULT '', order_id TEXT, created_at TIMESTAMPTZ DEFAULT now());
-ALTER TABLE debt_history DISABLE ROW LEVEL SECURITY;
+ALTER TABLE debt_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON debt_history FOR ALL USING (true) WITH CHECK (true);
 
 CREATE TABLE IF NOT EXISTS customer_pricing (customer_id INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE, product_name TEXT NOT NULL, price NUMERIC(10,2) NOT NULL, PRIMARY KEY (customer_id, product_name));
-ALTER TABLE customer_pricing DISABLE ROW LEVEL SECURITY;
+ALTER TABLE customer_pricing ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON customer_pricing FOR ALL USING (true) WITH CHECK (true);
 
 CREATE TABLE IF NOT EXISTS recurring_orders (customer_id INT PRIMARY KEY REFERENCES customers(id) ON DELETE CASCADE, items JSONB NOT NULL DEFAULT '[]', note TEXT DEFAULT '', created_at TIMESTAMPTZ DEFAULT now());
-ALTER TABLE recurring_orders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE recurring_orders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON recurring_orders FOR ALL USING (true) WITH CHECK (true);
 
 CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value JSONB, updated_at TIMESTAMPTZ DEFAULT now());
-ALTER TABLE app_settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON app_settings FOR ALL USING (true) WITH CHECK (true);
 
 CREATE TABLE IF NOT EXISTS migrations (id SERIAL PRIMARY KEY, name TEXT NOT NULL, executed_at TIMESTAMPTZ DEFAULT now());
-ALTER TABLE migrations DISABLE ROW LEVEL SECURITY;
+ALTER TABLE migrations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "allow_all" ON migrations FOR ALL USING (true) WITH CHECK (true);
 
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
@@ -312,6 +347,17 @@ async function forceSyncNow() {
   } else {
     showToast('Sync failed', 'error');
   }
+}
+
+async function recheckDbConnection() {
+  showToast('Testing connection...', 'info', 2000);
+  const ok = await checkDbTables();
+  if (ok) {
+    showToast('Database OK — tables and permissions verified', 'success');
+  } else {
+    showToast('Connection problem detected — check debug log for details', 'error', 5000);
+  }
+  renderSettings();
 }
 
 // ══════════════════════════════════════════════════════════════

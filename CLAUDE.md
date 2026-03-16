@@ -125,10 +125,17 @@ Use `btnLock(fn)` from app.js for actions like saving orders to prevent duplicat
 
 ```
 Project: ClientRotaCrm
-URL: (see js/config.js — excluded from git)
-Anon Key: (see js/config.js — excluded from git)
-RLS: TODO — enable RLS on all tables for production security
+URL: (see js/db.js)
+Anon Key: (see js/db.js — this is a public anon key, safe in frontend code)
+RLS: ENABLED on all tables with "allow_all" policy (single-user app)
 ```
+
+### Security Notes
+- **Anon key in frontend is normal** — Supabase anon key is designed to be public. RLS is the real protection.
+- **RLS must stay ENABLED** — Never disable RLS. All tables have `allow_all` policy for single-user use.
+- **If RLS policies are missing**, the app will detect it on startup and show an error toast.
+- **Migration SQL includes RLS + policies** — New setups automatically get correct security config.
+- **`.gitignore`** excludes `js/config.js`, `.env`, and other sensitive files.
 
 ### Old Table (preserved during transition)
 - `cr4_store` (key TEXT PRIMARY KEY, value JSONB, updated_at TIMESTAMPTZ)
