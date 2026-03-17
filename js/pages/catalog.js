@@ -440,8 +440,11 @@ async function removeCatalogItem(idx) {
 
 
 async function resetOrdersAndDebts() {
-  if (!(await appConfirm('This will delete all <b>orders, debts, and debt history</b>.<br>Customers, routes, and map will be kept.<br>Are you sure?', true))) return;
+  if (!(await appConfirm('This will delete all <b>orders, debts, and debt history</b>.<br>Customers, routes, and map will be kept.<br><br>A backup will be downloaded first.', true))) return;
   if (!(await appConfirm('This cannot be undone. Proceed?'))) return;
+
+  // Auto-backup before reset
+  try { exportJSON(); } catch (e) { console.warn('Auto-backup failed:', e); }
 
   // Clear local state
   S.orders = {};
@@ -486,8 +489,11 @@ async function resetOrdersAndDebts() {
 }
 
 async function resetAllData() {
-  if (!(await appConfirm('This will delete ALL local data.<br>Are you sure?', true))) return;
+  if (!(await appConfirm('This will delete <b>ALL data</b> (local + cloud).<br><br>A backup will be downloaded first.', true))) return;
   if (!(await appConfirm('This cannot be undone. Proceed?'))) return;
+
+  // Auto-backup before reset
+  try { exportJSON(); } catch (e) { console.warn('Auto-backup failed:', e); }
 
   // Clear Supabase tables (order matters due to foreign keys)
   try {
