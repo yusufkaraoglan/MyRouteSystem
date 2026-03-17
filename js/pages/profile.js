@@ -113,7 +113,11 @@ function renderProfile() {
           <div class="order-card-items">${o.items.map(i => `${i.qty}x ${escHtml(i.name)}`).join(', ')}</div>
           <div class="order-card-footer">
             <span class="order-card-total">${formatCurrency(calcOrderTotal(o))}</span>
-            <button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">Delete</button>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-success btn-sm" onclick="showDeliveryFromOrder('${o.id}')">Deliver</button>
+              <button class="btn btn-outline btn-sm" onclick="openEditOrderPage('${o.id}')">Edit</button>
+              <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger)" onclick="deleteOrder('${o.id}')">Delete</button>
+            </div>
           </div>
         </div>`;
     });
@@ -234,12 +238,18 @@ function renderProfile() {
         </div>`;
     } else if (a.type === 'debt') {
       const e = a.entry;
+      const customerDebt = S.debts[stop.id] || 0;
       html += `
         <div class="card" style="padding:10px;margin-bottom:6px;border-left:3px solid var(--danger)">
           <div class="flex-between">
             <span style="font-size:13px">${escHtml(e.note || 'Debt added')}</span>
             <span style="font-size:13px;font-weight:600;color:var(--danger)">+${formatCurrency(e.amount)}</span>
           </div>
+          ${customerDebt > 0 ? `
+          <div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:12px;color:var(--danger)">Owes ${formatCurrency(customerDebt)}</span>
+            <button class="btn btn-success btn-sm" style="font-size:11px;padding:3px 10px" onclick="showClearDebtModal()">Collect Payment</button>
+          </div>` : ''}
           <div class="flex-between" style="margin-top:4px">
             <div class="text-muted" style="font-size:11px">${formatDateTime(e.date)}</div>
             <div style="display:flex;gap:6px">
@@ -653,7 +663,7 @@ function saveNote() {
 // DEBT MANAGEMENT
 // ══════════════════════════════════════════════════════════════
 function showAddDebtModal() {
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date().toISOString().slice(0, 16);
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">Add Debt</div>
     <div class="form-group">
@@ -661,8 +671,8 @@ function showAddDebtModal() {
       <input class="input" type="number" step="0.01" id="debt-amount" placeholder="0.00">
     </div>
     <div class="form-group">
-      <label class="form-label">Date</label>
-      <input class="input" type="date" id="debt-date" value="${today}">
+      <label class="form-label">Date & Time</label>
+      <input class="input" type="datetime-local" id="debt-date" value="${now}">
     </div>
     <div class="form-group">
       <label class="form-label">Note (optional)</label>
@@ -677,7 +687,7 @@ function addDebt() {
   if (amount <= 0) { appAlert('Please enter a valid amount.'); return; }
   const note = document.getElementById('debt-note').value.trim() || 'Manual entry';
   const dateInput = document.getElementById('debt-date');
-  const debtDate = dateInput && dateInput.value ? new Date(dateInput.value + 'T12:00:00').toISOString() : new Date().toISOString();
+  const debtDate = dateInput && dateInput.value ? new Date(dateInput.value).toISOString() : new Date().toISOString();
 
   S.debts[profileStopId] = (S.debts[profileStopId] || 0) + amount;
   const debtEntry = { date: debtDate, amount, type: 'add', note };
@@ -696,7 +706,7 @@ function showCollectOrderPayment(orderId) {
   const debtAmount = getOrderDebtImpact(o);
   if (debtAmount <= 0) { appAlert('No outstanding debt for this order.'); return; }
   const items = o.items.map(i => i.qty + 'x ' + i.name).join(', ');
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date().toISOString().slice(0, 16);
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">Collect Payment</div>
     <div class="card" style="padding:10px;margin-bottom:12px;background:var(--danger-light)">
@@ -709,8 +719,8 @@ function showCollectOrderPayment(orderId) {
       <input class="input" type="number" step="0.01" id="clear-amount" value="${debtAmount.toFixed(2)}">
     </div>
     <div class="form-group">
-      <label class="form-label">Payment Date</label>
-      <input class="input" type="date" id="clear-date" value="${today}">
+      <label class="form-label">Payment Date & Time</label>
+      <input class="input" type="datetime-local" id="clear-date" value="${now}">
     </div>
     <div class="form-group">
       <label class="form-label">Payment Method</label>
@@ -731,7 +741,7 @@ function clearOrderDebt(orderId) {
   const amount = roundMoney(Math.min(debtAmount, Math.max(0, requested)));
   if (amount <= 0) return;
   const dateInput = document.getElementById('clear-date');
-  const payDate = dateInput && dateInput.value ? new Date(dateInput.value + 'T12:00:00').toISOString() : new Date().toISOString();
+  const payDate = dateInput && dateInput.value ? new Date(dateInput.value).toISOString() : new Date().toISOString();
 
   // If fully paying, update the order's payment method
   if (amount >= debtAmount) {
@@ -759,7 +769,7 @@ function clearOrderDebt(orderId) {
 
 function showClearDebtModal() {
   const debt = S.debts[profileStopId] || 0;
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date().toISOString().slice(0, 16);
 
   // Find unpaid orders for this customer
   const unpaidOrders = getStopOrders(profileStopId, 'delivered')
@@ -794,8 +804,8 @@ function showClearDebtModal() {
       <input class="input" type="number" step="0.01" id="clear-amount" value="${debt.toFixed(2)}">
     </div>
     <div class="form-group">
-      <label class="form-label">Payment Date</label>
-      <input class="input" type="date" id="clear-date" value="${today}">
+      <label class="form-label">Payment Date & Time</label>
+      <input class="input" type="datetime-local" id="clear-date" value="${now}">
     </div>
     <div class="form-group">
       <label class="form-label">Payment Method</label>
@@ -823,7 +833,7 @@ function clearDebt() {
   const amount = roundMoney(Math.min(debt, Math.max(0, requested)));
   if (amount <= 0) return;
   const dateInput = document.getElementById('clear-date');
-  const payDate = dateInput && dateInput.value ? new Date(dateInput.value + 'T12:00:00').toISOString() : new Date().toISOString();
+  const payDate = dateInput && dateInput.value ? new Date(dateInput.value).toISOString() : new Date().toISOString();
   S.debts[profileStopId] = Math.max(0, roundMoney(debt - amount));
   createDebtHistoryEntry(profileStopId, {
     date: payDate, amount: amount, type: 'clear',
@@ -850,7 +860,7 @@ function showEditDebtHistoryModal(stopId, idx) {
   const dh = S.debtHistory[stopId];
   if (!dh || !dh[idx]) return;
   const h = dh[idx];
-  const editDate = h.date ? new Date(h.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const editDate = h.date ? new Date(h.date).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16);
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">Edit Debt Record</div>
@@ -859,8 +869,8 @@ function showEditDebtHistoryModal(stopId, idx) {
       <input class="input" type="number" step="0.01" id="edit-dh-amount" value="${h.amount}">
     </div>
     <div class="form-group">
-      <label class="form-label">Date</label>
-      <input class="input" type="date" id="edit-dh-date" value="${editDate}">
+      <label class="form-label">Date & Time</label>
+      <input class="input" type="datetime-local" id="edit-dh-date" value="${editDate}">
     </div>
     <div class="form-group">
       <label class="form-label">Note</label>
@@ -878,7 +888,7 @@ function saveEditDebtHistory(stopId, idx) {
   const newAmount = parseFloat(document.getElementById('edit-dh-amount').value) || 0;
   const dateInput = document.getElementById('edit-dh-date');
   dh[idx].amount = newAmount;
-  if (dateInput && dateInput.value) dh[idx].date = new Date(dateInput.value + 'T12:00:00').toISOString();
+  if (dateInput && dateInput.value) dh[idx].date = new Date(dateInput.value).toISOString();
   dh[idx].note = document.getElementById('edit-dh-note').value.trim();
   // Adjust debt balance
   if (oldType === 'add') {
