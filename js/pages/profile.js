@@ -490,7 +490,7 @@ async function deleteCustomer() {
     if (debt > 0) msg += `<span style="color:var(--danger)">${formatCurrency(debt)} debt will be lost.</span><br>`;
   }
   msg += '<br>This action cannot be undone.';
-  if (!(await appConfirm(msg))) return;
+  if (!(await appConfirm(msg, true))) return;
   STOPS = STOPS.filter(s => s.id !== profileStopId);
   delete S.assign[profileStopId];
   save.stops();
