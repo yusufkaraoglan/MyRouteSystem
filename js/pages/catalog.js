@@ -27,6 +27,7 @@ function renderCatalog() {
 
   const newBody = document.querySelector('#page-catalog .page-body');
   if (newBody) newBody.scrollTop = scrollPos;
+  initCatalogDragDrop();
 }
 
 function buildCatalogGridHtml() {
@@ -47,48 +48,25 @@ function buildCatalogGridHtml() {
     </div>`;
   }
 
-  // Summary row
-  const tracked = S.catalog.filter(c => c.trackStock !== false);
-  const totalStock = tracked.reduce((s, c) => s + (c.stock || 0), 0);
-  const lowStock = tracked.filter(c => c.stock != null && c.stock <= 5).length;
-
-  let html = '';
-  if (tracked.length > 0 && !q) {
-    html += `<div style="display:flex;gap:8px;margin-bottom:12px">
-      <div class="card" style="flex:1;padding:10px;text-align:center">
-        <div style="font-size:20px;font-weight:700">${totalStock}</div>
-        <div style="font-size:11px;color:var(--text-sec)">Total Stock</div>
-      </div>
-      ${lowStock > 0 ? `<div class="card" style="flex:1;padding:10px;text-align:center;border-left:3px solid var(--danger)">
-        <div style="font-size:20px;font-weight:700;color:var(--danger)">${lowStock}</div>
-        <div style="font-size:11px;color:var(--text-sec)">Low Stock</div>
-      </div>` : ''}
-    </div>`;
-  }
-
-  html += `<div class="catalog-grid">`;
+  let html = `<div id="catalog-list">`;
   filtered.forEach((c, fi) => {
     const i = q ? S.catalog.indexOf(c) : fi;
-    const stockColor = c.stock != null && c.stock <= 5 ? 'var(--danger)' : c.stock != null && c.stock <= 20 ? 'var(--warning)' : 'var(--success)';
     const isDaily = c.trackStock === false;
+    const stockColor = c.stock != null && c.stock <= 5 ? 'var(--danger)' : c.stock != null && c.stock <= 20 ? 'var(--warning)' : 'var(--success)';
 
     html += `
-      <div class="catalog-card-v2" id="cat-card-${i}" onclick="showEditProductModal(${i})">
-        <div class="catalog-card-v2-top">
-          <div class="catalog-card-v2-name">${escHtml(c.name)}</div>
-          <div class="catalog-card-v2-price">${formatCurrency(c.price)}</div>
-        </div>
-        <div class="catalog-card-v2-meta">
-          <span class="text-muted">${escHtml(c.unit || 'unit')}</span>
+      <div class="catalog-row${!q ? ' draggable-catalog' : ''}" data-idx="${i}" ${!q ? 'draggable="true"' : ''} onclick="showEditProductModal(${i})">
+        <div class="catalog-row-drag"${q ? ' style="display:none"' : ''}>⠿</div>
+        <div class="catalog-row-name">${escHtml(c.name)}</div>
+        <div class="catalog-row-right">
           ${isDaily
             ? `<span class="badge badge-purple" style="font-size:10px">Daily</span>`
-            : `<span class="catalog-stock-pill" style="background:${stockColor}">${c.stock != null ? c.stock : '—'}</span>`
+            : c.stock != null
+              ? `<span class="catalog-stock-pill" style="background:${stockColor}">${c.stock}</span>`
+              : ''
           }
+          <span class="catalog-row-price">${formatCurrency(c.price)}</span>
         </div>
-        ${!isDaily && c.stock != null ? `
-        <div class="catalog-stock-bar">
-          <div class="catalog-stock-bar-fill" style="width:${Math.min(100, (c.stock / Math.max(c.stock, 50)) * 100)}%;background:${stockColor}"></div>
-        </div>` : ''}
       </div>`;
   });
   html += `</div>`;
@@ -97,7 +75,115 @@ function buildCatalogGridHtml() {
 
 function renderCatalogGrid() {
   const container = document.getElementById('catalog-grid-container');
-  if (container) container.innerHTML = buildCatalogGridHtml();
+  if (container) {
+    container.innerHTML = buildCatalogGridHtml();
+    initCatalogDragDrop();
+  }
+}
+
+function initCatalogDragDrop() {
+  const list = document.getElementById('catalog-list');
+  if (!list) return;
+
+  if (list._dragInitialized) {
+    const fresh = list.cloneNode(true);
+    list.parentNode.replaceChild(fresh, list);
+    return initCatalogDragDrop();
+  }
+  list._dragInitialized = true;
+
+  let draggedIdx = null;
+
+  list.addEventListener('dragstart', e => {
+    const row = e.target.closest('.draggable-catalog');
+    if (!row) { e.preventDefault(); return; }
+    draggedIdx = parseInt(row.dataset.idx);
+    row.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  list.addEventListener('dragend', e => {
+    const row = e.target.closest('.catalog-row');
+    if (row) row.classList.remove('dragging');
+    list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    draggedIdx = null;
+  });
+
+  list.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const target = e.target.closest('.catalog-row');
+    list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    if (target && parseInt(target.dataset.idx) !== draggedIdx) {
+      target.classList.add('drag-over');
+    }
+  });
+
+  list.addEventListener('drop', e => {
+    e.preventDefault();
+    const target = e.target.closest('.catalog-row');
+    if (!target || draggedIdx == null) return;
+    const targetIdx = parseInt(target.dataset.idx);
+    if (targetIdx === draggedIdx) return;
+    applyCatalogDrop(draggedIdx, targetIdx);
+  });
+
+  // Touch drag support
+  let touchDragIdx = null;
+  let touchClone = null;
+  let longPressTimer = null;
+
+  list.addEventListener('touchstart', e => {
+    const row = e.target.closest('.draggable-catalog');
+    if (!row) return;
+    if (e.target.closest('.btn')) return;
+    longPressTimer = setTimeout(() => {
+      touchDragIdx = parseInt(row.dataset.idx);
+      row.classList.add('dragging');
+      touchClone = row.cloneNode(true);
+      touchClone.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;opacity:0.8;width:' + row.offsetWidth + 'px;transform:scale(0.95);box-shadow:0 8px 24px rgba(0,0,0,0.2);left:' + row.getBoundingClientRect().left + 'px;top:' + (e.touches[0].clientY - 20) + 'px';
+      document.body.appendChild(touchClone);
+    }, 300);
+  }, { passive: true });
+
+  list.addEventListener('touchmove', e => {
+    if (touchDragIdx == null) {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      return;
+    }
+    e.preventDefault();
+    if (touchClone) touchClone.style.top = (e.touches[0].clientY - 20) + 'px';
+    list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+    if (el) {
+      const target = el.closest('.catalog-row');
+      if (target && parseInt(target.dataset.idx) !== touchDragIdx) target.classList.add('drag-over');
+    }
+  }, { passive: false });
+
+  list.addEventListener('touchend', e => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    if (touchDragIdx == null) return;
+    if (touchClone) { touchClone.remove(); touchClone = null; }
+    list.querySelectorAll('.catalog-row').forEach(c => { c.classList.remove('dragging'); c.classList.remove('drag-over'); });
+    const el = document.elementFromPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    if (el) {
+      const target = el.closest('.catalog-row');
+      if (target && parseInt(target.dataset.idx) !== touchDragIdx) {
+        applyCatalogDrop(touchDragIdx, parseInt(target.dataset.idx));
+      }
+    }
+    touchDragIdx = null;
+  });
+}
+
+function applyCatalogDrop(fromIdx, toIdx) {
+  const item = S.catalog.splice(fromIdx, 1)[0];
+  S.catalog.splice(toIdx, 0, item);
+  // Update sort_order
+  S.catalog.forEach((c, i) => c.sort_order = i);
+  save.catalog();
+  renderCatalog();
 }
 
 function showAddProductModal() {
@@ -371,12 +457,24 @@ async function resetOrdersAndDebts() {
   cacheSet('debts', {});
   cacheSet('debt_history', {});
 
-  // Clear from Supabase (delete all rows)
+  // Clear from Supabase (delete all rows — use broad filter per table PK)
   try {
     if (typeof SB_URL !== 'undefined' && SB_URL) {
-      const tables = ['order_items', 'orders', 'debts', 'debt_history'];
-      for (const t of tables) {
-        await fetch(`${SB_URL}/rest/v1/${t}?id=gt.0`, {
+      // order_items & debt_history have serial id PK; orders has text id PK; debts has customer_id PK
+      const deletes = [
+        ['order_items', 'id=gt.0'],
+        ['debt_history', 'id=gt.0'],
+        ['orders', 'id=neq.___none___'],
+        ['debts', 'customer_id=gt.0']
+      ];
+      for (const [table, filter] of deletes) {
+        await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, {
+          method: 'DELETE', headers: DB_HEADERS
+        }).catch(() => {});
+      }
+      // Also clear legacy cr4_store keys for debts/orders
+      for (const key of ['debts', 'debtHistory', 'ordersV2', 'orders']) {
+        await fetch(`${SB_URL}/rest/v1/cr4_store?key=eq.${key}`, {
           method: 'DELETE', headers: DB_HEADERS
         }).catch(() => {});
       }
@@ -390,6 +488,36 @@ async function resetOrdersAndDebts() {
 async function resetAllData() {
   if (!(await appConfirm('This will delete ALL local data.<br>Are you sure?', true))) return;
   if (!(await appConfirm('This cannot be undone. Proceed?'))) return;
+
+  // Clear Supabase tables (order matters due to foreign keys)
+  try {
+    if (typeof SB_URL !== 'undefined' && SB_URL) {
+      const deletes = [
+        ['order_items', 'id=gt.0'],
+        ['debt_history', 'id=gt.0'],
+        ['orders', 'id=neq.___none___'],
+        ['debts', 'customer_id=gt.0'],
+        ['customer_pricing', 'customer_id=gt.0'],
+        ['recurring_orders', 'customer_id=gt.0'],
+        ['route_order', 'customer_id=gt.0'],
+        ['assignments', 'customer_id=gt.0'],
+        ['customers', 'id=gt.0'],
+        ['products', 'id=gt.0'],
+        ['app_settings', 'key=neq.___none___']
+      ];
+      for (const [table, filter] of deletes) {
+        await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, {
+          method: 'DELETE', headers: DB_HEADERS
+        }).catch(() => {});
+      }
+      // Clear all cr4_store legacy data
+      await fetch(`${SB_URL}/rest/v1/cr4_store?key=neq.___none___`, {
+        method: 'DELETE', headers: DB_HEADERS
+      }).catch(() => {});
+    }
+  } catch (e) { console.error('resetAllData Supabase cleanup error:', e); }
+
+  // Clear localStorage
   const keys = ['stops','assign','routeOrder','order','geo','ordersV2','orders','debts','debtHistory','cnotes','catalog','customerPricing','customerProducts','recurringOrders','stopCatalog','vis'];
   keys.forEach(k => localStorage.removeItem('cr4_' + k));
   const cr5Keys = ['customers','products','assignments','route_order','orders','debts','debt_history','customer_pricing','recurring_orders','customer_products','customer_brands','brand_list','db_migrated'];
