@@ -244,7 +244,7 @@ body.modal-open .page{touch-action:none}
 .search-bar svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--text-muted)}
 
 /* === FAB === */
-.fab{position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 16px);right:16px;width:56px;height:56px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md);z-index:50;transition:transform .15s}
+.fab{position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 16px);right:16px;width:56px;height:56px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md);z-index:75;transition:transform .15s}
 .fab:hover{box-shadow:0 4px 16px rgba(0,0,0,0.2)}
 .fab:active{transform:scale(0.92)}
 .fab svg{width:24px;height:24px}
