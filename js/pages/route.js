@@ -4,6 +4,7 @@
 // ══════════════════════════════════════════════════════════════
 let routeSearchTerm = '';
 let routeLockedStops = [];
+let visitPayMethod = null;
 
 function renderRoute() {
   const week = S.routeWeek;
@@ -543,8 +544,6 @@ function showDeliveryModal(stopId, singleOrderId) {
     `);
   }
 }
-
-let visitPayMethod = null;
 
 function selectVisitPayMethod(method, el) {
   visitPayMethod = method;
