@@ -157,7 +157,8 @@ function renderSettings() {
 
 // JSON BACKUP
 // ══════════════════════════════════════════════════════════════
-function exportJSON() {
+function exportJSON(opts) {
+  const silent = opts && opts.silent;
   const backup = {
     version: '2.0',
     exportedAt: new Date().toISOString(),
@@ -178,14 +179,16 @@ function exportJSON() {
       brandList: S.brandList
     }
   };
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = `costadoro-backup-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  appAlert('Backup file downloaded.');
+  if (!silent) appAlert('Backup file downloaded.');
+  return json.length;
 }
 
 async function importJSON(input) {
