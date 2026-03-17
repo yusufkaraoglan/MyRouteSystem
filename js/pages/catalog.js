@@ -260,7 +260,7 @@ function adjustStock(idx, delta) {
   } else {
     S.catalog[idx].stock = Math.max(0, cur + delta);
   }
-  saveCatalogToDb();
+  save.catalog();
   renderCatalog();
 }
 
@@ -272,7 +272,7 @@ function addToStock(idx) {
   if (!val || val <= 0) return;
   const cur = S.catalog[idx].stock;
   S.catalog[idx].stock = (cur != null ? cur : 0) + val;
-  saveCatalogToDb();
+  save.catalog();
   input.value = '';
   renderCatalog();
 }
@@ -282,25 +282,7 @@ function setStock(idx, val) {
   const trimmed = (val + '').trim();
   if (trimmed === '') { S.catalog[idx].stock = null; }
   else { S.catalog[idx].stock = Math.max(0, parseInt(trimmed) || 0); }
-  saveCatalogToDb();
-}
-
-// Debounced save to prevent rapid fire-and-forget writes
-let _catalogSaveTimer = null;
-function saveCatalogToDb() {
-  // Always update cache immediately
-  const mapped = S.catalog.map(c => ({
-    name: c.name, unit: c.unit || '1', price: c.price || 0,
-    stock: c.stock ?? null, track_stock: c.trackStock !== false,
-    sort_order: c.sort_order || 0
-  }));
-  cacheSet('products', mapped);
-  // Debounce Supabase writes to prevent race conditions
-  if (_catalogSaveTimer) clearTimeout(_catalogSaveTimer);
-  _catalogSaveTimer = setTimeout(() => {
-    save.catalog();
-    _catalogSaveTimer = null;
-  }, 500);
+  save.catalog();
 }
 
 function toggleCatalogEdit(idx) {

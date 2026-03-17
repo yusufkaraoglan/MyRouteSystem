@@ -260,19 +260,11 @@ const DB = {
       contact_name: c.contact_name || c.cn || '',
       phone: c.phone || c.ph || '', email: c.email || c.em || ''
     };
-    await dbUpsert('customers', data);
-    // Update cache
-    const all = cacheGet('customers', []);
-    const idx = all.findIndex(x => x.id === c.id);
-    if (idx >= 0) all[idx] = { ...all[idx], ...data };
-    else all.push(data);
-    cacheSet('customers', all);
+    return await dbUpsert('customers', data);
   },
 
   async deleteCustomer(id) {
-    await dbDelete('customers', { id });
-    const all = cacheGet('customers', []);
-    cacheSet('customers', all.filter(c => c.id !== id));
+    return await dbDelete('customers', { id });
   },
 
   // -- Products --
@@ -291,23 +283,11 @@ const DB = {
       sort_order: p.sort_order || 0
     };
     if (p.id) data.id = p.id;
-    const result = await dbInsert('products', data, { upsert: true, onConflict: 'name', returnData: true });
-    // Update cache
-    const all = cacheGet('products', []);
-    if (result && result[0]) {
-      let idx = all.findIndex(x => x.id && x.id === result[0].id);
-      if (idx < 0) idx = all.findIndex(x => x.name === data.name);
-      if (idx >= 0) all[idx] = result[0];
-      else all.push(result[0]);
-      cacheSet('products', all);
-    }
-    return result?.[0] || null;
+    return await dbInsert('products', data, { upsert: true, onConflict: 'name' });
   },
 
   async deleteProduct(name) {
-    await dbDelete('products', { name });
-    const all = cacheGet('products', []);
-    cacheSet('products', all.filter(p => p.name !== name));
+    return await dbDelete('products', { name });
   },
 
   // -- Assignments --
@@ -325,17 +305,11 @@ const DB = {
   },
 
   async setAssignment(customerId, dayId) {
-    await dbUpsert('assignments', { customer_id: customerId, day_id: dayId });
-    const map = cacheGet('assignments', {});
-    map[customerId] = dayId;
-    cacheSet('assignments', map);
+    return await dbUpsert('assignments', { customer_id: customerId, day_id: dayId });
   },
 
   async removeAssignment(customerId) {
-    await dbDelete('assignments', { customer_id: customerId });
-    const map = cacheGet('assignments', {});
-    delete map[customerId];
-    cacheSet('assignments', map);
+    return await dbDelete('assignments', { customer_id: customerId });
   },
 
   // -- Route Order --
@@ -356,7 +330,6 @@ const DB = {
   },
 
   async saveRouteOrder(dayId, customerIds) {
-    // Delete existing for this day, then insert new
     await dbDelete('route_order', { day_id: dayId });
     if (customerIds.length > 0) {
       const rows = customerIds.map((cid, i) => ({
@@ -364,9 +337,6 @@ const DB = {
       }));
       await dbInsert('route_order', rows);
     }
-    const map = cacheGet('route_order', {});
-    map[dayId] = customerIds;
-    cacheSet('route_order', map);
   },
 
   // -- Orders --
@@ -415,17 +385,10 @@ const DB = {
       })));
     }
     if (typeof dbLog === 'function') dbLog(`saveOrder OK: ${order.id} status=${order.status}`);
-    // Update cache (always update since local state is source of truth)
-    const map = cacheGet('orders', {});
-    map[order.id] = { ...order };
-    cacheSet('orders', map);
   },
 
   async deleteOrder(orderId) {
-    await dbDelete('orders', { id: orderId });
-    const map = cacheGet('orders', {});
-    delete map[orderId];
-    cacheSet('orders', map);
+    return await dbDelete('orders', { id: orderId });
   },
 
   // -- Debts --
@@ -444,10 +407,7 @@ const DB = {
 
   async setDebt(customerId, amount) {
     const numAmount = parseFloat(amount) || 0;
-    await dbUpsert('debts', { customer_id: customerId, amount: numAmount });
-    const map = cacheGet('debts', {});
-    map[customerId] = numAmount;
-    cacheSet('debts', map);
+    return await dbUpsert('debts', { customer_id: customerId, amount: numAmount });
   },
 
   // -- Debt History --
@@ -523,7 +483,6 @@ const DB = {
   },
 
   async setCustomerPricing(customerId, pricingMap) {
-    // Delete existing, insert new
     await dbDelete('customer_pricing', { customer_id: customerId });
     const entries = Object.entries(pricingMap).filter(([, p]) => p != null);
     if (entries.length > 0) {
@@ -531,9 +490,6 @@ const DB = {
         customer_id: customerId, product_name: name, price
       })));
     }
-    const map = cacheGet('customer_pricing', {});
-    map[customerId] = pricingMap;
-    cacheSet('customer_pricing', map);
   },
 
   // -- Recurring Orders --
@@ -554,18 +510,12 @@ const DB = {
 
   async setRecurringOrder(customerId, data) {
     if (data) {
-      await dbUpsert('recurring_orders', {
+      return await dbUpsert('recurring_orders', {
         customer_id: customerId, items: data.items || [],
         note: data.note || ''
       });
-      const map = cacheGet('recurring_orders', {});
-      map[customerId] = data;
-      cacheSet('recurring_orders', map);
     } else {
-      await dbDelete('recurring_orders', { customer_id: customerId });
-      const map = cacheGet('recurring_orders', {});
-      delete map[customerId];
-      cacheSet('recurring_orders', map);
+      return await dbDelete('recurring_orders', { customer_id: customerId });
     }
   },
 
@@ -585,7 +535,7 @@ const DB = {
     await dbUpsert('app_settings', {
       key, value, updated_at: new Date().toISOString()
     });
-    cacheSet('setting_' + key, value);
+    cacheSet('setting_' + key, value); // settings are small key-value, cache here is fine
   }
 };
 
@@ -611,7 +561,7 @@ async function syncAll() {
 
     // Only update cache for tables that were successfully fetched
     if (customers) cacheSet('customers', customers);
-    if (products && typeof _catalogSaving !== 'undefined' && !_catalogSaving) cacheSet('products', products);
+    if (products) cacheSet('products', products);
     if (assignments) {
       const map = {};
       assignments.forEach(r => map[r.customer_id] = r.day_id);

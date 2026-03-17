@@ -32,7 +32,6 @@ let tempOrderDeliveryDate = '';
 let deliveryStopId = null;
 let deliveryPayMethod = null;
 let deliveryOrderIds = null;
-let _catalogSaving = false;
 let _savePending = 0; // count of in-flight Supabase writes
 let profilePreviousPage = 'customers';
 let leafletMap = null;
@@ -143,106 +142,107 @@ function initUIState() {
 
 // ── Save helpers (write to both state + DB) ────────────────
 
+// Helper: wrap save operations — write Supabase first, then cache
+async function _persist(cacheKey, data, supabaseWrite) {
+  _savePending++;
+  try {
+    await supabaseWrite();
+    cacheSet(cacheKey, data);
+  } catch (e) {
+    // Offline fallback: cache locally, offline queue handles Supabase retry
+    cacheSet(cacheKey, data);
+    console.warn(`save ${cacheKey}: Supabase failed, cached locally`, e.message);
+  } finally {
+    _savePending--;
+  }
+}
+
 const save = {
   stops: () => {
-    cacheSet('customers', STOPS.map(s => ({
+    const mapped = STOPS.map(s => ({
       id: s.id, name: s.n, address: s.a, city: s.c, postcode: s.p,
       lat: (S.geo[s.id] && S.geo[s.id].lat) || null,
       lng: (S.geo[s.id] && S.geo[s.id].lng) || null,
       note: S.cnotes[s.id] || '', contact_name: s.cn || '',
       phone: s.ph || '', email: s.em || ''
-    })));
-    // Persist each customer to Supabase
-    STOPS.forEach(s => {
-      DB.saveCustomer({
+    }));
+    _persist('customers', mapped, () =>
+      Promise.all(STOPS.map(s => DB.saveCustomer({
         id: s.id, name: s.n, address: s.a, city: s.c, postcode: s.p,
         lat: (S.geo[s.id] && S.geo[s.id].lat) || null,
         lng: (S.geo[s.id] && S.geo[s.id].lng) || null,
         note: S.cnotes[s.id] || '', contact_name: s.cn || '',
         phone: s.ph || '', email: s.em || ''
-      });
-    });
+      })))
+    );
   },
   assign: () => {
-    cacheSet('assignments', S.assign);
-    // Persist each assignment to Supabase
-    Object.entries(S.assign).forEach(([customerId, dayId]) => {
-      DB.setAssignment(customerId, dayId);
-    });
+    _persist('assignments', { ...S.assign }, () =>
+      Promise.all(Object.entries(S.assign).map(([cid, did]) => DB.setAssignment(cid, did)))
+    );
   },
   routeOrder: () => {
-    cacheSet('route_order', S.routeOrder);
-    // Persist each day's route order to Supabase
-    Object.entries(S.routeOrder).forEach(([dayId, customerIds]) => {
-      DB.saveRouteOrder(dayId, Array.isArray(customerIds) ? customerIds : []);
-    });
+    _persist('route_order', { ...S.routeOrder }, () =>
+      Promise.all(Object.entries(S.routeOrder).map(([dayId, cids]) =>
+        DB.saveRouteOrder(dayId, Array.isArray(cids) ? cids : [])
+      ))
+    );
   },
   geo: () => { save.stops(); },
   orders: (changedOrderIds) => {
-    cacheSet('orders', S.orders);
-    // Also persist changed orders to Supabase
-    if (changedOrderIds && Array.isArray(changedOrderIds)) {
-      changedOrderIds.forEach(id => {
-        if (S.orders[id]) DB.saveOrder(S.orders[id]);
-        else DB.deleteOrder(id);
-      });
-    }
-  },
-  debts: () => {
-    cacheSet('debts', S.debts);
-    // Persist each debt to Supabase
-    Object.entries(S.debts).forEach(([customerId, amount]) => {
-      DB.setDebt(customerId, amount);
+    _persist('orders', { ...S.orders }, () => {
+      if (!changedOrderIds || !Array.isArray(changedOrderIds)) return Promise.resolve();
+      return Promise.all(changedOrderIds.map(id =>
+        S.orders[id] ? DB.saveOrder(S.orders[id]) : DB.deleteOrder(id)
+      ));
     });
   },
+  debts: () => {
+    _persist('debts', { ...S.debts }, () =>
+      Promise.all(Object.entries(S.debts).map(([cid, amt]) => DB.setDebt(cid, amt)))
+    );
+  },
   debtHistory: (changedCustomerIds) => {
-    // Clean _new flags before saving
     Object.values(S.debtHistory).forEach(entries => {
       if (Array.isArray(entries)) entries.forEach(e => delete e._new);
     });
-    cacheSet('debt_history', S.debtHistory);
-    // Full replace: delete all + re-insert for changed customers
-    const ids = Array.isArray(changedCustomerIds) && changedCustomerIds.length > 0 ? changedCustomerIds : (profileStopId ? [profileStopId] : []);
-    ids.forEach(customerId => {
-      DB.replaceDebtHistory(customerId, S.debtHistory[customerId] || []);
-    });
+    const ids = Array.isArray(changedCustomerIds) && changedCustomerIds.length > 0
+      ? changedCustomerIds : (profileStopId ? [profileStopId] : []);
+    _persist('debt_history', { ...S.debtHistory }, () =>
+      Promise.all(ids.map(cid => DB.replaceDebtHistory(cid, S.debtHistory[cid] || [])))
+    );
   },
   cnotes: () => { /* stored in customers table via save.stops */ },
-  catalog: async () => {
+  catalog: () => {
     const mapped = S.catalog.map(c => ({
       name: c.name, unit: c.unit || '1', price: c.price || 0,
       stock: c.stock ?? null, track_stock: c.trackStock !== false,
       sort_order: c.sort_order || 0
     }));
-    cacheSet('products', mapped);
-    // Persist to Supabase — awaited to prevent sync race condition
-    _catalogSaving = true;
-    try {
-      await Promise.all(mapped.map(p =>
+    _persist('products', mapped, () =>
+      Promise.all(mapped.map(p =>
         dbInsert('products', p, { upsert: true, onConflict: 'name' }).catch(e => {
           if (typeof dbLog === 'function') dbLog(`save product FAILED: ${p.name} - ${e.message}`);
         })
-      ));
-    } finally {
-      _catalogSaving = false;
-    }
+      ))
+    );
   },
   pricing: () => {
-    cacheSet('customer_pricing', S.customerPricing);
-    // Persist each customer's pricing to Supabase
-    Object.entries(S.customerPricing).forEach(([customerId, pricingMap]) => {
-      DB.setCustomerPricing(customerId, pricingMap || {});
-    });
+    _persist('customer_pricing', { ...S.customerPricing }, () =>
+      Promise.all(Object.entries(S.customerPricing).map(([cid, pm]) =>
+        DB.setCustomerPricing(cid, pm || {})
+      ))
+    );
   },
   customerProducts: () => cacheSet('customer_products', S.customerProducts),
   brands: () => cacheSet('customer_brands', S.brands),
   brandList: () => cacheSet('brand_list', S.brandList),
   recurringOrders: () => {
-    cacheSet('recurring_orders', S.recurringOrders);
-    // Persist each recurring order to Supabase
-    Object.entries(S.recurringOrders).forEach(([customerId, data]) => {
-      DB.setRecurringOrder(customerId, data);
-    });
+    _persist('recurring_orders', { ...S.recurringOrders }, () =>
+      Promise.all(Object.entries(S.recurringOrders).map(([cid, data]) =>
+        DB.setRecurringOrder(cid, data)
+      ))
+    );
   }
 };
 
@@ -549,10 +549,10 @@ async function init() {
   if (useNewDB) {
     let _syncInProgress = false;
     const doSync = async () => {
-      if (!_dbReady || _syncInProgress || _catalogSaving) return;
+      if (!_dbReady || _syncInProgress || _savePending > 0) return;
       _syncInProgress = true;
       const ok = await syncAll();
-      if (ok && !_catalogSaving) { await loadStateFromDB(); renderCurrentPage(); }
+      if (ok && _savePending === 0) { await loadStateFromDB(); renderCurrentPage(); }
       _syncInProgress = false;
     };
     setInterval(() => { if (navigator.onLine) doSync(); }, 5 * 60 * 1000);
