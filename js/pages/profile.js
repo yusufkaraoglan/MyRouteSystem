@@ -498,9 +498,9 @@ async function deleteCustomer() {
   delete S.assign[profileStopId];
   save.stops();
   save.assign();
-  await DB.deleteCustomer(profileStopId);
   closeModal();
   showPage('customers');
+  DB.deleteCustomer(profileStopId);
 }
 
 // ══════════════════════════════════════════════════════════════

@@ -460,10 +460,12 @@ async function resetOrdersAndDebts() {
   cacheSet('debts', {});
   cacheSet('debt_history', {});
 
-  // Clear from Supabase (delete all rows — use broad filter per table PK)
+  appAlert('Orders and debts cleared successfully.');
+  renderSettings();
+
+  // Supabase cleanup in background
   try {
     if (typeof SB_URL !== 'undefined' && SB_URL) {
-      // order_items & debt_history have serial id PK; orders has text id PK; debts has customer_id PK
       const deletes = [
         ['order_items', 'id=gt.0'],
         ['debt_history', 'id=gt.0'],
@@ -471,21 +473,17 @@ async function resetOrdersAndDebts() {
         ['debts', 'customer_id=gt.0']
       ];
       for (const [table, filter] of deletes) {
-        await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, {
+        fetch(`${SB_URL}/rest/v1/${table}?${filter}`, {
           method: 'DELETE', headers: DB_HEADERS
         }).catch(() => {});
       }
-      // Also clear legacy cr4_store keys for debts/orders
       for (const key of ['debts', 'debtHistory', 'ordersV2', 'orders']) {
-        await fetch(`${SB_URL}/rest/v1/cr4_store?key=eq.${key}`, {
+        fetch(`${SB_URL}/rest/v1/cr4_store?key=eq.${key}`, {
           method: 'DELETE', headers: DB_HEADERS
         }).catch(() => {});
       }
     }
   } catch (e) { console.error('resetOrdersAndDebts Supabase cleanup error:', e); }
-
-  appAlert('Orders and debts cleared successfully.');
-  renderSettings();
 }
 
 async function resetAllData() {
