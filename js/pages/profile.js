@@ -295,13 +295,13 @@ async function deleteOrder(orderId) {
   const lockIdx = (S.ordersLockedOrders || []).indexOf(orderId);
   if (lockIdx >= 0) { S.ordersLockedOrders.splice(lockIdx, 1); DB.setSetting('ordersLockedOrders', S.ordersLockedOrders); }
 
-  if (stockChange.changed) save.catalog();
+  const savePromises = [save.orders([orderId])];
+  if (stockChange.changed) savePromises.push(save.catalog());
   if (debtChanged) {
-    save.debts();
-    save.debtHistory([order.customerId]);
+    savePromises.push(save.debts(), save.debtHistory([order.customerId]));
     DB.setDebt(order.customerId, S.debts[order.customerId] || 0);
   }
-  save.orders([orderId]);
+  await Promise.allSettled(savePromises);
   if (curPage === 'profile') renderProfile();
   else if (curPage === 'orders') renderOrders();
 }
@@ -383,7 +383,7 @@ function updateEditDeliveredCashHint() {
   hint.innerHTML = remaining > 0 ? `<span style="color:var(--danger)">${formatCurrency(remaining)} will be added to debt</span>` : '';
 }
 
-function saveEditDeliveredOrder(orderId) {
+async function saveEditDeliveredOrder(orderId) {
   const o = S.orders[orderId];
   if (!o) return;
   const prevOrder = JSON.parse(JSON.stringify(o));
@@ -413,12 +413,12 @@ function saveEditDeliveredOrder(orderId) {
     o.deliveryNote = document.getElementById('edit-del-note')?.value?.trim() || '';
     debtChanged = reconcileOrderDebtEffect(prevOrder, o);
   }
+  const savePromises = [save.orders([o.id])];
   if (debtChanged) {
-    save.debts();
-    save.debtHistory([o.customerId]);
+    savePromises.push(save.debts(), save.debtHistory([o.customerId]));
     DB.setDebt(o.customerId, S.debts[o.customerId] || 0);
   }
-  save.orders([o.id]);
+  await Promise.allSettled(savePromises);
   closeModal();
   if (curPage === 'profile') renderProfile();
 }
@@ -494,8 +494,28 @@ async function deleteCustomer() {
   if (!(await appConfirm(msg, true))) return;
   STOPS = STOPS.filter(s => s.id !== profileStopId);
   delete S.assign[profileStopId];
-  save.stops();
-  save.assign();
+
+  // Clean up all related data for deleted customer
+  Object.keys(S.orders).forEach(oid => {
+    if (S.orders[oid].customerId === profileStopId) delete S.orders[oid];
+  });
+  delete S.debts[profileStopId];
+  delete S.debtHistory[profileStopId];
+  Object.keys(S.routeOrder).forEach(dayId => {
+    S.routeOrder[dayId] = (S.routeOrder[dayId] || []).filter(id => id !== profileStopId);
+  });
+  delete S.geo[profileStopId];
+  delete S.cnotes[profileStopId];
+  delete S.customerPricing[profileStopId];
+  delete S.customerProducts[profileStopId];
+  delete S.brands[profileStopId];
+
+  await Promise.allSettled([
+    save.stops(), save.assign(), save.orders(Object.keys(S.orders)),
+    save.debts(), save.debtHistory([profileStopId]),
+    save.routeOrder(), save.geo(), save.cnotes(),
+    save.pricing(), save.customerProducts(), save.brands()
+  ]);
   closeModal();
   showPage('customers');
   DB.deleteCustomer(profileStopId);
@@ -931,7 +951,7 @@ function showEditDebtHistoryModal(stopId, idx) {
   `);
 }
 
-function saveEditDebtHistory(stopId, idx) {
+async function saveEditDebtHistory(stopId, idx) {
   const dh = S.debtHistory[stopId];
   if (!dh || !dh[idx]) return;
   const oldAmount = dh[idx].amount;
@@ -948,8 +968,7 @@ function saveEditDebtHistory(stopId, idx) {
     S.debts[stopId] = (S.debts[stopId] || 0) + oldAmount - newAmount;
   }
   S.debts[stopId] = Math.max(0, S.debts[stopId]);
-  save.debts();
-  save.debtHistory([stopId]);
+  await Promise.allSettled([save.debts(), save.debtHistory([stopId])]);
   DB.setDebt(stopId, S.debts[stopId]);
   closeModal();
   renderProfile();
@@ -967,8 +986,7 @@ async function removeDebtHistory(stopId, idx) {
     S.debts[stopId] = (S.debts[stopId] || 0) + h.amount;
   }
   dh.splice(idx, 1);
-  save.debts();
-  save.debtHistory([stopId]);
+  await Promise.allSettled([save.debts(), save.debtHistory([stopId])]);
   DB.setDebt(stopId, S.debts[stopId]);
   renderProfile();
 }

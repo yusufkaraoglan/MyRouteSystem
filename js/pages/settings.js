@@ -219,10 +219,10 @@ async function importJSON(input) {
     if (d.cnotes) { S.cnotes = d.cnotes; importPromises.push(save.cnotes()); }
     if (d.catalog) { S.catalog = d.catalog; importPromises.push(save.catalog()); }
     if (d.customerPricing) { S.customerPricing = d.customerPricing; importPromises.push(save.pricing()); }
-    if (d.customerProducts) { S.customerProducts = d.customerProducts; save.customerProducts(); }
+    if (d.customerProducts) { S.customerProducts = d.customerProducts; importPromises.push(save.customerProducts()); }
     if (d.recurringOrders) { S.recurringOrders = d.recurringOrders; importPromises.push(save.recurringOrders()); }
-    if (d.brands) { S.brands = d.brands; save.brands(); }
-    if (d.brandList) { S.brandList = d.brandList; save.brandList(); }
+    if (d.brands) { S.brands = d.brands; importPromises.push(save.brands()); }
+    if (d.brandList) { S.brandList = d.brandList; importPromises.push(save.brandList()); }
     await Promise.allSettled(importPromises);
     appAlert('Data restored successfully.');
     renderSettings();
