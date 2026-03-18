@@ -1,6 +1,6 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════
-// DATABASE LAYER - Supabase REST + localStorage cache
+// DATABASE LAYER - Supabase REST + in-memory cache
 // ═══════════════════════════════════════════════════════════
 
 // SB_URL and SB_KEY can be overridden via js/config.js (excluded from git).

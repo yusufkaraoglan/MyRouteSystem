@@ -97,16 +97,20 @@ async function loadStateFromDB() {
   S.recurringOrders = recurring || {};
 
   // Load settings stored in app_settings table
-  const [customerProducts, brands, brandList, ordersLockedOrders] = await Promise.all([
+  const [customerProducts, brands, brandList, ordersLockedOrders, savedLastPage, savedLastProfileId] = await Promise.all([
     DB.getSetting('customer_products', {}),
     DB.getSetting('customer_brands', {}),
     DB.getSetting('brand_list', []),
-    DB.getSetting('ordersLockedOrders', [])
+    DB.getSetting('ordersLockedOrders', []),
+    DB.getSetting('lastPage', 'route'),
+    DB.getSetting('lastProfileId', null)
   ]);
   S.customerProducts = customerProducts || {};
   S.brands = brands || {};
   S.brandList = brandList || [];
   S.ordersLockedOrders = ordersLockedOrders || [];
+  cacheSet('_lastPage', savedLastPage || 'route');
+  cacheSet('_lastProfileId', savedLastProfileId);
 
   // Load route locked stops for all days
   if (typeof _routeLockedCache !== 'undefined') {
@@ -268,8 +272,8 @@ function showPage(name) {
   const pageEl = document.getElementById('page-' + name);
   if (pageEl) pageEl.classList.add('active');
   curPage = name;
-  localStorage.setItem('lastPage', name);
-  if (name === 'profile') localStorage.setItem('lastProfileId', profileStopId);
+  DB.setSetting('lastPage', name);
+  if (name === 'profile') DB.setSetting('lastProfileId', profileStopId);
   document.querySelectorAll('.nav-btn').forEach(b => {
     const pg = b.dataset.page;
     b.classList.toggle('active',
@@ -497,10 +501,10 @@ async function init() {
   // Auto-create recurring orders for today
   autoCreateRecurringOrders();
 
-  // Restore last page
-  const savedPage = localStorage.getItem('lastPage') || 'route';
+  // Restore last page (loaded from Supabase in loadStateFromDB)
+  const savedPage = cacheGet('_lastPage', 'route');
   if (savedPage === 'profile') {
-    const savedId = localStorage.getItem('lastProfileId');
+    const savedId = cacheGet('_lastProfileId', null);
     const parsedId = parseInt(savedId);
     if (savedId && !isNaN(parsedId) && getStop(parsedId)) {
       profileStopId = parsedId;
