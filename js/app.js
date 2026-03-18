@@ -607,6 +607,9 @@ async function init() {
     btn.addEventListener('click', () => showPage(btn.dataset.page));
   });
 
+  // Seed customers (one-time import, safe to remove after first run)
+  if (typeof runCustomerSeed === 'function') runCustomerSeed();
+
   // Auto-create recurring orders for today
   autoCreateRecurringOrders();
 
