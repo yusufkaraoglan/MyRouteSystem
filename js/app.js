@@ -218,7 +218,7 @@ const save = {
       Promise.allSettled(ids.map(cid => DB.replaceDebtHistory(cid, S.debtHistory[cid] || [])))
     );
   },
-  cnotes: () => { /* stored in customers table via save.stops */ },
+  cnotes: () => { return save.stops(); },
   catalog: () => {
     const mapped = S.catalog.map(c => ({
       name: c.name, unit: c.unit || '1', price: c.price || 0,
