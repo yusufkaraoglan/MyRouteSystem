@@ -372,7 +372,7 @@ function saveCatalogEdit(idx) {
       }
     }
   }
-  S.catalog[idx] = { name, unit, price, stock, trackStock: noStockChecked ? false : true };
+  S.catalog[idx] = { ...S.catalog[idx], name, unit, price, stock, trackStock: noStockChecked ? false : true };
   save.catalog();
   closeModal();
   renderCatalog();
@@ -407,41 +407,81 @@ async function removeCatalogItem(idx) {
 
 
 async function resetOrdersAndDebts() {
-  if (!(await appConfirm('This will delete all <b>orders, debts, and debt history</b>.<br>Customers, routes, and map will be kept.<br><br>A backup will be downloaded first.', true))) return;
+  if (!(await appConfirm('This will delete all <b>orders, debts, debt history, and recurring orders</b>.<br>Customers, routes, map, catalog, pricing, brands, and products will be kept.<br><br>A backup will be downloaded first.', true))) return;
   if (!(await appConfirm('This cannot be undone. Proceed?'))) return;
 
   // Auto-backup before reset
   try { exportJSON(); } catch (e) { console.warn('Auto-backup failed:', e); }
 
+  // Wait for in-flight saves to finish before resetting
+  if (_savePending > 0) {
+    showToast('Waiting for pending saves...', 'info', 2000);
+    const waitStart = Date.now();
+    while (_savePending > 0 && Date.now() - waitStart < 5000) {
+      await new Promise(r => setTimeout(r, 200));
+    }
+  }
+
   // Clear local state immediately
   S.orders = {};
   S.debts = {};
   S.debtHistory = {};
+  S.recurringOrders = {};
+  S.ordersLockedOrders = [];
 
   // Persist empty state to cache
-  cacheSet('orders', {});
-  cacheSet('debts', {});
-  cacheSet('debt_history', {});
+  const cacheKeys = ['orders', 'debts', 'debt_history', 'recurring_orders'];
+  cacheKeys.forEach(k => cacheSet(k, {}));
 
-  // Delete from Supabase (FK order: children first)
+  // Delete from Supabase (FK order: children first, then parents)
   const deleteHeaders = { ...DB_HEADERS, Prefer: 'return=minimal' };
   const tables = [
-    ['order_items', 'id=gt.0'],
-    ['debt_history', 'id=gt.0'],
-    ['orders', 'id=not.is.null'],
-    ['debts', 'customer_id=gt.0']
+    'order_items',
+    'debt_history',
+    'orders',
+    'debts',
+    'recurring_orders'
   ];
-  for (const [table, filter] of tables) {
+  let failCount = 0;
+  for (const table of tables) {
     try {
-      await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, {
+      // Use customer_id=gte.0 for tables with integer PKs, or select all rows
+      const filter = (table === 'orders') ? 'id=not.is.null'
+        : (table === 'order_items') ? 'order_id=not.is.null'
+        : 'customer_id=gte.0';
+      const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, {
         method: 'DELETE', headers: deleteHeaders
       });
+      if (!r.ok) {
+        const body = await r.text().catch(() => '');
+        console.warn(`Reset: ${table} delete HTTP ${r.status}`, body);
+        failCount++;
+      }
     } catch (e) {
       console.warn(`Reset: ${table} delete failed`, e.message);
+      failCount++;
     }
   }
 
-  appAlert('Orders and debts cleared successfully.');
+  // Clean app_settings key for locked orders
+  try {
+    await fetch(`${SB_URL}/rest/v1/app_settings?key=eq.ordersLockedOrders`, {
+      method: 'DELETE', headers: deleteHeaders
+    });
+  } catch (e) {
+    console.warn('Reset: app_settings ordersLockedOrders delete failed', e.message);
+  }
+
+  // Invalidate cache timestamps to prevent stale data from being served
+  ['orders', 'debts', 'debt_history', 'recurring_orders', 'customer_pricing'].forEach(k => {
+    delete _memCacheTs[k];
+  });
+
+  if (failCount > 0) {
+    appAlert(`Reset completed with ${failCount} error(s). Some data may reappear after sync. Try again if needed.`, true);
+  } else {
+    appAlert('Orders and debts cleared successfully.');
+  }
   renderSettings();
 }
 

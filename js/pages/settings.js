@@ -131,7 +131,7 @@ function renderSettings() {
           <div class="settings-item">
             <div>
               <div class="settings-item-label">Reset Orders & Debts</div>
-              <div class="settings-item-desc">Clear orders, debts, and debt history. Keeps customers, routes, and map.</div>
+              <div class="settings-item-desc">Clear orders, debts, debt history, and recurring orders. Keeps customers, routes, map, catalog, pricing, and brands.</div>
             </div>
             <button class="btn btn-danger btn-sm" onclick="resetOrdersAndDebts()">Reset</button>
           </div>
@@ -393,12 +393,18 @@ async function _uploadAllToSupabase() {
 }
 
 async function clearLocalCache() {
-  if (!(await appConfirm('This will reload the app and re-fetch all data from the cloud database.', true))) return;
+  if (!(await appConfirm('This will clear local cache and reload the app. All data will be re-fetched from the cloud database.', true))) return;
+  // Clear in-memory cache timestamps so all data is re-fetched
+  Object.keys(_memCacheTs).forEach(k => delete _memCacheTs[k]);
+  Object.keys(_memCache).forEach(k => delete _memCache[k]);
+  try { localStorage.clear(); } catch (e) { console.warn('localStorage.clear failed:', e); }
   location.reload();
 }
 
 async function forceSyncNow() {
   showToast('Syncing...', 'info', 2000);
+  // Re-check DB readiness in case tables were created since last check
+  if (!_dbReady) await checkDbTables();
   const ok = await syncAll();
   if (ok) {
     await loadStateFromDB();
