@@ -185,6 +185,28 @@ body.modal-open .page{touch-action:none}
 .action-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 14px;border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);font-size:11px;font-weight:500;color:var(--text-sec);min-width:72px;flex-shrink:0}
 .action-btn svg{width:20px;height:20px;color:var(--primary)}
 
+/* Profile V2 - Mobile-first */
+.profile-info-card{padding:14px!important}
+.profile-info-row{display:flex;align-items:center;gap:14px}
+.profile-avatar-sm{width:48px;height:48px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex-shrink:0}
+.profile-info-text{flex:1;min-width:0}
+.profile-info-addr{font-size:13px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.profile-info-city{font-size:12px;color:var(--text-sec);margin-top:1px}
+.profile-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.profile-badges .badge{font-size:10px}
+.profile-contact{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px}
+.profile-contact-item{display:inline-flex;align-items:center;gap:4px;color:var(--text-sec)}
+.profile-contact-link{color:var(--primary);text-decoration:none}
+.profile-contact-link:active{opacity:0.7}
+.profile-note{font-size:12px;color:var(--text-sec);font-style:italic;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.profile-products{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+
+/* Profile Action Grid */
+.profile-action-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.profile-action-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:12px 4px;border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);font-size:11px;font-weight:500;color:var(--text-sec);min-height:60px;transition:all .15s}
+.profile-action-btn:active{transform:scale(0.95);background:var(--bg)}
+.profile-action-btn svg{color:var(--primary)}
+
 /* === REPORTS === */
 .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
 .metric-card{background:var(--card);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
@@ -329,6 +351,9 @@ body.modal-open .page{touch-action:none}
   .catalog-edit-form .input{font-size:14px;padding:8px}
   .action-bar{padding:8px 12px;gap:6px}
   .action-btn{padding:8px 10px;min-width:62px;font-size:10px}
+  .profile-action-grid{gap:6px}
+  .profile-action-btn{padding:10px 4px;min-height:54px;font-size:10px}
+  .profile-action-btn svg{width:16px;height:16px}
   .card{padding:10px}
   .pay-options{gap:4px}
   .pay-opt{padding:10px 4px;font-size:12px}

@@ -135,8 +135,8 @@ async function dbDelete(table, match) {
   }
 }
 
-async function dbUpsert(table, data) {
-  return dbInsert(table, data, { upsert: true });
+async function dbUpsert(table, data, onConflict) {
+  return dbInsert(table, data, { upsert: true, onConflict });
 }
 
 // ── Offline Queue Flush ────────────────────────────────────
@@ -283,7 +283,7 @@ const DB = {
       contact_name: c.contact_name || c.cn || '',
       phone: c.phone || c.ph || '', email: c.email || c.em || ''
     };
-    const result = await dbUpsert('customers', data);
+    const result = await dbUpsert('customers', data, 'id');
     // Invalidate cache so next getCustomers() fetches fresh data
     delete _memCacheTs['customers'];
     return result;
@@ -321,7 +321,7 @@ const DB = {
   ),
 
   async setAssignment(customerId, dayId) {
-    const result = await dbUpsert('assignments', { customer_id: customerId, day_id: dayId });
+    const result = await dbUpsert('assignments', { customer_id: customerId, day_id: dayId }, 'customer_id');
     delete _memCacheTs['assignments'];
     return result;
   },
@@ -397,34 +397,21 @@ const DB = {
       delivery_date: order.deliveryDate || null,
       note: order.note || '', created_at: order.createdAt,
       delivered_at: order.deliveredAt || null
-    });
+    }, 'id');
     if (!ok) {
       if (typeof dbLog === 'function') dbLog(`saveOrder ${order.id} FAILED at upsert (status=${order.status})`);
       return;
     }
-    // Replace order items — INSERT new first, only DELETE old after insert succeeds
+    // Replace order items — delete old first, then insert new
+    await dbDelete('order_items', { order_id: order.id });
     const newItems = (order.items || []).map(i => ({
       order_id: order.id, product_name: i.name, qty: i.qty, price: i.price
     }));
     if (newItems.length > 0) {
       const insertOk = await dbInsert('order_items', newItems);
-      if (insertOk) {
-        // New items saved — now safe to delete old duplicates
-        // Fetch current items to find the newly inserted IDs
-        const currentItems = await dbSelect('order_items', `order_id=eq.${encodeURIComponent(order.id)}&order=id.desc`);
-        if (currentItems && currentItems.length > newItems.length) {
-          // Keep only the newest N items (just inserted), delete the rest
-          const keepIds = new Set(currentItems.slice(0, newItems.length).map(r => r.id));
-          for (const item of currentItems) {
-            if (!keepIds.has(item.id)) await dbDelete('order_items', { id: item.id });
-          }
-        }
-      } else {
-        if (typeof dbLog === 'function') dbLog(`saveOrder ${order.id} FAILED: items insert failed`);
+      if (!insertOk && typeof dbLog === 'function') {
+        dbLog(`saveOrder ${order.id} FAILED: items insert failed`);
       }
-    } else {
-      // No items — delete all existing items for this order
-      await dbDelete('order_items', { order_id: order.id });
     }
     delete _memCacheTs['orders'];
     if (typeof dbLog === 'function') dbLog(`saveOrder OK: ${order.id} status=${order.status}`);
@@ -442,7 +429,7 @@ const DB = {
 
   async setDebt(customerId, amount) {
     const numAmount = parseFloat(amount) || 0;
-    const result = await dbUpsert('debts', { customer_id: customerId, amount: numAmount });
+    const result = await dbUpsert('debts', { customer_id: customerId, amount: numAmount }, 'customer_id');
     delete _memCacheTs['debts'];
     return result;
   },
@@ -472,7 +459,8 @@ const DB = {
   },
 
   async replaceDebtHistory(customerId, entries) {
-    // INSERT new entries first, only DELETE old after insert succeeds
+    // Delete existing entries first, then insert fresh
+    await dbDelete('debt_history', { customer_id: customerId });
     if (entries && entries.length > 0) {
       const rows = entries.map(e => ({
         customer_id: customerId,
@@ -481,22 +469,10 @@ const DB = {
         order_id: e.orderId || null,
         created_at: e.date || new Date().toISOString()
       }));
-      const insertOk = await dbInsert('debt_history', rows);
-      if (insertOk) {
-        // New entries saved — delete old ones (that were there before this insert)
-        const allRows = await dbSelect('debt_history', `customer_id=eq.${customerId}&order=id.desc`);
-        if (allRows && allRows.length > rows.length) {
-          const keepIds = new Set(allRows.slice(0, rows.length).map(r => r.id));
-          for (const row of allRows) {
-            if (!keepIds.has(row.id)) await dbDelete('debt_history', { id: row.id });
-          }
-        }
-      } else {
-        if (typeof dbLog === 'function') dbLog(`replaceDebtHistory ${customerId} FAILED: insert failed`);
+      const ok = await dbInsert('debt_history', rows);
+      if (!ok && typeof dbLog === 'function') {
+        dbLog(`replaceDebtHistory ${customerId} FAILED: insert failed`);
       }
-    } else {
-      // No entries — safe to delete all
-      await dbDelete('debt_history', { customer_id: customerId });
     }
   },
 
@@ -562,7 +538,7 @@ const DB = {
       result = await dbUpsert('recurring_orders', {
         customer_id: customerId, items: data.items || [],
         note: data.note || ''
-      });
+      }, 'customer_id');
     } else {
       result = await dbDelete('recurring_orders', { customer_id: customerId });
     }
@@ -585,7 +561,7 @@ const DB = {
   async setSetting(key, value) {
     await dbUpsert('app_settings', {
       key, value, updated_at: new Date().toISOString()
-    });
+    }, 'key');
     cacheSet('setting_' + key, value); // settings are small key-value, cache here is fine
   }
 };
