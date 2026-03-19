@@ -108,14 +108,16 @@ function initCatalogDragDrop() {
     draggedIdx = null;
   }, { signal });
 
+  let catDragOver = null;
   list.addEventListener('dragover', e => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const target = e.target.closest('.catalog-row');
-    list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    if (catDragOver && catDragOver !== target) catDragOver.classList.remove('drag-over');
     if (target && parseInt(target.dataset.idx) !== draggedIdx) {
       target.classList.add('drag-over');
-    }
+      catDragOver = target;
+    } else { catDragOver = null; }
   }, { signal });
 
   list.addEventListener('drop', e => {
@@ -131,16 +133,20 @@ function initCatalogDragDrop() {
   let touchDragIdx = null;
   let touchClone = null;
   let longPressTimer = null;
+  let catTouchStartY = 0;
+  let catTouchDragOver = null;
+  let catLastTouchMove = 0;
 
   list.addEventListener('touchstart', e => {
     const row = e.target.closest('.draggable-catalog');
     if (!row) return;
     if (e.target.closest('.btn')) return;
+    catTouchStartY = e.touches[0].clientY;
     longPressTimer = setTimeout(() => {
       touchDragIdx = parseInt(row.dataset.idx);
       row.classList.add('dragging');
       touchClone = row.cloneNode(true);
-      touchClone.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;opacity:0.8;width:' + row.offsetWidth + 'px;transform:scale(0.95);box-shadow:0 8px 24px rgba(0,0,0,0.2);left:' + row.getBoundingClientRect().left + 'px;top:' + (e.touches[0].clientY - 20) + 'px';
+      touchClone.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;opacity:0.8;width:' + row.offsetWidth + 'px;box-shadow:0 8px 24px rgba(0,0,0,0.2);left:' + row.getBoundingClientRect().left + 'px;top:' + (e.touches[0].clientY - 20) + 'px;will-change:transform';
       document.body.appendChild(touchClone);
     }, 300);
   }, { passive: true, signal });
@@ -151,12 +157,18 @@ function initCatalogDragDrop() {
       return;
     }
     e.preventDefault();
-    if (touchClone) touchClone.style.top = (e.touches[0].clientY - 20) + 'px';
-    list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    const now = Date.now();
+    if (now - catLastTouchMove < 16) return;
+    catLastTouchMove = now;
+    if (touchClone) touchClone.style.transform = 'translateY(' + (e.touches[0].clientY - catTouchStartY) + 'px) scale(0.95)';
+    if (catTouchDragOver) catTouchDragOver.classList.remove('drag-over');
     const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
     if (el) {
       const target = el.closest('.catalog-row');
-      if (target && parseInt(target.dataset.idx) !== touchDragIdx) target.classList.add('drag-over');
+      if (target && parseInt(target.dataset.idx) !== touchDragIdx) {
+        target.classList.add('drag-over');
+        catTouchDragOver = target;
+      } else { catTouchDragOver = null; }
     }
   }, { passive: false, signal });
 

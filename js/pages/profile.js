@@ -330,7 +330,6 @@ async function deleteOrder(orderId) {
   if (stockChange.changed) savePromises.push(save.catalog());
   if (debtChanged) {
     savePromises.push(save.debts(), save.debtHistory([order.customerId]));
-    DB.setDebt(order.customerId, S.debts[order.customerId] || 0);
   }
   await Promise.allSettled(savePromises);
   if (curPage === 'profile') renderProfile();
@@ -447,7 +446,6 @@ async function saveEditDeliveredOrder(orderId) {
   const savePromises = [save.orders([o.id])];
   if (debtChanged) {
     savePromises.push(save.debts(), save.debtHistory([o.customerId]));
-    DB.setDebt(o.customerId, S.debts[o.customerId] || 0);
   }
   await Promise.allSettled(savePromises);
   closeModal();
@@ -841,7 +839,6 @@ async function addDebt() {
   S.debts[profileStopId] = (S.debts[profileStopId] || 0) + amount;
   createDebtHistoryEntry(profileStopId, { date: debtDate, amount, type: 'add', note });
   await Promise.allSettled([save.debts(), save.debtHistory([profileStopId])]);
-  DB.setDebt(profileStopId, S.debts[profileStopId]);
   closeModal();
   renderProfile();
 }
@@ -911,7 +908,6 @@ async function clearOrderDebt(orderId) {
     });
   }
   await Promise.allSettled([save.debts(), save.debtHistory([profileStopId])]);
-  DB.setDebt(profileStopId, S.debts[profileStopId] || 0);
   closeModal();
   renderProfile();
 }
@@ -1004,7 +1000,6 @@ async function clearDebt() {
   const savePromises = [save.debts(), save.debtHistory([profileStopId])];
   if (changedOrderIds.length > 0) savePromises.push(save.orders(changedOrderIds));
   await Promise.allSettled(savePromises);
-  DB.setDebt(profileStopId, S.debts[profileStopId]);
   closeModal();
   renderProfile();
 }
@@ -1021,7 +1016,6 @@ async function removeAllDebt() {
     note: 'Debt written off'
   });
   await Promise.allSettled([save.debts(), save.debtHistory([profileStopId])]);
-  DB.setDebt(profileStopId, 0);
   renderProfile();
 }
 
@@ -1071,7 +1065,6 @@ async function saveEditDebtHistory(stopId, entryId) {
   }
   S.debts[stopId] = Math.max(0, S.debts[stopId]);
   await Promise.allSettled([save.debts(), save.debtHistory([stopId])]);
-  DB.setDebt(stopId, S.debts[stopId]);
   closeModal();
   renderProfile();
 }
@@ -1091,7 +1084,6 @@ async function removeDebtHistory(stopId, entryId) {
   }
   dh.splice(idx, 1);
   await Promise.allSettled([save.debts(), save.debtHistory([stopId])]);
-  DB.setDebt(stopId, S.debts[stopId]);
   renderProfile();
 }
 
