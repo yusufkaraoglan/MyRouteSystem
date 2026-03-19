@@ -220,7 +220,7 @@ function renderProfile() {
       const badgeLabel = a.isVisit ? 'visit' : 'delivered';
       const badgeClass = a.isVisit ? 'badge-purple' : 'badge-success';
       const hasUnpaidDebt = (o.payMethod === 'unpaid' || (o.payMethod === 'cash' && o.cashPaid !== undefined && o.cashPaid < a.total)) && a.total > 0;
-      const debtAmount = getOrderDebtImpact(o);
+      const debtAmount = getRemainingOrderDebt(o);
       const showOwes = hasUnpaidDebt && debtAmount > 0 && !_debtOwesShown;
       if (showOwes) _debtOwesShown = true;
       html += `
@@ -268,20 +268,12 @@ function renderProfile() {
         </div>`;
     } else if (a.type === 'debt') {
       const e = a.entry;
-      const customerDebt = S.debts[stop.id] || 0;
-      const showDebtOwes = customerDebt > 0 && !_debtOwesShown;
-      if (showDebtOwes) _debtOwesShown = true;
       html += `
         <div class="card" style="padding:10px;margin-bottom:6px;border-left:3px solid var(--danger);background:var(--danger-light)">
           <div class="flex-between">
             <span style="font-size:13px;font-weight:500">${escHtml(e.note === 'Manual entry' ? 'Debt added' : (e.note || 'Debt added'))}</span>
             <span style="font-size:13px;font-weight:600;color:var(--danger)">+${formatCurrency(e.amount)}</span>
           </div>
-          ${showDebtOwes ? `
-          <div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);display:flex;align-items:center;justify-content:space-between">
-            <span style="font-size:12px;color:var(--danger)">Owes ${formatCurrency(customerDebt)}</span>
-            <button class="btn btn-success btn-sm" style="font-size:11px;padding:3px 10px" onclick="showClearDebtModal()">Collect Payment</button>
-          </div>` : ''}
           <div class="flex-between" style="margin-top:4px">
             <div class="text-muted" style="font-size:11px">${formatDateTime(e.date)}</div>
             <div style="display:flex;gap:6px">
@@ -859,7 +851,7 @@ async function addDebt() {
 function showCollectOrderPayment(orderId) {
   const o = S.orders[orderId];
   if (!o) return;
-  const debtAmount = getOrderDebtImpact(o);
+  const debtAmount = getRemainingOrderDebt(o);
   if (debtAmount <= 0) { appAlert('No outstanding debt for this order.'); return; }
   const items = o.items.map(i => i.qty + 'x ' + i.name).join(', ');
   const now = new Date().toISOString().slice(0, 16);
@@ -892,7 +884,7 @@ function showCollectOrderPayment(orderId) {
 async function clearOrderDebt(orderId) {
   const o = S.orders[orderId];
   if (!o) return;
-  const debtAmount = getOrderDebtImpact(o);
+  const debtAmount = getRemainingOrderDebt(o);
   const requested = parseFloat(document.getElementById('clear-amount').value) || 0;
   const amount = roundMoney(Math.min(debtAmount, Math.max(0, requested)));
   if (amount <= 0) return;
