@@ -33,6 +33,13 @@ function renderSettings() {
             </div>
             <span style="color:var(--text-muted)">&rarr;</span>
           </div>
+          <div class="settings-item" onclick="geocodeAllStops()" style="cursor:pointer">
+            <div>
+              <div class="settings-item-label">Geocode All</div>
+              <div class="settings-item-desc">Find coordinates for missing customers</div>
+            </div>
+            <span style="color:var(--text-muted)">&#8635;</span>
+          </div>
         </div>
       </div>
 
