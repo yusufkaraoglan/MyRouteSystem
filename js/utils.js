@@ -355,7 +355,7 @@ function removeLinkedOrderDebtEntries(order) {
   // Try matching by entry ID first
   if (ids.length) {
     ids.forEach(id => {
-      const idx = history.findIndex(entry => entry.id === id);
+      const idx = history.findIndex(entry => String(entry.id) === String(id));
       if (idx >= 0) {
         removed = roundMoney(removed + (history[idx].amount || 0));
         history.splice(idx, 1);

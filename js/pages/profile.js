@@ -1021,7 +1021,7 @@ async function removeAllDebt() {
 function showEditDebtHistoryModal(stopId, entryId) {
   const dh = S.debtHistory[stopId];
   if (!dh) return;
-  const idx = dh.findIndex(e => e.id === entryId);
+  const idx = dh.findIndex(e => String(e.id) === String(entryId));
   if (idx === -1) return;
   const h = dh[idx];
   const editDate = h.date ? new Date(h.date).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16);
@@ -1047,7 +1047,7 @@ function showEditDebtHistoryModal(stopId, entryId) {
 async function saveEditDebtHistory(stopId, entryId) {
   const dh = S.debtHistory[stopId];
   if (!dh) return;
-  const idx = dh.findIndex(e => e.id === entryId);
+  const idx = dh.findIndex(e => String(e.id) === String(entryId));
   if (idx === -1) return;
   const oldAmount = dh[idx].amount;
   const oldType = dh[idx].type;
@@ -1075,7 +1075,7 @@ async function removeDebtHistory(stopId, entryId) {
   if (!(await appConfirm('Are you sure you want to delete this debt record?'))) return;
   const dh = S.debtHistory[stopId];
   if (!dh) return;
-  const idx = dh.findIndex(e => e.id === entryId);
+  const idx = dh.findIndex(e => String(e.id) === String(entryId));
   if (idx === -1) return;
   const h = dh[idx];
   // Reverse the debt effect
