@@ -889,26 +889,24 @@ async function clearOrderDebt(orderId) {
   const dateInput = document.getElementById('clear-date');
   const payDate = dateInput && dateInput.value ? new Date(dateInput.value).toISOString() : new Date().toISOString();
 
+  // Reduce debt balance and create payment history entry
+  S.debts[profileStopId] = Math.max(0, roundMoney((S.debts[profileStopId] || 0) - amount));
+  const items = o.items.map(i => i.qty + 'x ' + i.name).join(', ');
+  createDebtHistoryEntry(profileStopId, {
+    date: payDate, amount, type: 'clear',
+    note: 'Payment received (' + clearDebtMethod + ') — ' + items,
+    orderId: o.id
+  });
+
   // If fully paying, update the order's payment method
   if (amount >= debtAmount) {
-    const prevOrder = JSON.parse(JSON.stringify(o));
     o.payMethod = clearDebtMethod || 'cash';
     if (o.payMethod === 'cash') {
       o.cashPaid = roundMoney(calcOrderTotal(o));
     } else {
       delete o.cashPaid;
     }
-    reconcileOrderDebtEffect(prevOrder, o);
     await save.orders([o.id]);
-  } else {
-    // Partial payment: reduce debt balance and add history entry
-    S.debts[profileStopId] = Math.max(0, roundMoney((S.debts[profileStopId] || 0) - amount));
-    const items = o.items.map(i => i.qty + 'x ' + i.name).join(', ');
-    createDebtHistoryEntry(profileStopId, {
-      date: payDate, amount, type: 'clear',
-      note: 'Payment received (' + clearDebtMethod + ') — ' + items,
-      orderId: o.id
-    });
   }
   await Promise.allSettled([save.debts(), save.debtHistory([profileStopId])]);
   closeModal();
@@ -987,16 +985,14 @@ async function clearDebt() {
     date: payDate, amount: amount, type: 'clear',
     note: 'Payment received (' + clearDebtMethod + ')'
   });
-  // If debt fully paid, sync unpaid orders so they no longer show "Not paid"
+  // If debt fully paid, mark unpaid orders as paid (without touching debt history)
   const changedOrderIds = [];
   if (S.debts[profileStopId] <= 0) {
     getStopOrders(profileStopId, 'delivered')
       .filter(o => getOrderDebtImpact(o) > 0)
       .forEach(o => {
-        const prev = JSON.parse(JSON.stringify(o));
         o.payMethod = clearDebtMethod || 'cash';
         if (o.payMethod === 'cash') { o.cashPaid = roundMoney(calcOrderTotal(o)); } else { delete o.cashPaid; }
-        reconcileOrderDebtEffect(prev, o);
         changedOrderIds.push(o.id);
       });
   }

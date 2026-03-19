@@ -45,7 +45,18 @@ let _btnLock = false;
 function btnLock(fn) {
   if (_btnLock) return;
   _btnLock = true;
-  try { fn(); } finally { setTimeout(() => _btnLock = false, 1500); }
+  const unlock = () => { _btnLock = false; };
+  try {
+    const result = fn();
+    if (result && typeof result.then === 'function') {
+      result.then(unlock, (e) => { console.error('btnLock async error:', e); unlock(); });
+    } else {
+      setTimeout(unlock, 1500);
+    }
+  } catch (e) {
+    console.error('btnLock error:', e);
+    unlock();
+  }
 }
 
 // ── Load state from Supabase ──────────────────────────────
