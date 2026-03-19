@@ -5,8 +5,6 @@
 
 // ── Constants ──────────────────────────────────────────────
 
-const STOPS_DEFAULT = [];  // Will be populated from DB
-
 const DAYS = [
   {id:'wA0',label:'Monday',   week:'A',color:'#E85D3A',ci:0},
   {id:'wA1',label:'Tuesday',  week:'A',color:'#F0A500',ci:1},
