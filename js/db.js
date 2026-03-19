@@ -283,7 +283,7 @@ const DB = {
       contact_name: c.contact_name || c.cn || '',
       phone: c.phone || c.ph || '', email: c.email || c.em || ''
     };
-    const result = await dbUpsert('customers', data);
+    const result = await dbUpsert('customers', data, 'id');
     // Invalidate cache so next getCustomers() fetches fresh data
     delete _memCacheTs['customers'];
     return result;
@@ -321,7 +321,7 @@ const DB = {
   ),
 
   async setAssignment(customerId, dayId) {
-    const result = await dbUpsert('assignments', { customer_id: customerId, day_id: dayId });
+    const result = await dbUpsert('assignments', { customer_id: customerId, day_id: dayId }, 'customer_id');
     delete _memCacheTs['assignments'];
     return result;
   },
@@ -402,29 +402,16 @@ const DB = {
       if (typeof dbLog === 'function') dbLog(`saveOrder ${order.id} FAILED at upsert (status=${order.status})`);
       return;
     }
-    // Replace order items — INSERT new first, only DELETE old after insert succeeds
+    // Replace order items — delete old first, then insert new
+    await dbDelete('order_items', { order_id: order.id });
     const newItems = (order.items || []).map(i => ({
       order_id: order.id, product_name: i.name, qty: i.qty, price: i.price
     }));
     if (newItems.length > 0) {
       const insertOk = await dbInsert('order_items', newItems);
-      if (insertOk) {
-        // New items saved — now safe to delete old duplicates
-        // Fetch current items to find the newly inserted IDs
-        const currentItems = await dbSelect('order_items', `order_id=eq.${encodeURIComponent(order.id)}&order=id.desc`);
-        if (currentItems && currentItems.length > newItems.length) {
-          // Keep only the newest N items (just inserted), delete the rest
-          const keepIds = new Set(currentItems.slice(0, newItems.length).map(r => r.id));
-          for (const item of currentItems) {
-            if (!keepIds.has(item.id)) await dbDelete('order_items', { id: item.id });
-          }
-        }
-      } else {
-        if (typeof dbLog === 'function') dbLog(`saveOrder ${order.id} FAILED: items insert failed`);
+      if (!insertOk && typeof dbLog === 'function') {
+        dbLog(`saveOrder ${order.id} FAILED: items insert failed`);
       }
-    } else {
-      // No items — delete all existing items for this order
-      await dbDelete('order_items', { order_id: order.id });
     }
     delete _memCacheTs['orders'];
     if (typeof dbLog === 'function') dbLog(`saveOrder OK: ${order.id} status=${order.status}`);
@@ -551,7 +538,7 @@ const DB = {
       result = await dbUpsert('recurring_orders', {
         customer_id: customerId, items: data.items || [],
         note: data.note || ''
-      });
+      }, 'customer_id');
     } else {
       result = await dbDelete('recurring_orders', { customer_id: customerId });
     }
@@ -574,7 +561,7 @@ const DB = {
   async setSetting(key, value) {
     await dbUpsert('app_settings', {
       key, value, updated_at: new Date().toISOString()
-    });
+    }, 'key');
     cacheSet('setting_' + key, value); // settings are small key-value, cache here is fine
   }
 };
