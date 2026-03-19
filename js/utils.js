@@ -314,6 +314,17 @@ function getOrderDebtImpact(order) {
   return 0;
 }
 
+function getRemainingOrderDebt(order) {
+  const impact = getOrderDebtImpact(order);
+  if (impact <= 0) return 0;
+  const dh = S.debtHistory[order.customerId] || [];
+  let paid = 0;
+  dh.forEach(h => {
+    if (h.orderId === order.id && h.type === 'clear') paid += h.amount;
+  });
+  return roundMoney(Math.max(0, impact - paid));
+}
+
 function getOrderDebtNote(order) {
   const impact = getOrderDebtImpact(order);
   if (impact <= 0) return '';
