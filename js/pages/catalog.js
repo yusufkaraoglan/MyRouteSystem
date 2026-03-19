@@ -407,7 +407,7 @@ async function removeCatalogItem(idx) {
 
 
 async function resetOrdersAndDebts() {
-  if (!(await appConfirm('This will delete all <b>orders, debts, debt history, recurring orders, customer pricing, brands, and customer products</b>.<br>Customers, routes, map, and product catalog will be kept.<br><br>A backup will be downloaded first.', true))) return;
+  if (!(await appConfirm('This will delete all <b>orders, debts, debt history, and recurring orders</b>.<br>Customers, routes, map, catalog, pricing, brands, and products will be kept.<br><br>A backup will be downloaded first.', true))) return;
   if (!(await appConfirm('This cannot be undone. Proceed?'))) return;
 
   // Auto-backup before reset
@@ -418,14 +418,10 @@ async function resetOrdersAndDebts() {
   S.debts = {};
   S.debtHistory = {};
   S.recurringOrders = {};
-  S.customerPricing = {};
-  S.customerProducts = {};
-  S.brands = {};
-  S.brandList = [];
   S.ordersLockedOrders = [];
 
   // Persist empty state to cache
-  const cacheKeys = ['orders', 'debts', 'debt_history', 'recurring_orders', 'customer_pricing'];
+  const cacheKeys = ['orders', 'debts', 'debt_history', 'recurring_orders'];
   cacheKeys.forEach(k => cacheSet(k, {}));
 
   // Delete from Supabase (FK order: children first, then parents)
@@ -435,8 +431,7 @@ async function resetOrdersAndDebts() {
     'debt_history',
     'orders',
     'debts',
-    'recurring_orders',
-    'customer_pricing'
+    'recurring_orders'
   ];
   let failCount = 0;
   for (const table of tables) {
@@ -459,16 +454,13 @@ async function resetOrdersAndDebts() {
     }
   }
 
-  // Clean app_settings keys for brands, customer products, locked orders
-  const settingsKeys = ['customer_products', 'customer_brands', 'brand_list', 'ordersLockedOrders'];
-  for (const key of settingsKeys) {
-    try {
-      await fetch(`${SB_URL}/rest/v1/app_settings?key=eq.${encodeURIComponent(key)}`, {
-        method: 'DELETE', headers: deleteHeaders
-      });
-    } catch (e) {
-      console.warn(`Reset: app_settings ${key} delete failed`, e.message);
-    }
+  // Clean app_settings key for locked orders
+  try {
+    await fetch(`${SB_URL}/rest/v1/app_settings?key=eq.ordersLockedOrders`, {
+      method: 'DELETE', headers: deleteHeaders
+    });
+  } catch (e) {
+    console.warn('Reset: app_settings ordersLockedOrders delete failed', e.message);
   }
 
   // Invalidate cache timestamps to prevent stale data from being served
