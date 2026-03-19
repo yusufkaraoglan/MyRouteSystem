@@ -195,25 +195,6 @@ function renderProfile() {
     return (_typePriority[a.type] || 9) - (_typePriority[b.type] || 9);
   });
 
-  // Calculate running balance (walk newest→oldest, reverse-engineer from current debt)
-  const currentDebt = S.debts[stop.id] || 0;
-  let _runBal = currentDebt;
-  for (let i = 0; i < activity.length; i++) {
-    const a = activity[i];
-    a._balAfter = _runBal;
-    if (a.type === 'order') {
-      const impact = getOrderDebtImpact(a.order);
-      const payTotal = (a.debtEntries || []).filter(e => e.type === 'clear').reduce((s, e) => s + e.amount, 0);
-      _runBal = roundMoney(_runBal - impact + payTotal);
-    } else if (a.type === 'debt') {
-      _runBal = roundMoney(_runBal - a.entry.amount);
-    } else if (a.type === 'payment') {
-      _runBal = roundMoney(_runBal + a.entry.amount);
-    } else if (a.type === 'writeoff') {
-      _runBal = roundMoney(_runBal + a.entry.amount);
-    }
-  }
-
   html += `<div class="section-head"><h3>Activity</h3></div>`;
   if (activity.length === 0) {
     html += `<p class="text-muted" style="font-size:13px;padding:8px 0">No activity yet</p>`;
@@ -258,7 +239,6 @@ function renderProfile() {
             <span style="font-size:12px;color:var(--success)">${escHtml(e.note || 'Payment received')}</span>
             <span style="font-size:12px;font-weight:600;color:var(--success)">-${formatCurrency(e.amount)}</span>
           </div>`).join('') : ''}
-          ${a._balAfter != null ? `<div style="font-size:11px;color:var(--text-sec);margin-top:2px">Balance: ${formatCurrency(a._balAfter)}</div>` : ''}
           <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:4px">
             <button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" data-id="${escHtml(o.id)}" onclick="showEditDeliveredOrderModal(this.dataset.id)">Edit</button>
             <button class="btn-ghost" style="font-size:11px;color:var(--danger);padding:2px 6px" data-id="${escHtml(o.id)}" onclick="deleteOrder(this.dataset.id)">Delete</button>
@@ -273,7 +253,7 @@ function renderProfile() {
             <span style="font-size:13px;font-weight:600;color:var(--success)">-${formatCurrency(e.amount)}</span>
           </div>
           <div class="flex-between" style="margin-top:4px">
-            <div style="font-size:11px;color:var(--text-sec)">${formatDateTime(e.date)}${a._balAfter != null ? ' · Bal: ' + formatCurrency(a._balAfter) : ''}</div>
+            <div class="text-muted" style="font-size:11px">${formatDateTime(e.date)}</div>
             <div style="display:flex;gap:6px">
               <button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" data-eid="${escHtml(e.id)}" onclick="btnLock(()=>showEditDebtHistoryModal(${stop.id},this.dataset.eid))">Edit</button>
               <button class="btn-ghost" style="font-size:11px;color:var(--danger);padding:2px 6px" data-eid="${escHtml(e.id)}" onclick="btnLock(()=>removeDebtHistory(${stop.id},this.dataset.eid))">Remove</button>
@@ -288,7 +268,7 @@ function renderProfile() {
       html += `
         <div class="card" style="padding:10px;margin-bottom:6px;border-left:3px solid var(--danger);background:var(--danger-light)">
           <div class="flex-between">
-            <span style="font-size:13px;font-weight:500">${escHtml(e.note || 'Debt added')}</span>
+            <span style="font-size:13px;font-weight:500">${escHtml(e.note === 'Manual entry' ? 'Debt added' : (e.note || 'Debt added'))}</span>
             <span style="font-size:13px;font-weight:600;color:var(--danger)">+${formatCurrency(e.amount)}</span>
           </div>
           ${showDebtOwes ? `
@@ -297,7 +277,7 @@ function renderProfile() {
             <button class="btn btn-success btn-sm" style="font-size:11px;padding:3px 10px" onclick="showClearDebtModal()">Collect Payment</button>
           </div>` : ''}
           <div class="flex-between" style="margin-top:4px">
-            <div style="font-size:11px;color:var(--text-sec)">${formatDateTime(e.date)}${a._balAfter != null ? ' · Bal: ' + formatCurrency(a._balAfter) : ''}</div>
+            <div class="text-muted" style="font-size:11px">${formatDateTime(e.date)}</div>
             <div style="display:flex;gap:6px">
               <button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" data-eid="${escHtml(e.id)}" onclick="btnLock(()=>showEditDebtHistoryModal(${stop.id},this.dataset.eid))">Edit</button>
               <button class="btn-ghost" style="font-size:11px;color:var(--danger);padding:2px 6px" data-eid="${escHtml(e.id)}" onclick="btnLock(()=>removeDebtHistory(${stop.id},this.dataset.eid))">Remove</button>
@@ -313,7 +293,7 @@ function renderProfile() {
             <span style="font-size:13px;font-weight:600;color:var(--text-muted)">-${formatCurrency(e.amount)}</span>
           </div>
           <div class="flex-between" style="margin-top:4px">
-            <div style="font-size:11px;color:var(--text-sec)">${formatDateTime(e.date)}${a._balAfter != null ? ' · Bal: ' + formatCurrency(a._balAfter) : ''}</div>
+            <div class="text-muted" style="font-size:11px">${formatDateTime(e.date)}</div>
             <div style="display:flex;gap:6px">
               <button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" data-eid="${escHtml(e.id)}" onclick="btnLock(()=>showEditDebtHistoryModal(${stop.id},this.dataset.eid))">Edit</button>
               <button class="btn-ghost" style="font-size:11px;color:var(--danger);padding:2px 6px" data-eid="${escHtml(e.id)}" onclick="btnLock(()=>removeDebtHistory(${stop.id},this.dataset.eid))">Remove</button>

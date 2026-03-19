@@ -135,8 +135,8 @@ async function dbDelete(table, match) {
   }
 }
 
-async function dbUpsert(table, data) {
-  return dbInsert(table, data, { upsert: true });
+async function dbUpsert(table, data, onConflict) {
+  return dbInsert(table, data, { upsert: true, onConflict });
 }
 
 // ── Offline Queue Flush ────────────────────────────────────
@@ -397,7 +397,7 @@ const DB = {
       delivery_date: order.deliveryDate || null,
       note: order.note || '', created_at: order.createdAt,
       delivered_at: order.deliveredAt || null
-    });
+    }, 'id');
     if (!ok) {
       if (typeof dbLog === 'function') dbLog(`saveOrder ${order.id} FAILED at upsert (status=${order.status})`);
       return;
@@ -442,7 +442,7 @@ const DB = {
 
   async setDebt(customerId, amount) {
     const numAmount = parseFloat(amount) || 0;
-    const result = await dbUpsert('debts', { customer_id: customerId, amount: numAmount });
+    const result = await dbUpsert('debts', { customer_id: customerId, amount: numAmount }, 'customer_id');
     delete _memCacheTs['debts'];
     return result;
   },
@@ -472,7 +472,8 @@ const DB = {
   },
 
   async replaceDebtHistory(customerId, entries) {
-    // INSERT new entries first, only DELETE old after insert succeeds
+    // Delete existing entries first, then insert fresh
+    await dbDelete('debt_history', { customer_id: customerId });
     if (entries && entries.length > 0) {
       const rows = entries.map(e => ({
         customer_id: customerId,
@@ -481,22 +482,10 @@ const DB = {
         order_id: e.orderId || null,
         created_at: e.date || new Date().toISOString()
       }));
-      const insertOk = await dbInsert('debt_history', rows);
-      if (insertOk) {
-        // New entries saved — delete old ones (that were there before this insert)
-        const allRows = await dbSelect('debt_history', `customer_id=eq.${customerId}&order=id.desc`);
-        if (allRows && allRows.length > rows.length) {
-          const keepIds = new Set(allRows.slice(0, rows.length).map(r => r.id));
-          for (const row of allRows) {
-            if (!keepIds.has(row.id)) await dbDelete('debt_history', { id: row.id });
-          }
-        }
-      } else {
-        if (typeof dbLog === 'function') dbLog(`replaceDebtHistory ${customerId} FAILED: insert failed`);
+      const ok = await dbInsert('debt_history', rows);
+      if (!ok && typeof dbLog === 'function') {
+        dbLog(`replaceDebtHistory ${customerId} FAILED: insert failed`);
       }
-    } else {
-      // No entries — safe to delete all
-      await dbDelete('debt_history', { customer_id: customerId });
     }
   },
 
