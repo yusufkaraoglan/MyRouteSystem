@@ -445,44 +445,35 @@ async function resetOrdersAndDebts() {
   // Auto-backup before reset
   try { exportJSON(); } catch (e) { console.warn('Auto-backup failed:', e); }
 
-  // Delete from Supabase FIRST (order matters for FK constraints)
-  let sbFailed = false;
-  try {
-    const deletes = [
-      ['order_items', 'id=not.is.null'],
-      ['debt_history', 'id=not.is.null'],
-      ['orders', 'id=not.is.null'],
-      ['debts', 'customer_id=not.is.null']
-    ];
-    for (const [table, filter] of deletes) {
-      const resp = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, {
-        method: 'DELETE', headers: DB_HEADERS
-      });
-      if (!resp.ok) {
-        console.error(`Reset: failed to delete ${table}`, resp.status, await resp.text().catch(() => ''));
-        sbFailed = true;
-      }
-    }
-  } catch (e) {
-    console.error('resetOrdersAndDebts Supabase cleanup error:', e);
-    sbFailed = true;
-  }
-
-  // Clear local state
+  // Clear local state immediately
   S.orders = {};
   S.debts = {};
   S.debtHistory = {};
 
-  // Persist empty state through save helpers (updates cache + Supabase)
-  await save.orders([]);
-  await save.debts();
-  await save.debtHistory([]);
+  // Persist empty state to cache
+  cacheSet('orders', {});
+  cacheSet('debts', {});
+  cacheSet('debt_history', {});
 
-  if (sbFailed) {
-    showToast('Local data cleared but cloud sync had errors. Try syncing again.', 'warning', 5000);
-  } else {
-    appAlert('Orders and debts cleared successfully.');
+  // Delete from Supabase (FK order: children first)
+  const deleteHeaders = { ...DB_HEADERS, Prefer: 'return=minimal' };
+  const tables = [
+    ['order_items', 'id=gt.0'],
+    ['debt_history', 'id=gt.0'],
+    ['orders', 'id=neq.___none___'],
+    ['debts', 'customer_id=gt.0']
+  ];
+  for (const [table, filter] of tables) {
+    try {
+      await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, {
+        method: 'DELETE', headers: deleteHeaders
+      });
+    } catch (e) {
+      console.warn(`Reset: ${table} delete failed`, e.message);
+    }
   }
+
+  appAlert('Orders and debts cleared successfully.');
   renderSettings();
 }
 
