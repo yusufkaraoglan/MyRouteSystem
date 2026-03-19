@@ -220,7 +220,7 @@ function renderProfile() {
       const badgeLabel = a.isVisit ? 'visit' : 'delivered';
       const badgeClass = a.isVisit ? 'badge-purple' : 'badge-success';
       const hasUnpaidDebt = (o.payMethod === 'unpaid' || (o.payMethod === 'cash' && o.cashPaid !== undefined && o.cashPaid < a.total)) && a.total > 0;
-      const debtAmount = getRemainingOrderDebt(o);
+      const debtAmount = Math.min(getRemainingOrderDebt(o), S.debts[stop.id] || 0);
       const showOwes = hasUnpaidDebt && debtAmount > 0 && !_debtOwesShown;
       if (showOwes) _debtOwesShown = true;
       html += `
@@ -851,7 +851,7 @@ async function addDebt() {
 function showCollectOrderPayment(orderId) {
   const o = S.orders[orderId];
   if (!o) return;
-  const debtAmount = getRemainingOrderDebt(o);
+  const debtAmount = Math.min(getRemainingOrderDebt(o), S.debts[profileStopId] || 0);
   if (debtAmount <= 0) { appAlert('No outstanding debt for this order.'); return; }
   const items = o.items.map(i => i.qty + 'x ' + i.name).join(', ');
   const now = new Date().toISOString().slice(0, 16);
@@ -884,7 +884,7 @@ function showCollectOrderPayment(orderId) {
 async function clearOrderDebt(orderId) {
   const o = S.orders[orderId];
   if (!o) return;
-  const debtAmount = getRemainingOrderDebt(o);
+  const debtAmount = Math.min(getRemainingOrderDebt(o), S.debts[profileStopId] || 0);
   const requested = parseFloat(document.getElementById('clear-amount').value) || 0;
   const amount = roundMoney(Math.min(debtAmount, Math.max(0, requested)));
   if (amount <= 0) return;
