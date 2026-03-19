@@ -205,7 +205,6 @@ function renderProfile() {
   if (activity.length === 0) {
     html += `<p class="text-muted" style="font-size:13px;padding:8px 0">No activity yet</p>`;
   }
-  let _debtOwesShown = false; // Show "Owes" + "Collect Payment" only on the first (newest) entry
   let _lastDateGroup = '';
   activity.slice(0, 30).forEach(a => {
     // Date group header
@@ -221,8 +220,7 @@ function renderProfile() {
       const badgeClass = a.isVisit ? 'badge-purple' : 'badge-success';
       const hasUnpaidDebt = (o.payMethod === 'unpaid' || (o.payMethod === 'cash' && o.cashPaid !== undefined && o.cashPaid < a.total)) && a.total > 0;
       const debtAmount = Math.min(getRemainingOrderDebt(o), S.debts[stop.id] || 0);
-      const showOwes = hasUnpaidDebt && debtAmount > 0 && !_debtOwesShown;
-      if (showOwes) _debtOwesShown = true;
+      const showOwes = hasUnpaidDebt && debtAmount > 0;
       html += `
         <div class="card" style="padding:10px;margin-bottom:6px">
           <div class="flex-between">
@@ -829,7 +827,7 @@ function showAddDebtModal() {
       <label class="form-label">Note (optional)</label>
       <input class="input" id="debt-note" placeholder="Reason...">
     </div>
-    <button class="btn btn-primary btn-block" onclick="addDebt()">Add Debt</button>
+    <button class="btn btn-primary btn-block" onclick="btnLock(addDebt)">Add Debt</button>
   `);
 }
 
@@ -877,7 +875,7 @@ function showCollectOrderPayment(orderId) {
         <div class="pay-opt" onclick="selectClearMethod('bank',this)">Bank</div>
       </div>
     </div>
-    <button class="btn btn-success btn-block" onclick="clearOrderDebt('${orderId}')">Collect Payment</button>
+    <button class="btn btn-success btn-block" onclick="btnLock(()=>clearOrderDebt('${orderId}'))">Collect Payment</button>
   `);
 }
 
@@ -924,7 +922,7 @@ function showClearDebtModal() {
 
   // Find unpaid orders for this customer
   const unpaidOrders = getStopOrders(profileStopId, 'delivered')
-    .filter(o => getOrderDebtImpact(o) > 0)
+    .filter(o => getRemainingOrderDebt(o) > 0)
     .sort((a, b) => (b.deliveredAt || '').localeCompare(a.deliveredAt || ''));
 
   let html = `<div class="modal-handle"></div>
@@ -935,7 +933,7 @@ function showClearDebtModal() {
     html += `<div style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:600;color:var(--text-sec);margin-bottom:6px">Unpaid Orders</div>`;
     unpaidOrders.forEach(o => {
-      const owed = getOrderDebtImpact(o);
+      const owed = Math.min(getRemainingOrderDebt(o), debt);
       const items = o.items.map(i => i.qty + 'x ' + i.name).join(', ');
       html += `<div class="card" style="padding:8px;margin-bottom:4px;cursor:pointer;border:1px solid var(--border)" onclick="closeModal();showCollectOrderPayment('${o.id}')">
         <div class="flex-between">
@@ -965,7 +963,7 @@ function showClearDebtModal() {
         <div class="pay-opt" onclick="selectClearMethod('bank',this)" id="clear-bank">Bank</div>
       </div>
     </div>
-    <button class="btn btn-success btn-block" onclick="clearDebt()">Collect Debt</button>`;
+    <button class="btn btn-success btn-block" onclick="btnLock(clearDebt)">Collect Debt</button>`;
 
   if (unpaidOrders.length > 0) html += `</div>`;
   openModal(html);
