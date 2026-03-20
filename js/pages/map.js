@@ -531,13 +531,26 @@ function exportRoutePdf(scope) {
     </div>
   </body></html>`;
 
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) { appAlert('Pop-up blocked. Please allow pop-ups for PDF export.'); return; }
-  printWindow.document.write(htmlContent);
-  printWindow.document.close();
-  printWindow.onload = () => {
-    printWindow.print();
-  };
+  // Use hidden iframe to avoid pop-up blockers
+  let frame = document.getElementById('pdf-print-frame');
+  if (frame) frame.remove();
+  frame = document.createElement('iframe');
+  frame.id = 'pdf-print-frame';
+  frame.style.cssText = 'position:fixed;top:-10000px;left:-10000px;width:0;height:0;border:none';
+  document.body.appendChild(frame);
+  const doc = frame.contentDocument || frame.contentWindow.document;
+  doc.open();
+  doc.write(htmlContent);
+  doc.close();
+  setTimeout(() => {
+    try {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    } catch (err) {
+      appAlert('PDF export failed: ' + err.message);
+    }
+    setTimeout(() => frame.remove(), 2000);
+  }, 300);
 }
 
 // ══════════════════════════════════════════════════════════════
