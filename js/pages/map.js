@@ -2,6 +2,7 @@
 // MAP PAGE
 // ══════════════════════════════════════════════════════════════
 let mapAssignStopId = null;
+let mapClusterGroup = null;
 
 function showMapModal() { showPage('map'); }
 
@@ -36,10 +37,17 @@ function renderMapPage() {
 
 function refreshMapMarkers() {
   if (!leafletMap) return;
+  if (mapClusterGroup) { try { leafletMap.removeLayer(mapClusterGroup); } catch {} }
   mapMarkers.forEach(m => { try { leafletMap.removeLayer(m); } catch {} });
   mapMarkers = [];
   mapRouteLines.forEach(l => { try { leafletMap.removeLayer(l); } catch {} });
   mapRouteLines = [];
+
+  // Use marker clustering if available
+  const useCluster = typeof L.markerClusterGroup === 'function';
+  if (useCluster) {
+    mapClusterGroup = L.markerClusterGroup({ maxClusterRadius: 40, spiderfyOnMaxZoom: true });
+  }
 
   // Update filter chip visuals
   document.querySelectorAll('#page-map .chip').forEach(c => {
@@ -93,13 +101,17 @@ function refreshMapMarkers() {
       <button onclick="showProfile(${stop.id})" style="margin-top:6px;padding:4px 10px;font-size:12px;background:#eee;color:#333;border:none;border-radius:6px;cursor:pointer;margin-left:4px">Profile</button>
     </div>`;
 
-    const marker = L.marker([geo.lat, geo.lng], { icon }).bindPopup(popupHtml).addTo(leafletMap);
+    const marker = L.marker([geo.lat, geo.lng], { icon }).bindPopup(popupHtml);
     marker.bindTooltip(escHtml(stop.n), {
       permanent: false, direction: 'bottom', offset: [0, 10],
       className: 'map-label'
     });
+    if (useCluster) mapClusterGroup.addLayer(marker);
+    else marker.addTo(leafletMap);
     mapMarkers.push(marker);
   });
+
+  if (useCluster) leafletMap.addLayer(mapClusterGroup);
 
   // Draw route lines per day
   DAYS.forEach(d => {
@@ -531,13 +543,26 @@ function exportRoutePdf(scope) {
     </div>
   </body></html>`;
 
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) { appAlert('Pop-up blocked. Please allow pop-ups for PDF export.'); return; }
-  printWindow.document.write(htmlContent);
-  printWindow.document.close();
-  printWindow.onload = () => {
-    printWindow.print();
-  };
+  // Use hidden iframe to avoid pop-up blockers
+  let frame = document.getElementById('pdf-print-frame');
+  if (frame) frame.remove();
+  frame = document.createElement('iframe');
+  frame.id = 'pdf-print-frame';
+  frame.style.cssText = 'position:fixed;top:-10000px;left:-10000px;width:0;height:0;border:none';
+  document.body.appendChild(frame);
+  const doc = frame.contentDocument || frame.contentWindow.document;
+  doc.open();
+  doc.write(htmlContent);
+  doc.close();
+  setTimeout(() => {
+    try {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    } catch (err) {
+      appAlert('PDF export failed: ' + err.message);
+    }
+    setTimeout(() => frame.remove(), 2000);
+  }, 300);
 }
 
 // ══════════════════════════════════════════════════════════════
