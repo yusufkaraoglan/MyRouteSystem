@@ -650,7 +650,7 @@ const DB = {
 // Invalidates cache timestamps so DB.get* methods re-fetch from Supabase.
 // Each getter already handles the empty-vs-cached protection via _fetchOrCache.
 
-let _lastSyncTime = null;
+let _lastSyncTime = (() => { try { const t = localStorage.getItem('_lastSyncTime'); return t ? parseInt(t) : null; } catch { return null; } })();
 
 function getLastSyncTimeLabel() {
   if (!_lastSyncTime) return 'Never';
@@ -675,6 +675,7 @@ async function syncAll() {
       DB.getDebtHistory(), DB.getCustomerPricing(), DB.getRecurringOrders()
     ]);
     _lastSyncTime = Date.now();
+    try { localStorage.setItem('_lastSyncTime', _lastSyncTime); } catch {}
     _updateSyncIndicator();
     return true;
   } catch (e) {

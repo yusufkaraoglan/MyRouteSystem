@@ -520,6 +520,9 @@ async function init() {
       loadStateFromDB(),
       checkDbTables()
     ]);
+    // Mark sync time after successful initial load from Supabase
+    _lastSyncTime = Date.now();
+    try { localStorage.setItem('_lastSyncTime', _lastSyncTime); } catch {}
     console.log('Init: loaded from Supabase, STOPS:', STOPS.length);
   } catch (e) {
     console.warn('Init: loadStateFromDB failed:', e.message);
