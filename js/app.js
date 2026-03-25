@@ -107,7 +107,7 @@ async function loadStateFromDB() {
   (customers || []).forEach(c => { if (c.note) S.cnotes[c.id] = c.note; });
   S.catalog = (products || []).map(p => ({
     name: p.name, unit: p.unit, price: parseFloat(p.price),
-    stock: p.stock, trackStock: p.track_stock
+    stock: p.stock, trackStock: p.track_stock, sort_order: p.sort_order || 0
   }));
   S.customerPricing = pricing || {};
   S.recurringOrders = recurring || {};
