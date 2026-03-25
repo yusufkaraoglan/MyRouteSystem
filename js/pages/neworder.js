@@ -123,6 +123,95 @@ function renderNewOrderPage() {
     </div>`;
 
   document.getElementById('page-neworder').innerHTML = html;
+  initCartDragDrop();
+}
+
+// ── Cart Drag-Drop ──
+
+let _cartDragAbort = null;
+function initCartDragDrop() {
+  const list = document.getElementById('neworder-cart-list');
+  if (!list || list.children.length < 2) return;
+
+  if (_cartDragAbort) _cartDragAbort.abort();
+  _cartDragAbort = new AbortController();
+  const signal = _cartDragAbort.signal;
+
+  let touchDragIdx = null;
+  let touchClone = null;
+  let touchStartY = 0;
+  let touchStartX = 0;
+  let longPressTimer = null;
+  let dragOverEl = null;
+  let _rafPending = false;
+
+  list.addEventListener('touchstart', e => {
+    const handle = e.target.closest('.cart-drag-handle');
+    if (!handle) return;
+    const row = handle.closest('.draggable-cart');
+    if (!row) return;
+    touchStartY = e.touches[0].clientY;
+    touchStartX = e.touches[0].clientX;
+    longPressTimer = setTimeout(() => {
+      touchDragIdx = parseInt(row.dataset.idx);
+      row.classList.add('dragging');
+      touchClone = row.cloneNode(true);
+      touchClone.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;opacity:0.85;width:' + row.offsetWidth + 'px;box-shadow:0 8px 24px rgba(0,0,0,0.2);left:' + row.getBoundingClientRect().left + 'px;top:' + (e.touches[0].clientY - 20) + 'px;will-change:transform;background:var(--card);border-radius:8px';
+      document.body.appendChild(touchClone);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }, 200);
+  }, { passive: true, signal });
+
+  list.addEventListener('touchmove', e => {
+    if (touchDragIdx == null) {
+      if (longPressTimer) {
+        const dx = e.touches[0].clientX - touchStartX;
+        const dy = e.touches[0].clientY - touchStartY;
+        if (dx * dx + dy * dy > 100) { clearTimeout(longPressTimer); longPressTimer = null; }
+      }
+      return;
+    }
+    e.preventDefault();
+    if (_rafPending) return;
+    _rafPending = true;
+    const touchX = e.touches[0].clientX;
+    const touchY = e.touches[0].clientY;
+    requestAnimationFrame(() => {
+      _rafPending = false;
+      if (touchClone) touchClone.style.transform = 'translateY(' + (touchY - touchStartY) + 'px) scale(0.97)';
+      if (dragOverEl) dragOverEl.classList.remove('drag-over');
+      const el = document.elementFromPoint(touchX, touchY);
+      if (el) {
+        const target = el.closest('.draggable-cart');
+        if (target && parseInt(target.dataset.idx) !== touchDragIdx) {
+          target.classList.add('drag-over');
+          dragOverEl = target;
+        } else { dragOverEl = null; }
+      }
+    });
+  }, { passive: false, signal });
+
+  list.addEventListener('touchend', e => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    if (touchDragIdx == null) return;
+    if (touchClone) { touchClone.remove(); touchClone = null; }
+    list.querySelectorAll('.draggable-cart').forEach(r => { r.classList.remove('dragging'); r.classList.remove('drag-over'); });
+    const el = document.elementFromPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    if (el) {
+      const target = el.closest('.draggable-cart');
+      if (target) {
+        const targetIdx = parseInt(target.dataset.idx);
+        if (targetIdx !== touchDragIdx) {
+          // Reorder tempOrderItems
+          const item = tempOrderItems.splice(touchDragIdx, 1)[0];
+          tempOrderItems.splice(targetIdx, 0, item);
+          renderNewOrderPage();
+          return;
+        }
+      }
+    }
+    touchDragIdx = null;
+  }, { signal });
 }
 
 function formatDateForDisplay(dateStr) {
@@ -147,7 +236,7 @@ function buildNewOrderProductsCartMerged(cartItems) {
     </div>`;
   }
 
-  let html = '';
+  let html = '<div id="neworder-cart-list">';
   cartItems.forEach(item => {
     const actualIdx = tempOrderItems.indexOf(item);
     const lineTotal = (item.qty || 0) * (item.price || 0);
@@ -160,8 +249,9 @@ function buildNewOrderProductsCartMerged(cartItems) {
       S.customerPricing[tempOrderCustomerId][item.name] !== undefined;
 
     html += `
-      <div class="no-product-row">
+      <div class="no-product-row draggable-cart" data-idx="${actualIdx}">
         <div class="no-product-row-top">
+          <div class="cart-drag-handle" style="cursor:grab;padding:4px 2px 4px 0;color:var(--text-muted);font-size:14px;flex-shrink:0;touch-action:none">⠿</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
               ${escHtml(item.name)}
@@ -193,6 +283,7 @@ function buildNewOrderProductsCartMerged(cartItems) {
         </div>
       </div>`;
   });
+  html += '</div>';
   return html;
 }
 
