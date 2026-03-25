@@ -245,15 +245,20 @@ function filterNewOrderProductPicker(q) {
   let html = '';
   let lastWasAssigned = null;
 
+  const committed = getCommittedStock();
   allProducts.forEach(c => {
     const isAssigned = customerProducts.includes(c.name);
     const isSelected = selectedNames.includes(c.name);
-    const outOfStock = c.trackStock !== false && c.stock != null && c.stock <= 0;
+    const comm = committed[c.name] || 0;
+    const available = c.stock != null ? (c.stock - comm) : null;
+    const outOfStock = c.trackStock !== false && available != null && available <= 0;
     const price = tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, c.name) : c.price;
     const hasCustomPrice = tempOrderCustomerId != null &&
       S.customerPricing[tempOrderCustomerId] &&
       S.customerPricing[tempOrderCustomerId][c.name] !== undefined;
-    const stockInfo = c.trackStock !== false && c.stock != null ? c.stock + ' in stock' : '';
+    const stockInfo = c.trackStock !== false && c.stock != null
+      ? (comm > 0 ? available + ' available (' + comm + ' pending)' : c.stock + ' in stock')
+      : '';
 
     // Section header
     if (lastWasAssigned === null && isAssigned && !query) {
@@ -428,6 +433,28 @@ async function saveNewOrderPage() {
     if (stockIssues.length > 0) {
       appAlert('Insufficient stock: ' + stockIssues.join(', '));
       unlock(); return;
+    }
+  }
+
+  // Warn (non-blocking) for pending orders when committed stock exceeds available
+  if (!isDelivered) {
+    const comm = getCommittedStock();
+    const warnings = [];
+    const currentOrderQty = buildItemQtyMap(items);
+    // Exclude current order's old items from committed if editing a pending order
+    const oldItems = (editingOrderId && existingOrder && existingOrder.status === 'pending')
+      ? buildItemQtyMap(existingOrder.items) : {};
+    Object.entries(currentOrderQty).forEach(([name, qty]) => {
+      const catItem = getTrackedCatalogItem(name);
+      if (!catItem) return;
+      const totalCommitted = (comm[name] || 0) - (oldItems[name] || 0) + qty;
+      if (totalCommitted > (catItem.stock || 0)) {
+        warnings.push(name + ': ' + (catItem.stock || 0) + ' in stock, ' + totalCommitted + ' committed');
+      }
+    });
+    if (warnings.length > 0) {
+      const proceed = await appConfirm('Stock may be insufficient for pending orders:<br>' + warnings.map(w => escHtml(w)).join('<br>') + '<br><br>Continue anyway?', true);
+      if (!proceed) { unlock(); return; }
     }
   }
 

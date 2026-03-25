@@ -49,11 +49,14 @@ function buildCatalogGridHtml() {
     </div>`;
   }
 
+  const committed = getCommittedStock();
   let html = `<div id="catalog-list">`;
   filtered.forEach((c, fi) => {
     const i = q ? S.catalog.indexOf(c) : fi;
     const isDaily = c.trackStock === false;
-    const stockColor = c.stock != null && c.stock <= 5 ? 'var(--danger)' : c.stock != null && c.stock <= 20 ? 'var(--warning)' : 'var(--success)';
+    const comm = committed[c.name] || 0;
+    const available = c.stock != null ? (c.stock - comm) : null;
+    const stockColor = available != null && available <= 5 ? 'var(--danger)' : available != null && available <= 20 ? 'var(--warning)' : 'var(--success)';
 
     html += `
       <div class="catalog-row${!q ? ' draggable-catalog' : ''}" data-idx="${i}" ${!q ? 'draggable="true"' : ''} onclick="showEditProductModal(${i})">
@@ -63,7 +66,7 @@ function buildCatalogGridHtml() {
           ${isDaily
             ? `<span class="badge badge-purple" style="font-size:10px">Daily</span>`
             : c.stock != null
-              ? `<span class="catalog-stock-pill" style="background:${stockColor}">${c.stock}</span>`
+              ? `<span class="catalog-stock-pill" style="background:${stockColor}">${c.stock}${comm > 0 ? '<span style="font-size:9px;opacity:0.85"> (-' + comm + ')</span>' : ''}</span>`
               : ''
           }
           <span class="catalog-row-price">${formatCurrency(c.price)}</span>

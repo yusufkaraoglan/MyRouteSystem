@@ -712,6 +712,27 @@ async function confirmDelivery() {
       }
     });
 
+    // Check stock availability before delivery
+    const stockShortages = [];
+    const deliveryQtyMap = {};
+    pending.forEach(o => {
+      (o.items || []).forEach(item => {
+        if (!item || !item.name) return;
+        deliveryQtyMap[item.name] = (deliveryQtyMap[item.name] || 0) + (parseFloat(item.qty) || 0);
+      });
+    });
+    Object.entries(deliveryQtyMap).forEach(([name, qty]) => {
+      const catItem = getTrackedCatalogItem(name);
+      if (!catItem) return;
+      if (qty > (catItem.stock || 0)) {
+        stockShortages.push(name + ': ' + (catItem.stock || 0) + ' in stock, ' + qty + ' needed');
+      }
+    });
+    if (stockShortages.length > 0) {
+      const proceed = await appConfirm('Stock shortage:<br>' + stockShortages.map(s => escHtml(s)).join('<br>') + '<br><br>Deliver anyway? Stock will go negative.', true);
+      if (!proceed) return;
+    }
+
     // Deduct stock on delivery
     let stockChanged = false;
     pending.forEach(o => {
