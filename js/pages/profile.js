@@ -247,6 +247,7 @@ function renderProfile() {
           </div>`).join('') : '';
           })()}
           <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:4px">
+            ${!a.isVisit && o.items && o.items.length > 0 ? `<button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" data-id="${escHtml(o.id)}" onclick="openEditOrderPage(this.dataset.id)">Edit Items</button>` : ''}
             <button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" data-id="${escHtml(o.id)}" onclick="showEditDeliveredOrderModal(this.dataset.id)">Edit</button>
             <button class="btn-ghost" style="font-size:11px;color:var(--danger);padding:2px 6px" data-id="${escHtml(o.id)}" onclick="deleteOrder(this.dataset.id)">Delete</button>
           </div>
@@ -387,7 +388,8 @@ function showEditDeliveredOrderModal(orderId) {
   }
 
   modalHtml += `
-    <button class="btn btn-primary btn-block mt-2" data-id="${escHtml(orderId)}" onclick="saveEditDeliveredOrder(this.dataset.id)">Save</button>`;
+    <button class="btn btn-primary btn-block mt-2" data-id="${escHtml(orderId)}" onclick="saveEditDeliveredOrder(this.dataset.id)">Save</button>
+    ${!isVisit && o.items && o.items.length > 0 ? `<button class="btn btn-outline btn-block mt-1" data-id="${escHtml(orderId)}" onclick="closeModal();openEditOrderPage(this.dataset.id)">Edit Items</button>` : ''}`;
   openModal(modalHtml);
   if (!isVisit) updateEditDeliveredCashHint();
 }
