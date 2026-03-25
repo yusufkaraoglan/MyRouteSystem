@@ -49,21 +49,24 @@ function buildCatalogGridHtml() {
     </div>`;
   }
 
+  const committed = getCommittedStock();
   let html = `<div id="catalog-list">`;
   filtered.forEach((c, fi) => {
     const i = q ? S.catalog.indexOf(c) : fi;
     const isDaily = c.trackStock === false;
-    const stockColor = c.stock != null && c.stock <= 5 ? 'var(--danger)' : c.stock != null && c.stock <= 20 ? 'var(--warning)' : 'var(--success)';
+    const comm = committed[c.name] || 0;
+    const available = c.stock != null ? (c.stock - comm) : null;
+    const stockColor = available != null && available <= 5 ? 'var(--danger)' : available != null && available <= 20 ? 'var(--warning)' : 'var(--success)';
 
     html += `
-      <div class="catalog-row${!q ? ' draggable-catalog' : ''}" data-idx="${i}" ${!q ? 'draggable="true"' : ''} onclick="showEditProductModal(${i})">
+      <div class="catalog-row${!q ? ' draggable-catalog' : ''}" data-idx="${i}" ${!q ? 'draggable="true"' : ''} onclick="showEditProductModal(parseInt(this.dataset.idx))">
         <div class="catalog-row-drag"${q ? ' style="display:none"' : ''}>⠿</div>
         <div class="catalog-row-name">${escHtml(c.name)}</div>
         <div class="catalog-row-right">
           ${isDaily
             ? `<span class="badge badge-purple" style="font-size:10px">Daily</span>`
             : c.stock != null
-              ? `<span class="catalog-stock-pill" style="background:${stockColor}">${c.stock}</span>`
+              ? `<span class="catalog-stock-pill" style="background:${stockColor}">${c.stock}${comm > 0 ? '<span style="font-size:9px;opacity:0.85"> (-' + comm + ')</span>' : ''}</span>`
               : ''
           }
           <span class="catalog-row-price">${formatCurrency(c.price)}</span>
@@ -134,42 +137,53 @@ function initCatalogDragDrop() {
   let touchClone = null;
   let longPressTimer = null;
   let catTouchStartY = 0;
+  let catTouchStartX = 0;
   let catTouchDragOver = null;
-  let catLastTouchMove = 0;
+  let _catRafPending = false;
 
   list.addEventListener('touchstart', e => {
     const row = e.target.closest('.draggable-catalog');
     if (!row) return;
     if (e.target.closest('.btn')) return;
     catTouchStartY = e.touches[0].clientY;
+    catTouchStartX = e.touches[0].clientX;
     longPressTimer = setTimeout(() => {
       touchDragIdx = parseInt(row.dataset.idx);
       row.classList.add('dragging');
       touchClone = row.cloneNode(true);
       touchClone.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;opacity:0.8;width:' + row.offsetWidth + 'px;box-shadow:0 8px 24px rgba(0,0,0,0.2);left:' + row.getBoundingClientRect().left + 'px;top:' + (e.touches[0].clientY - 20) + 'px;will-change:transform';
       document.body.appendChild(touchClone);
-    }, 300);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }, 250);
   }, { passive: true, signal });
 
   list.addEventListener('touchmove', e => {
     if (touchDragIdx == null) {
-      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      if (longPressTimer) {
+        const dx = e.touches[0].clientX - catTouchStartX;
+        const dy = e.touches[0].clientY - catTouchStartY;
+        if (dx * dx + dy * dy > 100) { clearTimeout(longPressTimer); longPressTimer = null; }
+      }
       return;
     }
     e.preventDefault();
-    const now = Date.now();
-    if (now - catLastTouchMove < 16) return;
-    catLastTouchMove = now;
-    if (touchClone) touchClone.style.transform = 'translateY(' + (e.touches[0].clientY - catTouchStartY) + 'px) scale(0.95)';
-    if (catTouchDragOver) catTouchDragOver.classList.remove('drag-over');
-    const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
-    if (el) {
-      const target = el.closest('.catalog-row');
-      if (target && parseInt(target.dataset.idx) !== touchDragIdx) {
-        target.classList.add('drag-over');
-        catTouchDragOver = target;
-      } else { catTouchDragOver = null; }
-    }
+    if (_catRafPending) return;
+    _catRafPending = true;
+    const touchX = e.touches[0].clientX;
+    const touchY = e.touches[0].clientY;
+    requestAnimationFrame(() => {
+      _catRafPending = false;
+      if (touchClone) touchClone.style.transform = 'translateY(' + (touchY - catTouchStartY) + 'px) scale(0.95)';
+      if (catTouchDragOver) catTouchDragOver.classList.remove('drag-over');
+      const el = document.elementFromPoint(touchX, touchY);
+      if (el) {
+        const target = el.closest('.catalog-row');
+        if (target && parseInt(target.dataset.idx) !== touchDragIdx) {
+          target.classList.add('drag-over');
+          catTouchDragOver = target;
+        } else { catTouchDragOver = null; }
+      }
+    });
   }, { passive: false, signal });
 
   list.addEventListener('touchend', e => {
@@ -188,13 +202,34 @@ function initCatalogDragDrop() {
   }, { signal });
 }
 
+let _catalogSaveDebounce = null;
 function applyCatalogDrop(fromIdx, toIdx) {
+  const list = document.getElementById('catalog-list');
+
+  // Update data model
   const item = S.catalog.splice(fromIdx, 1)[0];
   S.catalog.splice(toIdx, 0, item);
-  // Update sort_order
   S.catalog.forEach((c, i) => c.sort_order = i);
-  save.catalog();
-  renderCatalog();
+
+  // DOM reorder instead of full re-render
+  if (list) {
+    const rows = Array.from(list.children);
+    const draggedRow = rows[fromIdx];
+    const targetRow = rows[toIdx];
+    if (draggedRow && targetRow) {
+      if (fromIdx < toIdx) {
+        list.insertBefore(draggedRow, targetRow.nextSibling);
+      } else {
+        list.insertBefore(draggedRow, targetRow);
+      }
+      // Update data-idx attributes
+      Array.from(list.children).forEach((row, i) => { row.dataset.idx = i; });
+    }
+  }
+
+  // Debounce save to allow rapid reordering
+  if (_catalogSaveDebounce) clearTimeout(_catalogSaveDebounce);
+  _catalogSaveDebounce = setTimeout(() => { save.catalog(); }, 800);
 }
 
 function showAddProductModal() {

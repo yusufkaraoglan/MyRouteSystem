@@ -481,6 +481,29 @@ function getPrice(stopId, productName) {
   return cat ? cat.price : 0;
 }
 
+// ── Committed Stock (pending orders) ─────────────────────
+
+function getCommittedStock() {
+  const committed = {};
+  Object.values(S.orders).forEach(o => {
+    if (o.status !== 'pending') return;
+    (o.items || []).forEach(item => {
+      if (!item || !item.name) return;
+      const catItem = getTrackedCatalogItem(item.name);
+      if (!catItem) return;
+      committed[item.name] = (committed[item.name] || 0) + (parseFloat(item.qty) || 0);
+    });
+  });
+  return committed;
+}
+
+function getAvailableStock(productName) {
+  const catItem = getTrackedCatalogItem(productName);
+  if (!catItem) return null;
+  const committed = getCommittedStock();
+  return (catItem.stock || 0) - (committed[productName] || 0);
+}
+
 // ── Stock Warning System ──────────────────────────────────
 
 function getLowStockItems(threshold) {
@@ -497,20 +520,28 @@ function getOutOfStockItems() {
 }
 
 function buildStockWarningBannerHtml() {
+  const committed = getCommittedStock();
   const outOfStock = getOutOfStockItems();
   const lowStock = getLowStockItems(10);
-  if (lowStock.length === 0) return '';
+  // Also count items that are sufficient in stock but overcommitted by pending orders
+  const overcommitted = S.catalog.filter(c =>
+    c.trackStock !== false && c.stock != null && c.stock > 0 &&
+    (committed[c.name] || 0) > c.stock &&
+    !lowStock.some(l => l.name === c.name)
+  );
+  if (lowStock.length === 0 && overcommitted.length === 0) return '';
 
   const outCount = outOfStock.length;
   const lowCount = lowStock.length - outCount;
+  const overCount = overcommitted.length;
   let msg = '';
-  if (outCount > 0 && lowCount > 0) {
-    msg = `${outCount} out of stock, ${lowCount} low stock`;
-  } else if (outCount > 0) {
-    msg = `${outCount} product${outCount > 1 ? 's' : ''} out of stock`;
-  } else {
-    msg = `${lowCount} product${lowCount > 1 ? 's' : ''} low on stock`;
-  }
+  const parts = [];
+  if (outCount > 0) parts.push(`${outCount} out of stock`);
+  if (lowCount > 0) parts.push(`${lowCount} low stock`);
+  if (overCount > 0) parts.push(`${overCount} overcommitted`);
+  msg = parts.join(', ');
+
+  const totalItems = lowStock.length + overCount;
 
   return `
     <div class="stock-warning-banner" onclick="showStockWarningModal()">
@@ -519,25 +550,35 @@ function buildStockWarningBannerHtml() {
         <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
       </svg>
       <span class="stock-warning-banner-text">${msg}</span>
-      <span class="stock-warning-banner-count">${lowStock.length} items &rsaquo;</span>
+      <span class="stock-warning-banner-count">${totalItems} items &rsaquo;</span>
     </div>`;
 }
 
 function showStockWarningModal() {
   const lowStock = getLowStockItems(10);
-  if (lowStock.length === 0) { appAlert('All stock levels are OK.'); return; }
+  const committed = getCommittedStock();
+  const overcommitted = S.catalog.filter(c =>
+    c.trackStock !== false && c.stock != null && c.stock > 0 &&
+    (committed[c.name] || 0) > c.stock &&
+    !lowStock.some(l => l.name === c.name)
+  );
+  const allItems = [...lowStock, ...overcommitted];
+  if (allItems.length === 0) { appAlert('All stock levels are OK.'); return; }
 
   let itemsHtml = '';
-  lowStock.forEach(c => {
-    const color = c.stock <= 0 ? 'var(--danger)' : c.stock <= 5 ? 'var(--warning)' : 'var(--info)';
+  allItems.forEach(c => {
+    const comm = committed[c.name] || 0;
+    const available = c.stock - comm;
+    const color = c.stock <= 0 ? 'var(--danger)' : available <= 0 ? 'var(--danger)' : c.stock <= 5 ? 'var(--warning)' : 'var(--info)';
     const label = c.stock <= 0 ? 'OUT' : c.stock;
+    const commLabel = comm > 0 ? ` <span style="font-size:10px;opacity:0.8">(-${comm})</span>` : '';
     itemsHtml += `
       <div class="stock-warning-modal-item">
         <div>
           <div class="stock-warning-modal-item-name">${escHtml(c.name)}</div>
-          <div style="font-size:12px;color:var(--text-sec)">${escHtml(c.unit || 'unit')} &middot; ${formatCurrency(c.price)}</div>
+          <div style="font-size:12px;color:var(--text-sec)">${escHtml(c.unit || 'unit')} &middot; ${formatCurrency(c.price)}${comm > 0 ? ' &middot; <span style="color:var(--warning)">' + comm + ' pending</span>' : ''}</div>
         </div>
-        <div class="stock-warning-modal-item-stock" style="background:${color}">${label}</div>
+        <div class="stock-warning-modal-item-stock" style="background:${color}">${label}${commLabel}</div>
       </div>`;
   });
 

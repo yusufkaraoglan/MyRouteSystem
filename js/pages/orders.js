@@ -59,7 +59,7 @@ function renderOrderResults() {
       if (o) lockedOrders.push(o);
     });
     const unlockedOrders = orders.filter(o => !lockedSet.has(o.id));
-    unlockedOrders.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    unlockedOrders.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     orders = [...lockedOrders, ...unlockedOrders];
   } else if (S.ordersFilter === 'delivered') {
     // Delivered: newest delivery first
@@ -150,6 +150,35 @@ function toggleOrderLock(orderId) {
   renderOrderResults();
 }
 
+function _applyOrderReorder(list, draggedId, targetId) {
+  if (!S.orders[draggedId] || !S.orders[targetId]) return;
+
+  // Update locked order state
+  const locked = S.ordersLockedOrders || [];
+  const filteredLocked = locked.filter(id => id !== draggedId);
+  const targetIdx = filteredLocked.indexOf(targetId);
+  if (targetIdx >= 0) {
+    filteredLocked.splice(targetIdx, 0, draggedId);
+  } else {
+    filteredLocked.push(draggedId);
+  }
+  S.ordersLockedOrders = filteredLocked;
+  DB.setSetting('ordersLockedOrders', filteredLocked);
+
+  // DOM reorder instead of full re-render
+  const draggedCard = list.querySelector(`[data-order-id="${draggedId}"]`);
+  const targetCard = list.querySelector(`[data-order-id="${targetId}"]`);
+  if (draggedCard && targetCard) {
+    list.insertBefore(draggedCard, targetCard);
+    // Update lock icon on dragged card
+    const lockBtn = draggedCard.querySelector('.order-lock-btn');
+    if (lockBtn && !lockBtn.classList.contains('locked')) {
+      lockBtn.classList.add('locked');
+      lockBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>';
+    }
+  }
+}
+
 let _orderDragAbort = null;
 function initOrderDragDrop() {
   const list = document.getElementById('orders-drag-list');
@@ -196,66 +225,62 @@ function initOrderDragDrop() {
     const targetId = target.dataset.orderId;
     if (!S.orders[draggedId] || !S.orders[targetId]) return;
 
-    const locked = S.ordersLockedOrders || [];
-    const filteredLocked = locked.filter(id => id !== draggedId);
-    const targetIdx = filteredLocked.indexOf(targetId);
-    if (targetIdx >= 0) {
-      // Drop onto a locked order — insert before it
-      filteredLocked.splice(targetIdx, 0, draggedId);
-    } else {
-      // Drop onto an unlocked order — lock the dragged item at the right position
-      // Find where target appears in the visible order and insert dragged before it
-      const targetLockedIdx = filteredLocked.length; // append after all locked items
-      filteredLocked.splice(targetLockedIdx, 0, draggedId);
-      // Also lock the target to preserve its position
-      filteredLocked.push(targetId);
-    }
-    S.ordersLockedOrders = filteredLocked;
-    DB.setSetting('ordersLockedOrders', filteredLocked);
-    renderOrderResults();
+    _applyOrderReorder(list, draggedId, targetId);
   }, { signal });
 
   // Touch drag support
   let touchDragId = null;
   let touchClone = null;
   let touchStartY = 0;
+  let touchStartX = 0;
   let longPressTimer = null;
   let ordTouchDragOver = null;
-  let ordLastTouchMove = 0;
+  let _ordRafPending = false;
 
   list.addEventListener('touchstart', e => {
     const card = e.target.closest('.draggable-order');
     if (!card || card.getAttribute('draggable') !== 'true') return;
     if (e.target.closest('.order-lock-btn') || e.target.closest('.btn')) return;
     touchStartY = e.touches[0].clientY;
+    touchStartX = e.touches[0].clientX;
     longPressTimer = setTimeout(() => {
       touchDragId = card.dataset.orderId;
       card.classList.add('dragging');
       touchClone = card.cloneNode(true);
       touchClone.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;opacity:0.8;width:' + card.offsetWidth + 'px;box-shadow:0 8px 24px rgba(0,0,0,0.2);left:' + card.getBoundingClientRect().left + 'px;top:' + (e.touches[0].clientY - 30) + 'px;will-change:transform';
       document.body.appendChild(touchClone);
-    }, 300);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }, 250);
   }, { passive: true, signal });
 
   list.addEventListener('touchmove', e => {
     if (!touchDragId) {
-      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      // Cancel long press if finger moved too far
+      if (longPressTimer) {
+        const dx = e.touches[0].clientX - touchStartX;
+        const dy = e.touches[0].clientY - touchStartY;
+        if (dx * dx + dy * dy > 100) { clearTimeout(longPressTimer); longPressTimer = null; }
+      }
       return;
     }
     e.preventDefault();
-    const now = Date.now();
-    if (now - ordLastTouchMove < 16) return;
-    ordLastTouchMove = now;
-    if (touchClone) touchClone.style.transform = 'translateY(' + (e.touches[0].clientY - touchStartY) + 'px) scale(0.95)';
-    if (ordTouchDragOver) ordTouchDragOver.classList.remove('drag-over');
-    const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
-    if (el) {
-      const target = el.closest('.draggable-order');
-      if (target && target.dataset.orderId !== touchDragId) {
-        target.classList.add('drag-over');
-        ordTouchDragOver = target;
-      } else { ordTouchDragOver = null; }
-    }
+    if (_ordRafPending) return;
+    _ordRafPending = true;
+    const touchX = e.touches[0].clientX;
+    const touchY = e.touches[0].clientY;
+    requestAnimationFrame(() => {
+      _ordRafPending = false;
+      if (touchClone) touchClone.style.transform = 'translateY(' + (touchY - touchStartY) + 'px) scale(0.95)';
+      if (ordTouchDragOver) ordTouchDragOver.classList.remove('drag-over');
+      const el = document.elementFromPoint(touchX, touchY);
+      if (el) {
+        const target = el.closest('.draggable-order');
+        if (target && target.dataset.orderId !== touchDragId) {
+          target.classList.add('drag-over');
+          ordTouchDragOver = target;
+        } else { ordTouchDragOver = null; }
+      }
+    });
   }, { passive: false, signal });
 
   list.addEventListener('touchend', e => {
@@ -269,18 +294,7 @@ function initOrderDragDrop() {
     if (el) {
       const target = el.closest('.draggable-order');
       if (target && target.dataset.orderId !== touchDragId) {
-        const targetId = target.dataset.orderId;
-        const locked = S.ordersLockedOrders || [];
-        const filteredLocked = locked.filter(id => id !== touchDragId);
-        const targetIdx = filteredLocked.indexOf(targetId);
-        if (targetIdx >= 0) {
-          filteredLocked.splice(targetIdx, 0, touchDragId);
-        } else {
-          filteredLocked.push(touchDragId);
-        }
-        S.ordersLockedOrders = filteredLocked;
-        DB.setSetting('ordersLockedOrders', filteredLocked);
-        renderOrderResults();
+        _applyOrderReorder(list, touchDragId, target.dataset.orderId);
       }
     }
     touchDragId = null;
