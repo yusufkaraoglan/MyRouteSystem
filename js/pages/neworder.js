@@ -363,8 +363,8 @@ function filterNewOrderProductPicker(q) {
     lastWasAssigned = isAssigned;
 
     html += `
-      <div class="ppick-item ${isSelected ? 'selected' : ''}" style="${outOfStock ? 'opacity:0.4' : ''}"
-           data-product="${escHtml(c.name)}" onclick="${outOfStock ? '' : 'toggleNewOrderProductFromPicker(this.dataset.product)'}">
+      <div class="ppick-item ${isSelected ? 'selected' : ''}" style="${outOfStock && !isSelected ? 'opacity:0.5' : ''}"
+           data-product="${escHtml(c.name)}" data-oos="${outOfStock ? '1' : ''}" onclick="toggleNewOrderProductFromPicker(this.dataset.product, this.dataset.oos === '1')">
         <div class="ppick-item-info">
           <div class="ppick-item-name" style="display:flex;align-items:center;gap:4px">
             ${escHtml(c.name)}
@@ -389,12 +389,17 @@ function filterNewOrderProductPicker(q) {
   list.innerHTML = html;
 }
 
-function toggleNewOrderProductFromPicker(productName) {
+async function toggleNewOrderProductFromPicker(productName, isOutOfStock) {
   const existingIdx = tempOrderItems.findIndex(i => i.name === productName);
   if (existingIdx >= 0) {
     tempOrderItems.splice(existingIdx, 1);
     if (tempOrderItems.length === 0) tempOrderItems.push({ name: '', qty: 1, price: 0 });
   } else {
+    // Warn if out of stock but allow adding
+    if (isOutOfStock) {
+      const proceed = await appConfirm('No stock in van for <b>' + escHtml(productName) + '</b>.<br>Add to order anyway? You\'ll need to load from warehouse.', true);
+      if (!proceed) return;
+    }
     const price = tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, productName) : (S.catalog.find(c => c.name === productName)?.price || 0);
     const emptyIdx = tempOrderItems.findIndex(i => !i.name);
     if (emptyIdx >= 0) {
