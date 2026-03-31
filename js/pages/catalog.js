@@ -465,6 +465,7 @@ async function resetOrdersAndDebts() {
   S.debtHistory = {};
   S.recurringOrders = {};
   S.ordersLockedOrders = [];
+  S.ordersSortOrder = [];
 
   // Persist empty state to cache
   const cacheKeys = ['orders', 'debts', 'debt_history', 'recurring_orders'];
@@ -478,7 +479,8 @@ async function resetOrdersAndDebts() {
     { table: 'orders', filter: 'id=neq.___' },
     { table: 'debts', filter: 'customer_id=gt.0' },
     { table: 'recurring_orders', filter: 'customer_id=gt.0' },
-    { table: 'app_settings', filter: 'key=eq.ordersLockedOrders' }
+    { table: 'app_settings', filter: 'key=eq.ordersLockedOrders' },
+    { table: 'app_settings', filter: 'key=eq.ordersSortOrder' }
   ];
   let failCount = 0;
   for (const { table, filter } of deletes) {
