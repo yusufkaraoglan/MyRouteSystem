@@ -754,6 +754,14 @@ async function confirmDelivery() {
     }
 
     savePromises.push(save.orders(pending.map(o => o.id)));
+
+    // Clean up delivered orders from sort order
+    const deliveredIds = new Set(pending.map(o => o.id));
+    if (S.ordersSortOrder && S.ordersSortOrder.length > 0) {
+      S.ordersSortOrder = S.ordersSortOrder.filter(id => !deliveredIds.has(id));
+      DB.setSetting('ordersSortOrder', S.ordersSortOrder);
+    }
+
     await Promise.allSettled(savePromises);
 
     closeModal();

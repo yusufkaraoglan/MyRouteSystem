@@ -230,13 +230,29 @@ function getStop(id) {
   return STOPS.find(s => Number(s.id) === numId);
 }
 
-function getStopOrders(stopId, status) {
-  const numId = Number(stopId);
-  return Object.values(S.orders).filter(o => {
-    if (Number(o.customerId) !== numId) return false;
-    if (status && o.status !== status) return false;
-    return true;
+// Cached index: customerId -> [orderId, ...]
+let _ordersByCustomer = null;
+let _ordersByCustomerHash = '';
+
+function _getOrdersByCustomerIndex() {
+  const keys = Object.keys(S.orders);
+  const hash = keys.length + ':' + (keys[0] || '') + ':' + (keys[keys.length - 1] || '');
+  if (_ordersByCustomer && _ordersByCustomerHash === hash) return _ordersByCustomer;
+  _ordersByCustomer = {};
+  keys.forEach(id => {
+    const o = S.orders[id];
+    const cid = Number(o.customerId);
+    if (!_ordersByCustomer[cid]) _ordersByCustomer[cid] = [];
+    _ordersByCustomer[cid].push(o);
   });
+  _ordersByCustomerHash = hash;
+  return _ordersByCustomer;
+}
+
+function getStopOrders(stopId, status) {
+  const idx = _getOrdersByCustomerIndex();
+  const orders = idx[Number(stopId)] || [];
+  return status ? orders.filter(o => o.status === status) : orders;
 }
 
 function calcOrderTotal(order) {

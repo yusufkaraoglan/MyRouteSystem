@@ -263,7 +263,7 @@ function buildNewOrderProductsCartMerged(cartItems) {
             </div>
           </div>
           <div style="font-size:15px;font-weight:700;flex-shrink:0">${formatCurrency(lineTotal)}</div>
-          <button class="no-product-remove" onclick="newOrderRemoveItem(${actualIdx})">
+          <button class="no-product-remove" onclick="newOrderRemoveItem(+this.closest('.draggable-cart').dataset.idx)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -271,17 +271,17 @@ function buildNewOrderProductsCartMerged(cartItems) {
           <div style="display:flex;align-items:center;gap:4px">
             <span style="font-size:12px;color:var(--text-sec)">&pound;</span>
             <input type="number" step="0.01" value="${item.price.toFixed(2)}"
-                   onchange="newOrderSetPrice(${actualIdx},parseFloat(this.value)||0)"
+                   onchange="newOrderSetPrice(+this.closest('.draggable-cart').dataset.idx,parseFloat(this.value)||0)"
                    onclick="this.select()"
                    class="no-price-input">
             <span style="font-size:11px;color:var(--text-muted)">/${cat ? escHtml(cat.unit || 'ea') : 'ea'}</span>
           </div>
           <div class="no-qty-controls">
-            <button class="qty-btn" onclick="newOrderChangeQty(${actualIdx},-1)">&minus;</button>
+            <button class="qty-btn" onclick="newOrderChangeQty(+this.closest('.draggable-cart').dataset.idx,-1)">&minus;</button>
             <input type="number" class="qty-input" value="${item.qty}" min="1"
-                   onchange="newOrderSetQty(${actualIdx},parseInt(this.value)||1)"
+                   onchange="newOrderSetQty(+this.closest('.draggable-cart').dataset.idx,parseInt(this.value)||1)"
                    onclick="this.select()">
-            <button class="qty-btn" onclick="newOrderChangeQty(${actualIdx},1)">+</button>
+            <button class="qty-btn" onclick="newOrderChangeQty(+this.closest('.draggable-cart').dataset.idx,1)">+</button>
           </div>
         </div>
       </div>`;
@@ -395,10 +395,8 @@ async function toggleNewOrderProductFromPicker(productName, isOutOfStock) {
     tempOrderItems.splice(existingIdx, 1);
     if (tempOrderItems.length === 0) tempOrderItems.push({ name: '', qty: 1, price: 0 });
   } else {
-    // Warn if out of stock but allow adding
     if (isOutOfStock) {
-      const proceed = await appConfirm('No stock in van for <b>' + escHtml(productName) + '</b>.<br>Add to order anyway? You\'ll need to load from warehouse.', true);
-      if (!proceed) return;
+      showToast('No van stock — added anyway', 'warning', 2500);
     }
     const price = tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, productName) : (S.catalog.find(c => c.name === productName)?.price || 0);
     const emptyIdx = tempOrderItems.findIndex(i => !i.name);
