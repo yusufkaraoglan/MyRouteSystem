@@ -395,10 +395,8 @@ async function toggleNewOrderProductFromPicker(productName, isOutOfStock) {
     tempOrderItems.splice(existingIdx, 1);
     if (tempOrderItems.length === 0) tempOrderItems.push({ name: '', qty: 1, price: 0 });
   } else {
-    // Warn if out of stock but allow adding
     if (isOutOfStock) {
-      const proceed = await appConfirm('No stock in van for <b>' + escHtml(productName) + '</b>.<br>Add to order anyway? You\'ll need to load from warehouse.', true);
-      if (!proceed) return;
+      showToast('No van stock — added anyway', 'warning', 2500);
     }
     const price = tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, productName) : (S.catalog.find(c => c.name === productName)?.price || 0);
     const emptyIdx = tempOrderItems.findIndex(i => !i.name);
