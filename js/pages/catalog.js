@@ -56,6 +56,7 @@ function buildCatalogGridHtml() {
     const isDaily = c.trackStock === false;
     const comm = committed[c.name] || 0;
     const available = c.stock != null ? (c.stock - comm) : null;
+    const isShortage = comm > 0 && available != null && available < 0;
     const stockColor = available != null && available <= 5 ? 'var(--danger)' : available != null && available <= 20 ? 'var(--warning)' : 'var(--success)';
 
     html += `
@@ -66,7 +67,7 @@ function buildCatalogGridHtml() {
           ${isDaily
             ? `<span class="badge badge-purple" style="font-size:10px">Daily</span>`
             : c.stock != null
-              ? `<span class="catalog-stock-pill" style="background:${stockColor}">${c.stock}${comm > 0 ? '<span style="font-size:9px;opacity:0.85"> (-' + comm + ')</span>' : ''}</span>`
+              ? `<span class="catalog-stock-pill" style="background:${stockColor}">${c.stock}${isShortage ? '<span style="font-size:9px;opacity:0.85"> (-' + comm + ')</span>' : ''}</span>`
               : ''
           }
           <span class="catalog-row-price">${formatCurrency(c.price)}</span>
