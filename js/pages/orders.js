@@ -101,6 +101,7 @@ function renderOrderResults() {
             ${dayObj ? `<span class="badge" style="background:${dayObj.color}20;color:${dayObj.color};font-size:10px;font-weight:600;flex-shrink:0">${dayObj.week}-${dayObj.label.slice(0,3)}</span>` : ''}
           </div>
           <div class="order-card-v2-items">${(o.items||[]).map(i => `${i.qty}x ${escHtml(i.name)}`).join(', ')}</div>
+          ${o.note ? `<div style="font-size:11px;color:var(--text-sec);font-style:italic;margin-top:2px;padding:0 12px">Note: ${escHtml(o.note)}</div>` : ''}
           <div class="order-card-v2-footer">
             <span class="order-card-v2-price">${formatCurrency(total)}</span>
             ${isDelivered ? `<span style="font-size:11px;color:var(--text-muted)">${escHtml(o.payMethod || '')} · ${formatDate(o.deliveredAt)}</span>` : ''}

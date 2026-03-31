@@ -43,9 +43,12 @@ function renderNewOrderPage() {
   const cartItems = tempOrderItems.filter(i => i.name);
   const total = roundMoney(cartItems.reduce((s, i) => s + (i.qty || 0) * (i.price || 0), 0));
 
-  // Existing note
+  // Existing note - only preserve from DOM during re-renders of the same order,
+  // never carry over from a previous order session
   const noteEl = document.getElementById('neworder-note');
-  const existingNote = noteEl ? noteEl.value : (isEdit && S.orders[editingOrderId] ? S.orders[editingOrderId].note || '' : '');
+  const existingNote = noteEl && noteEl.dataset.orderId === (editingOrderId || '__new__')
+    ? noteEl.value
+    : (isEdit && S.orders[editingOrderId] ? S.orders[editingOrderId].note || '' : '');
 
   // Selected product count
   const selectedCount = cartItems.length;
@@ -106,7 +109,7 @@ function renderNewOrderPage() {
         </div>
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label">Note (optional)</label>
-          <textarea class="textarea" id="neworder-note" rows="2" style="min-height:50px">${escHtml(existingNote)}</textarea>
+          <textarea class="textarea" id="neworder-note" data-order-id="${editingOrderId || '__new__'}" rows="2" style="min-height:50px">${escHtml(existingNote)}</textarea>
         </div>
       </div>
 
