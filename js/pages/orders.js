@@ -102,6 +102,13 @@ function renderOrderResults() {
           </div>
           <div class="order-card-v2-items">${(o.items||[]).map(i => `${i.qty}x ${escHtml(i.name)}`).join(', ')}</div>
           ${o.note ? `<div style="font-size:11px;color:var(--text-sec);font-style:italic;margin-top:2px;padding:0 12px">Note: ${escHtml(o.note)}</div>` : ''}
+          ${isPending ? (() => {
+            const oos = (o.items || []).filter(i => {
+              const cat = getTrackedCatalogItem(i.name);
+              return cat && (cat.stock || 0) < (i.qty || 0);
+            });
+            return oos.length > 0 ? `<div style="font-size:11px;color:var(--danger);margin-top:2px;padding:0 12px">⚠ ${oos.map(i => { const cat = getTrackedCatalogItem(i.name); return escHtml(i.name) + ': ' + (cat ? cat.stock : 0) + ' in van, ' + i.qty + ' needed'; }).join(' · ')}</div>` : '';
+          })() : ''}
           <div class="order-card-v2-footer">
             <span class="order-card-v2-price">${formatCurrency(total)}</span>
             ${isDelivered ? `<span style="font-size:11px;color:var(--text-muted)">${escHtml(o.payMethod || '')} · ${formatDate(o.deliveredAt)}</span>` : ''}
