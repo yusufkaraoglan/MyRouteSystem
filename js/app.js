@@ -117,6 +117,7 @@ async function loadStateFromDB() {
   S.brands = settings.customer_brands || {};
   S.brandList = settings.brand_list || [];
   S.ordersLockedOrders = settings.ordersLockedOrders || [];
+  S.ordersSortOrder = settings.ordersSortOrder || [];
   cacheSet('_lastPage', settings.lastPage || 'route');
   cacheSet('_lastProfileId', settings.lastProfileId || null);
 

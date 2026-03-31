@@ -43,9 +43,12 @@ function renderNewOrderPage() {
   const cartItems = tempOrderItems.filter(i => i.name);
   const total = roundMoney(cartItems.reduce((s, i) => s + (i.qty || 0) * (i.price || 0), 0));
 
-  // Existing note
+  // Existing note - only preserve from DOM during re-renders of the same order,
+  // never carry over from a previous order session
   const noteEl = document.getElementById('neworder-note');
-  const existingNote = noteEl ? noteEl.value : (isEdit && S.orders[editingOrderId] ? S.orders[editingOrderId].note || '' : '');
+  const existingNote = noteEl && noteEl.dataset.orderId === (editingOrderId || '__new__')
+    ? noteEl.value
+    : (isEdit && S.orders[editingOrderId] ? S.orders[editingOrderId].note || '' : '');
 
   // Selected product count
   const selectedCount = cartItems.length;
@@ -106,7 +109,7 @@ function renderNewOrderPage() {
         </div>
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label">Note (optional)</label>
-          <textarea class="textarea" id="neworder-note" rows="2" style="min-height:50px">${escHtml(existingNote)}</textarea>
+          <textarea class="textarea" id="neworder-note" data-order-id="${editingOrderId || '__new__'}" rows="2" style="min-height:50px">${escHtml(existingNote)}</textarea>
         </div>
       </div>
 
@@ -360,8 +363,8 @@ function filterNewOrderProductPicker(q) {
     lastWasAssigned = isAssigned;
 
     html += `
-      <div class="ppick-item ${isSelected ? 'selected' : ''}" style="${outOfStock ? 'opacity:0.4' : ''}"
-           data-product="${escHtml(c.name)}" onclick="${outOfStock ? '' : 'toggleNewOrderProductFromPicker(this.dataset.product)'}">
+      <div class="ppick-item ${isSelected ? 'selected' : ''}" style="${outOfStock && !isSelected ? 'opacity:0.5' : ''}"
+           data-product="${escHtml(c.name)}" data-oos="${outOfStock ? '1' : ''}" onclick="toggleNewOrderProductFromPicker(this.dataset.product, this.dataset.oos === '1')">
         <div class="ppick-item-info">
           <div class="ppick-item-name" style="display:flex;align-items:center;gap:4px">
             ${escHtml(c.name)}
@@ -386,12 +389,17 @@ function filterNewOrderProductPicker(q) {
   list.innerHTML = html;
 }
 
-function toggleNewOrderProductFromPicker(productName) {
+async function toggleNewOrderProductFromPicker(productName, isOutOfStock) {
   const existingIdx = tempOrderItems.findIndex(i => i.name === productName);
   if (existingIdx >= 0) {
     tempOrderItems.splice(existingIdx, 1);
     if (tempOrderItems.length === 0) tempOrderItems.push({ name: '', qty: 1, price: 0 });
   } else {
+    // Warn if out of stock but allow adding
+    if (isOutOfStock) {
+      const proceed = await appConfirm('No stock in van for <b>' + escHtml(productName) + '</b>.<br>Add to order anyway? You\'ll need to load from warehouse.', true);
+      if (!proceed) return;
+    }
     const price = tempOrderCustomerId != null ? getPrice(tempOrderCustomerId, productName) : (S.catalog.find(c => c.name === productName)?.price || 0);
     const emptyIdx = tempOrderItems.findIndex(i => !i.name);
     if (emptyIdx >= 0) {

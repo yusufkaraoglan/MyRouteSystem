@@ -49,18 +49,19 @@ function renderOrderResults() {
 
   // Sorting logic
   if (S.ordersFilter === 'pending') {
-    // Pending: locked orders first (in their saved order), then unlocked by date
-    const locked = S.ordersLockedOrders || [];
-    const orderMap = new Map(orders.map(o => [o.id, o]));
-    const lockedSet = new Set(locked);
-    const lockedOrders = [];
-    locked.forEach(id => {
-      const o = orderMap.get(id);
-      if (o) lockedOrders.push(o);
-    });
-    const unlockedOrders = orders.filter(o => !lockedSet.has(o.id));
-    unlockedOrders.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-    orders = [...lockedOrders, ...unlockedOrders];
+    // Use custom sort order if available, otherwise sort by date
+    const sortOrder = S.ordersSortOrder || [];
+    if (sortOrder.length > 0) {
+      const posMap = new Map(sortOrder.map((id, i) => [id, i]));
+      orders.sort((a, b) => {
+        const pa = posMap.has(a.id) ? posMap.get(a.id) : 999999;
+        const pb = posMap.has(b.id) ? posMap.get(b.id) : 999999;
+        if (pa !== pb) return pa - pb;
+        return (a.createdAt || '').localeCompare(b.createdAt || '');
+      });
+    } else {
+      orders.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+    }
   } else if (S.ordersFilter === 'delivered') {
     // Delivered: newest delivery first
     orders.sort((a, b) => (b.deliveredAt || '').localeCompare(a.deliveredAt || ''));
@@ -94,17 +95,20 @@ function renderOrderResults() {
       const isDelivered = o.status === 'delivered';
 
       html += `
-        <div class="order-card-v2${isPending ? ' draggable-order' : ''}" data-order-id="${o.id}" ${isPending && !isLocked ? 'draggable="true"' : ''}>
+        <div class="order-card-v2${isPending ? ' draggable-order' : ''}" data-order-id="${o.id}" ${isPending ? 'draggable="true"' : ''}>
           <div class="order-card-v2-header">
-            ${isPending ? `<div class="order-drag-row">
-              <button class="order-lock-btn${isLocked ? ' locked' : ''}" data-id="${escHtml(o.id)}" onclick="event.stopPropagation();toggleOrderLock(this.dataset.id)" title="${isLocked ? 'Unlock' : 'Lock'}">
-                ${isLocked ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>' : '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>'}
-              </button>
-            </div>` : ''}
             <div class="order-card-v2-name" onclick="showProfile(${o.customerId})" style="cursor:pointer">${stop ? escHtml(stop.n) : 'Unknown'}</div>
             ${dayObj ? `<span class="badge" style="background:${dayObj.color}20;color:${dayObj.color};font-size:10px;font-weight:600;flex-shrink:0">${dayObj.week}-${dayObj.label.slice(0,3)}</span>` : ''}
           </div>
           <div class="order-card-v2-items">${(o.items||[]).map(i => `${i.qty}x ${escHtml(i.name)}`).join(', ')}</div>
+          ${o.note ? `<div style="font-size:11px;color:var(--text-sec);font-style:italic;margin-top:2px;padding:0 12px">Note: ${escHtml(o.note)}</div>` : ''}
+          ${isPending ? (() => {
+            const oos = (o.items || []).filter(i => {
+              const cat = getTrackedCatalogItem(i.name);
+              return cat && (cat.stock || 0) < (i.qty || 0);
+            });
+            return oos.length > 0 ? `<div style="font-size:11px;color:var(--danger);margin-top:2px;padding:0 12px">⚠ ${oos.map(i => { const cat = getTrackedCatalogItem(i.name); return escHtml(i.name) + ': ' + (cat ? cat.stock : 0) + ' in van, ' + i.qty + ' needed'; }).join(' · ')}</div>` : '';
+          })() : ''}
           <div class="order-card-v2-footer">
             <span class="order-card-v2-price">${formatCurrency(total)}</span>
             ${isDelivered ? `<span style="font-size:11px;color:var(--text-muted)">${escHtml(o.payMethod || '')} · ${formatDate(o.deliveredAt)}</span>` : ''}
@@ -137,44 +141,30 @@ async function deleteOrderFromList(orderId) {
   await deleteOrder(orderId);
 }
 
-function toggleOrderLock(orderId) {
-  const locked = S.ordersLockedOrders || [];
-  const idx = locked.indexOf(orderId);
-  if (idx >= 0) {
-    locked.splice(idx, 1);
-  } else {
-    locked.push(orderId);
-  }
-  S.ordersLockedOrders = locked;
-  DB.setSetting('ordersLockedOrders', locked);
-  renderOrderResults();
-}
 
 function _applyOrderReorder(list, draggedId, targetId) {
   if (!S.orders[draggedId] || !S.orders[targetId]) return;
 
-  // Update locked order state
-  const locked = S.ordersLockedOrders || [];
-  const filteredLocked = locked.filter(id => id !== draggedId);
-  const targetIdx = filteredLocked.indexOf(targetId);
-  if (targetIdx >= 0) {
-    filteredLocked.splice(targetIdx, 0, draggedId);
-  } else {
-    filteredLocked.push(draggedId);
-  }
-  S.ordersLockedOrders = filteredLocked;
-  DB.setSetting('ordersLockedOrders', filteredLocked);
+  // Build current visible order from DOM
+  const currentIds = Array.from(list.querySelectorAll('.draggable-order')).map(el => el.dataset.orderId);
+  const fromIdx = currentIds.indexOf(draggedId);
+  const toIdx = currentIds.indexOf(targetId);
+  if (fromIdx < 0 || toIdx < 0) return;
+  currentIds.splice(fromIdx, 1);
+  currentIds.splice(toIdx, 0, draggedId);
+
+  // Persist sort order
+  S.ordersSortOrder = currentIds;
+  DB.setSetting('ordersSortOrder', currentIds);
 
   // DOM reorder instead of full re-render
   const draggedCard = list.querySelector(`[data-order-id="${draggedId}"]`);
   const targetCard = list.querySelector(`[data-order-id="${targetId}"]`);
   if (draggedCard && targetCard) {
-    list.insertBefore(draggedCard, targetCard);
-    // Update lock icon on dragged card
-    const lockBtn = draggedCard.querySelector('.order-lock-btn');
-    if (lockBtn && !lockBtn.classList.contains('locked')) {
-      lockBtn.classList.add('locked');
-      lockBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>';
+    if (fromIdx < toIdx) {
+      list.insertBefore(draggedCard, targetCard.nextSibling);
+    } else {
+      list.insertBefore(draggedCard, targetCard);
     }
   }
 }
@@ -239,8 +229,8 @@ function initOrderDragDrop() {
 
   list.addEventListener('touchstart', e => {
     const card = e.target.closest('.draggable-order');
-    if (!card || card.getAttribute('draggable') !== 'true') return;
-    if (e.target.closest('.order-lock-btn') || e.target.closest('.btn')) return;
+    if (!card) return;
+    if (e.target.closest('.btn')) return;
     touchStartY = e.touches[0].clientY;
     touchStartX = e.touches[0].clientX;
     longPressTimer = setTimeout(() => {
