@@ -408,6 +408,54 @@ function saveCatalogEdit(idx) {
     }
   }
   S.catalog[idx] = { ...S.catalog[idx], name, unit, price, stock, trackStock: noStockChecked ? false : true };
+
+  // If product was renamed, cascade the name change to all references
+  if (name !== oldName) {
+    // 1. Orders (pending + delivered) — update item names
+    const changedOrderIds = [];
+    Object.values(S.orders).forEach(o => {
+      (o.items || []).forEach(item => {
+        if (item.name === oldName) { item.name = name; if (!changedOrderIds.includes(o.id)) changedOrderIds.push(o.id); }
+      });
+    });
+    if (changedOrderIds.length > 0) save.orders(changedOrderIds);
+
+    // 2. Customer pricing
+    const pricingChanged = [];
+    Object.entries(S.customerPricing).forEach(([cid, pm]) => {
+      if (pm[oldName] !== undefined) {
+        pm[name] = pm[oldName];
+        delete pm[oldName];
+        pricingChanged.push(cid);
+      }
+    });
+    if (pricingChanged.length > 0) save.pricing();
+
+    // 3. Recurring orders
+    const recurChanged = [];
+    Object.entries(S.recurringOrders).forEach(([cid, data]) => {
+      if (data && data.items) {
+        data.items.forEach(item => {
+          if (item.name === oldName) { item.name = name; if (!recurChanged.includes(cid)) recurChanged.push(cid); }
+        });
+      }
+    });
+    if (recurChanged.length > 0) save.recurringOrders();
+
+    // 4. Customer assigned products
+    let cpChanged = false;
+    Object.values(S.customerProducts).forEach(arr => {
+      if (Array.isArray(arr)) {
+        const idx2 = arr.indexOf(oldName);
+        if (idx2 >= 0) { arr[idx2] = name; cpChanged = true; }
+      }
+    });
+    if (cpChanged) save.customerProducts();
+
+    // 5. Delete old product from DB (new name is saved via save.catalog)
+    DB.deleteProduct(oldName).catch(() => {});
+  }
+
   save.catalog();
   closeModal();
   renderCatalog();
