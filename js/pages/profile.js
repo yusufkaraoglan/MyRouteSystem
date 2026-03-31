@@ -329,6 +329,9 @@ async function deleteOrder(orderId) {
   // Clean up locked orders list
   const lockIdx = (S.ordersLockedOrders || []).indexOf(orderId);
   if (lockIdx >= 0) { S.ordersLockedOrders.splice(lockIdx, 1); DB.setSetting('ordersLockedOrders', S.ordersLockedOrders); }
+  // Clean up sort order
+  const sortIdx = (S.ordersSortOrder || []).indexOf(orderId);
+  if (sortIdx >= 0) { S.ordersSortOrder.splice(sortIdx, 1); DB.setSetting('ordersSortOrder', S.ordersSortOrder); }
 
   const savePromises = [save.orders([orderId])];
   if (stockChange.changed) savePromises.push(save.catalog());
