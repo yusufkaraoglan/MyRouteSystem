@@ -207,13 +207,23 @@ async function flushOfflineQueue() {
         if (ok) { offlineQueue.shift(); retries = 0; }
         else {
           retries++;
-          if (retries >= 3) { offlineQueue.shift(); retries = 0; } // Skip permanently failed ops
+          if (retries >= 10) {
+            console.error('flushOfflineQueue: dropping op after 10 retries:', op.table, op.action);
+            if (typeof showToast === 'function') showToast('A save operation failed permanently. Some data may not have synced to the cloud.', 'error', 8000);
+            if (typeof _lastSaveFailTime !== 'undefined') _lastSaveFailTime = Date.now();
+            offlineQueue.shift(); retries = 0;
+          }
           else { await new Promise(r => setTimeout(r, 2000)); } // Wait before retry instead of breaking
         }
       } catch (e) {
         console.warn('flushOfflineQueue error:', e.message);
         retries++;
-        if (retries >= 3) { offlineQueue.shift(); retries = 0; }
+        if (retries >= 10) {
+          console.error('flushOfflineQueue: dropping op after 10 retries:', op.table, op.action);
+          if (typeof showToast === 'function') showToast('A save operation failed permanently. Some data may not have synced to the cloud.', 'error', 8000);
+          if (typeof _lastSaveFailTime !== 'undefined') _lastSaveFailTime = Date.now();
+          offlineQueue.shift(); retries = 0;
+        }
         else { await new Promise(r => setTimeout(r, 2000)); }
       }
     }
