@@ -31,6 +31,7 @@ let deliveryStopId = null;
 let deliveryPayMethod = null;
 let deliveryOrderIds = null;
 let _savePending = 0; // count of in-flight Supabase writes
+let _lastSaveFailTime = 0; // timestamp of most recent save failure — prevents sync from overwriting newer local data
 let profilePreviousPage = 'customers';
 let leafletMap = null;
 let mapMarkers = [];
@@ -168,11 +169,13 @@ async function _persist(cacheKey, data, supabaseWrite) {
         if (failed.length > 0) {
           console.warn(`save ${cacheKey}: ${failed.length}/${result.length} write(s) failed`);
           if (typeof showToast === 'function') showToast(`Save failed (${failed.length} error${failed.length > 1 ? 's' : ''})`, 'error', 4000);
+          _lastSaveFailTime = Date.now();
         }
       }
     } catch (e) {
       console.warn(`save ${cacheKey}: Supabase write failed`, e.message);
       if (typeof showToast === 'function') showToast(`Save failed: ${cacheKey}`, 'error', 3000);
+      _lastSaveFailTime = Date.now();
     } finally {
       _savePending--;
       _updateSaveIndicator();
@@ -573,7 +576,7 @@ async function init() {
   let _syncInProgress = false;
   let _lastSyncHash = '';
   const doSync = async () => {
-    if (_syncInProgress || _savePending > 0 || offlineQueue.length > 0) return;
+    if (_syncInProgress || _savePending > 0 || offlineQueue.length > 0 || (Date.now() - _lastSaveFailTime < 10 * 60 * 1000)) return;
     // Re-check DB readiness periodically in case tables were created
     if (!_dbReady) { await checkDbTables(); if (!_dbReady) return; }
     _syncInProgress = true;
@@ -588,7 +591,7 @@ async function init() {
         const pricing = cacheGet('customer_pricing', null);
         const newHash = JSON.stringify([
           customers ? customers.length : 0,
-          orders ? Object.keys(orders).length : 0,
+          orders ? Object.values(orders).map(o => o.id + ':' + o.status).sort().join(',') : '',
           debts ? JSON.stringify(debts) : '{}',
           customers ? customers.map(c => c.name + c.note + (c.address||'')).join('') : '',
           assignments ? JSON.stringify(assignments) : '{}',

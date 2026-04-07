@@ -700,19 +700,8 @@ async function confirmDelivery() {
     }
 
     const deliveryNote = document.getElementById('delivery-note')?.value?.trim() || '';
-    pending.forEach(o => {
-      o.status = 'delivered';
-      o.deliveredAt = now;
-      o.payMethod = deliveryPayMethod;
-      if (deliveryNote) o.deliveryNote = deliveryNote;
-      if (deliveryPayMethod === 'cash') {
-        o.cashPaid = cashAllocations.get(o.id) || 0;
-      } else {
-        delete o.cashPaid;
-      }
-    });
 
-    // Check stock availability before delivery
+    // Check stock availability BEFORE mutating any state
     const stockShortages = [];
     const deliveryQtyMap = {};
     pending.forEach(o => {
@@ -732,6 +721,19 @@ async function confirmDelivery() {
       const proceed = await appConfirm('Stock shortage:<br>' + stockShortages.map(s => escHtml(s)).join('<br>') + '<br><br>Deliver anyway? Stock will go negative.', true);
       if (!proceed) return;
     }
+
+    // Now safe to mutate order state — user has confirmed
+    pending.forEach(o => {
+      o.status = 'delivered';
+      o.deliveredAt = now;
+      o.payMethod = deliveryPayMethod;
+      if (deliveryNote) o.deliveryNote = deliveryNote;
+      if (deliveryPayMethod === 'cash') {
+        o.cashPaid = cashAllocations.get(o.id) || 0;
+      } else {
+        delete o.cashPaid;
+      }
+    });
 
     // Deduct stock on delivery
     let stockChanged = false;
@@ -762,7 +764,11 @@ async function confirmDelivery() {
       DB.setSetting('ordersSortOrder', S.ordersSortOrder);
     }
 
-    await Promise.allSettled(savePromises);
+    const saveResults = await Promise.allSettled(savePromises);
+    const saveFailed = saveResults.some(r => r.status === 'rejected' || (r.status === 'fulfilled' && r.value === null));
+    if (saveFailed) {
+      showToast('Delivery saved locally but cloud sync had errors. Will retry automatically.', 'warning', 5000);
+    }
 
     closeModal();
     if (curPage === 'orders') renderOrders();
