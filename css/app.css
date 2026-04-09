@@ -46,7 +46,7 @@ a{text-decoration:none;color:inherit}
 .topbar{display:flex;align-items:center;justify-content:space-between;height:var(--topbar-h);padding:0 16px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0;z-index:10}
 .topbar h1{font-size:18px;font-weight:700}
 .topbar-actions{display:flex;gap:8px;align-items:center}
-.page-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px 16px}
+.page-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px 88px}
 
 /* === BOTTOM NAV === */
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;height:calc(var(--nav-h) + var(--safe-b));padding-bottom:var(--safe-b);background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;z-index:100}
