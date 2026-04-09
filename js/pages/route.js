@@ -444,15 +444,15 @@ function calcDayRevenue(dayId) {
     const total = calcOrderTotal(o);
     if (o.payMethod === 'cash') {
       const paid = (o.cashPaid !== undefined) ? o.cashPaid : total;
-      cash += Math.min(paid, total);
-      unpaid += Math.max(0, total - paid);
+      cash = roundMoney(cash + Math.min(paid, total));
+      unpaid = roundMoney(unpaid + Math.max(0, total - paid));
     } else if (o.payMethod === 'bank') {
-      bank += total;
+      bank = roundMoney(bank + total);
     } else {
-      unpaid += total;
+      unpaid = roundMoney(unpaid + total);
     }
   });
-  return { cash, bank, unpaid, total: cash + bank + unpaid };
+  return { cash, bank, unpaid, total: roundMoney(cash + bank + unpaid) };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -833,29 +833,29 @@ function showDayCashSummary() {
       const total = calcOrderTotal(o);
       if (o.payMethod === 'cash') {
         const paid = (o.cashPaid !== undefined) ? Math.min(o.cashPaid, total) : total;
-        custCash += paid;
-        custUnpaid += Math.max(0, total - paid);
+        custCash = roundMoney(custCash + paid);
+        custUnpaid = roundMoney(custUnpaid + Math.max(0, total - paid));
         cashCount++;
       } else if (o.payMethod === 'bank') {
-        custBank += total;
+        custBank = roundMoney(custBank + total);
         bankCount++;
       } else {
-        custUnpaid += total;
+        custUnpaid = roundMoney(custUnpaid + total);
         unpaidCount++;
       }
     });
-    cashTotal += custCash;
-    bankTotal += custBank;
-    unpaidTotal += custUnpaid;
+    cashTotal = roundMoney(cashTotal + custCash);
+    bankTotal = roundMoney(bankTotal + custBank);
+    unpaidTotal = roundMoney(unpaidTotal + custUnpaid);
     customerBreakdown.push({
       name: stop ? stop.n : 'Unknown',
       cash: custCash, bank: custBank, unpaid: custUnpaid,
-      total: custCash + custBank + custUnpaid
+      total: roundMoney(custCash + custBank + custUnpaid)
     });
   });
 
   customerBreakdown.sort((a, b) => b.total - a.total);
-  const grandTotal = cashTotal + bankTotal + unpaidTotal;
+  const grandTotal = roundMoney(cashTotal + bankTotal + unpaidTotal);
 
   // Also count debt payments collected today for these customers
   let debtCollected = 0;
@@ -863,7 +863,7 @@ function showDayCashSummary() {
     const dh = S.debtHistory[cid] || [];
     dh.forEach(h => {
       if (h.type === 'clear' && h.date && h.date.slice(0, 10) === todayStr()) {
-        debtCollected += h.amount;
+        debtCollected = roundMoney(debtCollected + h.amount);
       }
     });
   });
