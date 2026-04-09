@@ -456,6 +456,7 @@ const DB = {
       await dbDelete('route_order', { day_id: dayId });
     }
     delete _memCacheTs['route_order'];
+    return true;
   },
 
   // -- Orders --
@@ -490,21 +491,23 @@ const DB = {
     }, 'id');
     if (!ok) {
       if (typeof dbLog === 'function') dbLog(`saveOrder ${order.id} FAILED at upsert (status=${order.status})`);
-      return;
+      return null;
     }
     // Replace order items — delete old first, then insert new
-    await dbDelete('order_items', { order_id: order.id });
+    const deleted = await dbDelete('order_items', { order_id: order.id });
     const newItems = (order.items || []).map(i => ({
       order_id: order.id, product_name: i.name, qty: i.qty, price: i.price
     }));
     if (newItems.length > 0) {
       const insertOk = await dbInsert('order_items', newItems);
-      if (!insertOk && typeof dbLog === 'function') {
-        dbLog(`saveOrder ${order.id} FAILED: items insert failed`);
+      if (!insertOk) {
+        if (typeof dbLog === 'function') dbLog(`saveOrder ${order.id} FAILED: items insert failed`);
+        return null;
       }
     }
     delete _memCacheTs['orders'];
     if (typeof dbLog === 'function') dbLog(`saveOrder OK: ${order.id} status=${order.status}`);
+    return true;
   },
 
   async deleteOrder(orderId) {
@@ -557,7 +560,7 @@ const DB = {
     const deleted = await dbDelete('debt_history', { customer_id: customerId });
     if (!deleted) {
       console.warn(`replaceDebtHistory ${customerId}: delete failed, skipping insert to prevent duplicates`);
-      return;
+      return null;
     }
     if (entries && entries.length > 0) {
       const rows = entries.map(e => ({
@@ -568,10 +571,12 @@ const DB = {
         created_at: e.date || new Date().toISOString()
       }));
       const ok = await dbInsert('debt_history', rows);
-      if (!ok && typeof dbLog === 'function') {
-        dbLog(`replaceDebtHistory ${customerId} FAILED: insert failed`);
+      if (!ok) {
+        if (typeof dbLog === 'function') dbLog(`replaceDebtHistory ${customerId} FAILED: insert failed`);
+        return null;
       }
     }
+    return true;
   },
 
   async deleteDebtHistoryEntry(entryId) {
@@ -593,7 +598,7 @@ const DB = {
       const m = {};
       rows.forEach(r => {
         if (!m[r.customer_id]) m[r.customer_id] = {};
-        m[r.customer_id][r.product_name] = parseFloat(r.price);
+        m[r.customer_id][r.product_name] = parseFloat(r.price) || 0;
       });
       return m;
     }
@@ -624,6 +629,7 @@ const DB = {
       await dbDelete('customer_pricing', { customer_id: customerId });
     }
     delete _memCacheTs['customer_pricing'];
+    return true;
   },
 
   // -- Recurring Orders --

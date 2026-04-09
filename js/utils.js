@@ -363,6 +363,9 @@ function getOrderDebtNote(order) {
 function addOrderDebtEffect(order) {
   const impact = getOrderDebtImpact(order);
   if (impact <= 0) { order.debtEntryIds = []; return 0; }
+  // Prevent double debt if order was already delivered (reverted-then-redelivered scenario)
+  const existingHistory = S.debtHistory[order.customerId] || [];
+  if (existingHistory.some(h => h.orderId === order.id && h.type === 'add')) return 0;
   const entry = createDebtHistoryEntry(order.customerId, {
     date: order.deliveredAt || new Date().toISOString(),
     amount: impact, type: 'add',
@@ -508,6 +511,7 @@ function getCommittedStock() {
   const committed = {};
   Object.values(S.orders).forEach(o => {
     if (o.status !== 'pending') return;
+    if (o._stockDeducted) return; // already deducted, don't double-count
     (o.items || []).forEach(item => {
       if (!item || !item.name) return;
       const catItem = getTrackedCatalogItem(item.name);

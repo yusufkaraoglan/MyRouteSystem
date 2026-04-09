@@ -258,14 +258,19 @@ const save = {
     );
   },
   debtHistory: (changedCustomerIds) => {
-    Object.values(S.debtHistory).forEach(entries => {
-      if (Array.isArray(entries)) entries.forEach(e => delete e._new);
-    });
     const ids = Array.isArray(changedCustomerIds) && changedCustomerIds.length > 0
       ? changedCustomerIds : [];
-    return _persist('debt_history', { ...S.debtHistory }, () =>
-      Promise.allSettled(ids.map(cid => DB.replaceDebtHistory(cid, S.debtHistory[cid] || [])))
-    );
+    return _persist('debt_history', { ...S.debtHistory }, async () => {
+      const results = await Promise.allSettled(ids.map(cid => DB.replaceDebtHistory(cid, S.debtHistory[cid] || [])));
+      // Only clear _new flags after successful write
+      const allOk = results.every(r => r.status === 'fulfilled' && r.value !== null);
+      if (allOk) {
+        Object.values(S.debtHistory).forEach(entries => {
+          if (Array.isArray(entries)) entries.forEach(e => delete e._new);
+        });
+      }
+      return results;
+    });
   },
   cnotes: () => { return save.stops(); },
   catalog: () => {
