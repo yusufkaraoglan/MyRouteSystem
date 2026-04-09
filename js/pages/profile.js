@@ -334,6 +334,7 @@ async function deleteOrder(orderId) {
   }
   const debtChanged = reconcileOrderDebtEffect(order, null);
   delete S.orders[orderId];
+  invalidateCommittedStockCache();
   // Clean up locked orders list
   const lockIdx = (S.ordersLockedOrders || []).indexOf(orderId);
   if (lockIdx >= 0) { S.ordersLockedOrders.splice(lockIdx, 1); DB.setSetting('ordersLockedOrders', S.ordersLockedOrders); }

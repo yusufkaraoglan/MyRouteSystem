@@ -742,6 +742,7 @@ async function confirmDelivery() {
         delete o.cashPaid;
       }
     });
+    invalidateCommittedStockCache();
 
     // Deduct stock on delivery (skip if already deducted — prevents double deduction
     // when an order reverts to pending after a failed sync and is delivered again)
