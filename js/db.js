@@ -208,10 +208,12 @@ async function flushOfflineQueue() {
         else {
           retries++;
           if (retries >= 10) {
-            console.error('flushOfflineQueue: dropping op after 10 retries:', op.table, op.action);
-            if (typeof showToast === 'function') showToast('A save operation failed permanently. Some data may not have synced to the cloud.', 'error', 8000);
+            // Stop retrying but KEEP item in queue — protects cache via _hasPendingWrites.
+            // Retry resumes on next online event or periodic flush.
+            console.warn('flushOfflineQueue: pausing after 10 retries:', op.table, op.action);
+            if (typeof showToast === 'function') showToast('Some changes are waiting to sync. Check your connection.', 'warning', 5000);
             if (typeof _lastSaveFailTime !== 'undefined') _lastSaveFailTime = Date.now();
-            offlineQueue.shift(); retries = 0;
+            break;
           }
           else { await new Promise(r => setTimeout(r, 2000)); } // Wait before retry instead of breaking
         }
@@ -219,10 +221,10 @@ async function flushOfflineQueue() {
         console.warn('flushOfflineQueue error:', e.message);
         retries++;
         if (retries >= 10) {
-          console.error('flushOfflineQueue: dropping op after 10 retries:', op.table, op.action);
-          if (typeof showToast === 'function') showToast('A save operation failed permanently. Some data may not have synced to the cloud.', 'error', 8000);
+          console.warn('flushOfflineQueue: pausing after 10 retries:', op.table, op.action);
+          if (typeof showToast === 'function') showToast('Some changes are waiting to sync. Check your connection.', 'warning', 5000);
           if (typeof _lastSaveFailTime !== 'undefined') _lastSaveFailTime = Date.now();
-          offlineQueue.shift(); retries = 0;
+          break;
         }
         else { await new Promise(r => setTimeout(r, 2000)); }
       }
