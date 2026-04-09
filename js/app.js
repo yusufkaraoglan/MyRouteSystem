@@ -262,13 +262,14 @@ const save = {
       ? changedCustomerIds : [];
     return _persist('debt_history', { ...S.debtHistory }, async () => {
       const results = await Promise.allSettled(ids.map(cid => DB.replaceDebtHistory(cid, S.debtHistory[cid] || [])));
-      // Only clear _new flags after successful write
-      const allOk = results.every(r => r.status === 'fulfilled' && r.value !== null);
-      if (allOk) {
-        Object.values(S.debtHistory).forEach(entries => {
+      // Clear _new flags only for customers whose save succeeded (per-customer)
+      ids.forEach((cid, i) => {
+        const r = results[i];
+        if (r && r.status === 'fulfilled' && r.value !== null) {
+          const entries = S.debtHistory[cid];
           if (Array.isArray(entries)) entries.forEach(e => delete e._new);
-        });
-      }
+        }
+      });
       return results;
     });
   },

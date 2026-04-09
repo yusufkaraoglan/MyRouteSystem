@@ -378,7 +378,7 @@ function updateStockPreview(idx) {
   }
 }
 
-function saveCatalogEdit(idx) {
+async function saveCatalogEdit(idx) {
   const name = document.getElementById('cat-edit-name-' + idx).value.trim();
   const unit = document.getElementById('cat-edit-unit-' + idx).value.trim();
   const price = parseFloat(document.getElementById('cat-edit-price-' + idx).value) || 0;
@@ -419,7 +419,8 @@ function saveCatalogEdit(idx) {
         if (item.name === oldName) { item.name = name; if (!changedOrderIds.includes(o.id)) changedOrderIds.push(o.id); }
       });
     });
-    if (changedOrderIds.length > 0) save.orders(changedOrderIds);
+    const cascadeSaves = [];
+    if (changedOrderIds.length > 0) cascadeSaves.push(save.orders(changedOrderIds));
 
     // 2. Customer pricing
     const pricingChanged = [];
@@ -430,7 +431,7 @@ function saveCatalogEdit(idx) {
         pricingChanged.push(cid);
       }
     });
-    if (pricingChanged.length > 0) save.pricing();
+    if (pricingChanged.length > 0) cascadeSaves.push(save.pricing());
 
     // 3. Recurring orders
     const recurChanged = [];
@@ -441,7 +442,7 @@ function saveCatalogEdit(idx) {
         });
       }
     });
-    if (recurChanged.length > 0) save.recurringOrders();
+    if (recurChanged.length > 0) cascadeSaves.push(save.recurringOrders());
 
     // 4. Customer assigned products
     let cpChanged = false;
@@ -451,13 +452,14 @@ function saveCatalogEdit(idx) {
         if (idx2 >= 0) { arr[idx2] = name; cpChanged = true; }
       }
     });
-    if (cpChanged) save.customerProducts();
+    if (cpChanged) cascadeSaves.push(save.customerProducts());
 
     // 5. Delete old product from DB (new name is saved via save.catalog)
-    DB.deleteProduct(oldName).catch(() => {});
+    cascadeSaves.push(DB.deleteProduct(oldName).catch(() => {}));
+    await Promise.allSettled(cascadeSaves);
   }
 
-  save.catalog();
+  await save.catalog();
   closeModal();
   renderCatalog();
 }
@@ -484,7 +486,16 @@ async function removeCatalogItem(idx) {
   if (!(await appConfirm('Remove ' + escHtml(c.name) + '?'))) return;
   const name = c.name;
   S.catalog.splice(idx, 1);
+  // Clean up customer product assignments referencing this product
+  let cpChanged = false;
+  Object.entries(S.customerProducts).forEach(([cid, arr]) => {
+    if (Array.isArray(arr)) {
+      const i = arr.indexOf(name);
+      if (i >= 0) { arr.splice(i, 1); cpChanged = true; }
+    }
+  });
   save.catalog();
+  if (cpChanged) save.customerProducts();
   DB.deleteProduct(name).catch(() => {});
   closeModal();
   if (curPage === 'catalog') renderCatalog();
@@ -681,15 +692,16 @@ async function autoCreateRecurringOrders() {
       items: rec.items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
       note: 'Automatic recurring order',
       status: 'pending', payMethod: null,
+      deliveryDate: todayStr(),
       createdAt: new Date().toISOString(), deliveredAt: null
     };
     created++;
     createdIds.push(id);
   });
   if (created > 0) {
-    save.orders(createdIds);
+    await save.orders(createdIds);
   }
-  DB.setSetting('lastAutoRecurring', today + '_' + dayId);
+  await DB.setSetting('lastAutoRecurring', today + '_' + dayId);
 }
 
 // ══════════════════════════════════════════════════════════════

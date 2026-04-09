@@ -104,13 +104,14 @@ function renderOrderResults() {
           <div class="order-card-v2-items">${(o.items||[]).map(i => `${i.qty}x ${escHtml(i.name)}`).join(', ')}</div>
           ${o.note ? `<div style="font-size:11px;color:var(--text-sec);font-style:italic;margin-top:2px;padding:0 12px">Note: ${escHtml(o.note)}</div>` : ''}
           ${isPending ? (() => {
-            const oos = (o.items || []).filter(i => {
-              const cat = getTrackedCatalogItem(i.name);
+            // Sum qty per product for this order (handles duplicate product lines)
+            const orderQtyMap = buildItemQtyMap(o.items);
+            const oos = Object.entries(orderQtyMap).filter(([name, qty]) => {
+              const cat = getTrackedCatalogItem(name);
               if (!cat) return false;
-              const avail = (cat.stock || 0) - (_committed[i.name] || 0);
-              return avail < (i.qty || 0);
+              return (cat.stock || 0) < qty;
             });
-            return oos.length > 0 ? `<div style="font-size:11px;color:var(--danger);margin-top:2px;padding:0 12px">⚠ ${oos.map(i => { const cat = getTrackedCatalogItem(i.name); const avail = (cat ? cat.stock : 0) - (_committed[i.name] || 0); return escHtml(i.name) + ': ' + Math.max(0, avail) + ' available, ' + i.qty + ' needed'; }).join(' · ')}</div>` : '';
+            return oos.length > 0 ? `<div style="font-size:11px;color:var(--danger);margin-top:2px;padding:0 12px">⚠ ${oos.map(([name, qty]) => { const cat = getTrackedCatalogItem(name); return escHtml(name) + ': ' + (cat ? cat.stock : 0) + ' in van, ' + qty + ' needed'; }).join(' · ')}</div>` : '';
           })() : ''}
           <div class="order-card-v2-footer">
             <span class="order-card-v2-price">${formatCurrency(total)}</span>
@@ -357,7 +358,7 @@ async function saveOrder() {
   if (isDelivered) {
     const stockChange = applyTrackedStockChange(previousItems, items);
     if (stockChange.changed) {
-      save.catalog();
+      await save.catalog();
       if (stockChange.lowStockWarnings.length > 0) {
         setTimeout(() => appAlert('Low stock:<br>' + stockChange.lowStockWarnings.map(w => escHtml(w)).join('<br>'), true), 300);
       }
