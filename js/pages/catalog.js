@@ -378,7 +378,7 @@ function updateStockPreview(idx) {
   }
 }
 
-function saveCatalogEdit(idx) {
+async function saveCatalogEdit(idx) {
   const name = document.getElementById('cat-edit-name-' + idx).value.trim();
   const unit = document.getElementById('cat-edit-unit-' + idx).value.trim();
   const price = parseFloat(document.getElementById('cat-edit-price-' + idx).value) || 0;
@@ -419,7 +419,8 @@ function saveCatalogEdit(idx) {
         if (item.name === oldName) { item.name = name; if (!changedOrderIds.includes(o.id)) changedOrderIds.push(o.id); }
       });
     });
-    if (changedOrderIds.length > 0) save.orders(changedOrderIds);
+    const cascadeSaves = [];
+    if (changedOrderIds.length > 0) cascadeSaves.push(save.orders(changedOrderIds));
 
     // 2. Customer pricing
     const pricingChanged = [];
@@ -430,7 +431,7 @@ function saveCatalogEdit(idx) {
         pricingChanged.push(cid);
       }
     });
-    if (pricingChanged.length > 0) save.pricing();
+    if (pricingChanged.length > 0) cascadeSaves.push(save.pricing());
 
     // 3. Recurring orders
     const recurChanged = [];
@@ -441,7 +442,7 @@ function saveCatalogEdit(idx) {
         });
       }
     });
-    if (recurChanged.length > 0) save.recurringOrders();
+    if (recurChanged.length > 0) cascadeSaves.push(save.recurringOrders());
 
     // 4. Customer assigned products
     let cpChanged = false;
@@ -451,13 +452,14 @@ function saveCatalogEdit(idx) {
         if (idx2 >= 0) { arr[idx2] = name; cpChanged = true; }
       }
     });
-    if (cpChanged) save.customerProducts();
+    if (cpChanged) cascadeSaves.push(save.customerProducts());
 
     // 5. Delete old product from DB (new name is saved via save.catalog)
-    DB.deleteProduct(oldName).catch(() => {});
+    cascadeSaves.push(DB.deleteProduct(oldName).catch(() => {}));
+    await Promise.allSettled(cascadeSaves);
   }
 
-  save.catalog();
+  await save.catalog();
   closeModal();
   renderCatalog();
 }
@@ -696,9 +698,9 @@ async function autoCreateRecurringOrders() {
     createdIds.push(id);
   });
   if (created > 0) {
-    save.orders(createdIds);
+    await save.orders(createdIds);
   }
-  DB.setSetting('lastAutoRecurring', today + '_' + dayId);
+  await DB.setSetting('lastAutoRecurring', today + '_' + dayId);
 }
 
 // ══════════════════════════════════════════════════════════════

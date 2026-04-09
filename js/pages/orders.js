@@ -358,7 +358,7 @@ async function saveOrder() {
   if (isDelivered) {
     const stockChange = applyTrackedStockChange(previousItems, items);
     if (stockChange.changed) {
-      save.catalog();
+      await save.catalog();
       if (stockChange.lowStockWarnings.length > 0) {
         setTimeout(() => appAlert('Low stock:<br>' + stockChange.lowStockWarnings.map(w => escHtml(w)).join('<br>'), true), 300);
       }

@@ -177,19 +177,19 @@ function showMapAssignModal(stopId) {
   openModal(html);
 }
 
-function mapAssignDay(dayId) {
+async function mapAssignDay(dayId) {
   if (mapAssignStopId == null) return;
   S.assign[mapAssignStopId] = dayId;
-  save.assign();
+  await save.assign();
   mapAssignStopId = null;
   closeModal();
   refreshMapMarkers();
 }
 
-function mapUnassignDay() {
+async function mapUnassignDay() {
   if (mapAssignStopId == null) return;
   delete S.assign[mapAssignStopId];
-  save.assign();
+  await save.assign();
   mapAssignStopId = null;
   closeModal();
   refreshMapMarkers();
