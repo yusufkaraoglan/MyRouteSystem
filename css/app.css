@@ -155,7 +155,7 @@ body.modal-open .page{touch-action:none}
 .order-card-v2-footer{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .order-card-v2-price{font-weight:700;font-size:16px;white-space:nowrap}
 .order-card-v2-actions{display:flex;gap:6px}
-.order-card-v2-actions .btn-sm{padding:6px 14px;font-size:13px;min-height:40px}
+.order-card-v2-actions .btn-sm{padding:6px 14px;font-size:13px;min-height:44px}
 .order-lock-btn{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:all .15s;flex-shrink:0}
 .order-lock-btn.locked{background:var(--primary-light);border-color:var(--primary);color:var(--primary)}
 .order-card-v2.drag-over{border-top:2px solid var(--primary);margin-top:-2px}

@@ -692,6 +692,7 @@ async function autoCreateRecurringOrders() {
       items: rec.items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
       note: 'Automatic recurring order',
       status: 'pending', payMethod: null,
+      deliveryDate: todayStr(),
       createdAt: new Date().toISOString(), deliveredAt: null
     };
     created++;
