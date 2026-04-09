@@ -60,7 +60,7 @@ async function _loadQueueFromIDB() {
     db.close();
     if (items && items.length > 0) {
       items.forEach(item => { delete item._idbId; offlineQueue.push(item); });
-      console.log('Loaded', items.length, 'pending operations from IndexedDB');
+      console.debug('Loaded', items.length, 'pending operations from IndexedDB');
     }
   } catch (e) { console.warn('_loadQueueFromIDB:', e.message); }
 }
@@ -208,10 +208,12 @@ async function flushOfflineQueue() {
         else {
           retries++;
           if (retries >= 10) {
-            console.error('flushOfflineQueue: dropping op after 10 retries:', op.table, op.action);
-            if (typeof showToast === 'function') showToast('A save operation failed permanently. Some data may not have synced to the cloud.', 'error', 8000);
+            // Stop retrying but KEEP item in queue — protects cache via _hasPendingWrites.
+            // Retry resumes on next online event or periodic flush.
+            console.warn('flushOfflineQueue: pausing after 10 retries:', op.table, op.action);
+            if (typeof showToast === 'function') showToast('Some changes are waiting to sync. Check your connection.', 'warning', 5000);
             if (typeof _lastSaveFailTime !== 'undefined') _lastSaveFailTime = Date.now();
-            offlineQueue.shift(); retries = 0;
+            break;
           }
           else { await new Promise(r => setTimeout(r, 2000)); } // Wait before retry instead of breaking
         }
@@ -219,10 +221,10 @@ async function flushOfflineQueue() {
         console.warn('flushOfflineQueue error:', e.message);
         retries++;
         if (retries >= 10) {
-          console.error('flushOfflineQueue: dropping op after 10 retries:', op.table, op.action);
-          if (typeof showToast === 'function') showToast('A save operation failed permanently. Some data may not have synced to the cloud.', 'error', 8000);
+          console.warn('flushOfflineQueue: pausing after 10 retries:', op.table, op.action);
+          if (typeof showToast === 'function') showToast('Some changes are waiting to sync. Check your connection.', 'warning', 5000);
           if (typeof _lastSaveFailTime !== 'undefined') _lastSaveFailTime = Date.now();
-          offlineQueue.shift(); retries = 0;
+          break;
         }
         else { await new Promise(r => setTimeout(r, 2000)); }
       }
@@ -304,6 +306,27 @@ function dedupeDebtHistory(entries) {
   });
 }
 
+// ── Pending writes check ─────────────────────────────────
+// Maps cache keys to Supabase table names so we can detect if the offline queue
+// has unsynced writes. When writes are pending, sync must NOT overwrite local cache.
+const _cacheToTables = {
+  orders: ['orders', 'order_items'],
+  products: ['products'],
+  debts: ['debts'],
+  debt_history: ['debt_history'],
+  customers: ['customers'],
+  assignments: ['assignments'],
+  route_order: ['route_order'],
+  customer_pricing: ['customer_pricing'],
+  recurring_orders: ['recurring_orders'],
+  app_settings: ['app_settings']
+};
+
+function _hasPendingWrites(cacheKey) {
+  const tables = _cacheToTables[cacheKey] || [];
+  return offlineQueue.some(op => tables.includes(op.table));
+}
+
 // ── Cache-aware fetch helper ─────────────────────────────
 // Fetches from Supabase when cache is stale. When fetch fails (returns null),
 // falls back to cached data. When fetch succeeds with empty results, that is
@@ -312,6 +335,8 @@ function _fetchOrCache(cacheKey, fallback, fetchFn, transformFn) {
   return async function () {
     const cached = cacheGet(cacheKey, null);
     if (cached && cacheIsFresh(cacheKey)) return cached;
+    // Don't overwrite local cache if there are unsynced writes for this data
+    if (cached && _hasPendingWrites(cacheKey)) return cached;
     const rows = await fetchFn();
     if (!rows) return cached || fallback; // fetch failed entirely — keep cached data
     const data = transformFn ? transformFn(rows) : rows;
@@ -433,6 +458,7 @@ const DB = {
       await dbDelete('route_order', { day_id: dayId });
     }
     delete _memCacheTs['route_order'];
+    return true;
   },
 
   // -- Orders --
@@ -467,21 +493,23 @@ const DB = {
     }, 'id');
     if (!ok) {
       if (typeof dbLog === 'function') dbLog(`saveOrder ${order.id} FAILED at upsert (status=${order.status})`);
-      return;
+      return null;
     }
     // Replace order items — delete old first, then insert new
-    await dbDelete('order_items', { order_id: order.id });
+    const deleted = await dbDelete('order_items', { order_id: order.id });
     const newItems = (order.items || []).map(i => ({
       order_id: order.id, product_name: i.name, qty: i.qty, price: i.price
     }));
     if (newItems.length > 0) {
       const insertOk = await dbInsert('order_items', newItems);
-      if (!insertOk && typeof dbLog === 'function') {
-        dbLog(`saveOrder ${order.id} FAILED: items insert failed`);
+      if (!insertOk) {
+        if (typeof dbLog === 'function') dbLog(`saveOrder ${order.id} FAILED: items insert failed`);
+        return null;
       }
     }
     delete _memCacheTs['orders'];
     if (typeof dbLog === 'function') dbLog(`saveOrder OK: ${order.id} status=${order.status}`);
+    return true;
   },
 
   async deleteOrder(orderId) {
@@ -534,7 +562,7 @@ const DB = {
     const deleted = await dbDelete('debt_history', { customer_id: customerId });
     if (!deleted) {
       console.warn(`replaceDebtHistory ${customerId}: delete failed, skipping insert to prevent duplicates`);
-      return;
+      return null;
     }
     if (entries && entries.length > 0) {
       const rows = entries.map(e => ({
@@ -545,10 +573,12 @@ const DB = {
         created_at: e.date || new Date().toISOString()
       }));
       const ok = await dbInsert('debt_history', rows);
-      if (!ok && typeof dbLog === 'function') {
-        dbLog(`replaceDebtHistory ${customerId} FAILED: insert failed`);
+      if (!ok) {
+        if (typeof dbLog === 'function') dbLog(`replaceDebtHistory ${customerId} FAILED: insert failed`);
+        return null;
       }
     }
+    return true;
   },
 
   async deleteDebtHistoryEntry(entryId) {
@@ -570,7 +600,7 @@ const DB = {
       const m = {};
       rows.forEach(r => {
         if (!m[r.customer_id]) m[r.customer_id] = {};
-        m[r.customer_id][r.product_name] = parseFloat(r.price);
+        m[r.customer_id][r.product_name] = parseFloat(r.price) || 0;
       });
       return m;
     }
@@ -601,6 +631,7 @@ const DB = {
       await dbDelete('customer_pricing', { customer_id: customerId });
     }
     delete _memCacheTs['customer_pricing'];
+    return true;
   },
 
   // -- Recurring Orders --

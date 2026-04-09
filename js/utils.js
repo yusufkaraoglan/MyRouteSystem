@@ -230,14 +230,19 @@ function getStop(id) {
   return STOPS.find(s => Number(s.id) === numId);
 }
 
-// Cached index: customerId -> [orderId, ...]
+// Cached index: customerId -> [order, ...]
 let _ordersByCustomer = null;
 let _ordersByCustomerHash = '';
+let _ordersByCustomerRef = null; // track S.orders object identity to detect wholesale replacement
 
 function _getOrdersByCustomerIndex() {
   const keys = Object.keys(S.orders);
   const hash = keys.length + ':' + (keys[0] || '') + ':' + (keys[keys.length - 1] || '');
-  if (_ordersByCustomer && _ordersByCustomerHash === hash) return _ordersByCustomer;
+  // Invalidate cache if S.orders was replaced (e.g. by loadStateFromDB) or keys changed
+  if (_ordersByCustomer && _ordersByCustomerHash === hash && _ordersByCustomerRef === S.orders) {
+    return _ordersByCustomer;
+  }
+  _ordersByCustomerRef = S.orders;
   _ordersByCustomer = {};
   keys.forEach(id => {
     const o = S.orders[id];
@@ -358,6 +363,9 @@ function getOrderDebtNote(order) {
 function addOrderDebtEffect(order) {
   const impact = getOrderDebtImpact(order);
   if (impact <= 0) { order.debtEntryIds = []; return 0; }
+  // Prevent double debt if order was already delivered (reverted-then-redelivered scenario)
+  const existingHistory = S.debtHistory[order.customerId] || [];
+  if (existingHistory.some(h => h.orderId === order.id && h.type === 'add')) return 0;
   const entry = createDebtHistoryEntry(order.customerId, {
     date: order.deliveredAt || new Date().toISOString(),
     amount: impact, type: 'add',
@@ -499,10 +507,22 @@ function getPrice(stopId, productName) {
 
 // ── Committed Stock (pending orders) ─────────────────────
 
+let _committedStockCache = null;
+let _committedStockRef = null;
+let _committedStockLen = 0;
+
 function getCommittedStock() {
+  // Memoize: reuse cache if S.orders hasn't been replaced or resized
+  const keys = Object.keys(S.orders);
+  if (_committedStockCache && _committedStockRef === S.orders && _committedStockLen === keys.length) {
+    return _committedStockCache;
+  }
+  _committedStockRef = S.orders;
+  _committedStockLen = keys.length;
   const committed = {};
   Object.values(S.orders).forEach(o => {
     if (o.status !== 'pending') return;
+    if (o._stockDeducted) return; // already deducted, don't double-count
     (o.items || []).forEach(item => {
       if (!item || !item.name) return;
       const catItem = getTrackedCatalogItem(item.name);
@@ -510,7 +530,12 @@ function getCommittedStock() {
       committed[item.name] = (committed[item.name] || 0) + (parseFloat(item.qty) || 0);
     });
   });
+  _committedStockCache = committed;
   return committed;
+}
+
+function invalidateCommittedStockCache() {
+  _committedStockCache = null;
 }
 
 function getAvailableStock(productName) {

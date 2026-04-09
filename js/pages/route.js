@@ -467,6 +467,14 @@ function showDeliveryModal(stopId, singleOrderId) {
   if (!stop) return;
   const allPending = getStopOrders(stopId, 'pending');
   const pending = singleOrderId ? allPending.filter(o => o.id === singleOrderId) : allPending;
+  // If a specific order was requested but not found as pending, it may have been delivered already
+  if (singleOrderId && pending.length === 0 && allPending.length >= 0) {
+    const order = S.orders[singleOrderId];
+    if (order && order.status === 'delivered') {
+      showToast('This order has already been delivered.', 'warning', 3000);
+      return;
+    }
+  }
   const debt = S.debts[stopId] || 0;
   const isVisitMode = pending.length === 0;
 
@@ -735,11 +743,14 @@ async function confirmDelivery() {
       }
     });
 
-    // Deduct stock on delivery
+    // Deduct stock on delivery (skip if already deducted — prevents double deduction
+    // when an order reverts to pending after a failed sync and is delivered again)
     let stockChanged = false;
     pending.forEach(o => {
+      if (o._stockDeducted) return;
       const sc = applyTrackedStockChange([], o.items || []);
       if (sc.changed) stockChanged = true;
+      o._stockDeducted = true;
     });
 
     // Await all saves to ensure data reaches Supabase before UI closes

@@ -137,11 +137,11 @@ async function runRouteSeed() {
   // Check if routes already seeded (more than 50% assigned)
   const assignedCount = Object.keys(S.assign).length;
   if (assignedCount > STOPS.length * 0.5) {
-    console.log('Route seed: skipped — routes already assigned (' + assignedCount + '/' + STOPS.length + ')');
+    console.debug('Route seed: skipped — routes already assigned (' + assignedCount + '/' + STOPS.length + ')');
     return;
   }
 
-  console.log('Route seed: starting...');
+  console.debug('Route seed: starting...');
 
   // Build name→id lookup (normalize: uppercase, trim)
   const nameToId = {};
@@ -184,7 +184,7 @@ async function runRouteSeed() {
     S.routeOrder[dayId] = orderedIds;
   });
 
-  console.log('Route seed: matched ' + matched + ', unmatched ' + unmatched);
+  console.debug('Route seed: matched ' + matched + ', unmatched ' + unmatched);
   if (unmatchedNames.length > 0) {
     console.warn('Route seed: unmatched customers:', unmatchedNames);
   }

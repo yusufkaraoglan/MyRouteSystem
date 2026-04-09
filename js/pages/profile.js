@@ -129,7 +129,7 @@ function renderProfile() {
             <div style="display:flex;gap:6px">
               <button class="btn btn-success btn-sm" data-id="${escHtml(o.id)}" onclick="showDeliveryFromOrder(this.dataset.id)">Deliver</button>
               <button class="btn btn-outline btn-sm" data-id="${escHtml(o.id)}" onclick="openEditOrderPage(this.dataset.id)">Edit</button>
-              <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger)" onclick="deleteOrder('${o.id}')">Delete</button>
+              <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger)" data-id="${escHtml(o.id)}" onclick="deleteOrder(this.dataset.id)">Delete</button>
             </div>
           </div>
         </div>`;
@@ -240,11 +240,19 @@ function renderProfile() {
           </div>` : ''}
           ${(() => {
             const payments = a.debtEntries.filter(e => e.type === 'clear').sort((x, y) => new Date(y.date) - new Date(x.date));
-            return payments.length > 0 ? payments.map(e => `
-          <div style="margin-top:4px;padding:4px 8px;background:var(--success-light);border-radius:var(--radius-sm);display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:12px;color:var(--success)">${escHtml(e.note || 'Payment received')}</span>
-            <span style="font-size:12px;font-weight:600;color:var(--success)">-${formatCurrency(e.amount)}</span>
-          </div>`).join('') : '';
+            return payments.length > 0 ? payments.map(e => {
+              const paidDate = e.date ? formatDate(e.date) : '';
+              const delivDate = a.date ? formatDate(a.date) : '';
+              const showPaidDate = paidDate && paidDate !== delivDate;
+              return `
+          <div style="margin-top:4px;padding:4px 8px;background:var(--success-light);border-radius:var(--radius-sm)">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:12px;color:var(--success)">${escHtml(e.note || 'Payment received')}</span>
+              <span style="font-size:12px;font-weight:600;color:var(--success)">-${formatCurrency(e.amount)}</span>
+            </div>${showPaidDate ? `
+            <div style="font-size:11px;color:var(--success);opacity:0.8;margin-top:2px">Paid: ${paidDate}</div>` : ''}
+          </div>`;
+            }).join('') : '';
           })()}
           <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:4px">
             ${!a.isVisit && o.items && o.items.length > 0 ? `<button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" data-id="${escHtml(o.id)}" onclick="openEditOrderPage(this.dataset.id)">Edit Items</button>` : ''}
@@ -532,6 +540,14 @@ async function deleteCustomer() {
   STOPS = STOPS.filter(s => s.id !== profileStopId);
   delete S.assign[profileStopId];
 
+  // Restore stock for delivered orders before deleting
+  let stockChanged = false;
+  Object.values(S.orders).forEach(o => {
+    if (o.customerId === profileStopId && o.status === 'delivered') {
+      const sc = applyTrackedStockChange(o.items || [], []);
+      if (sc.changed) stockChanged = true;
+    }
+  });
   // Clean up all related data for deleted customer
   Object.keys(S.orders).forEach(oid => {
     if (S.orders[oid].customerId === profileStopId) delete S.orders[oid];
@@ -548,13 +564,15 @@ async function deleteCustomer() {
   delete S.brands[profileStopId];
   delete S.recurringOrders[profileStopId];
 
-  await Promise.allSettled([
+  const saveList = [
     save.stops(), save.assign(), save.orders(Object.keys(S.orders)),
     save.debts(), save.debtHistory([profileStopId]),
     save.routeOrder(), save.geo(), save.cnotes(),
     save.pricing(), save.customerProducts(), save.brands(),
     save.recurringOrders()
-  ]);
+  ];
+  if (stockChanged) saveList.push(save.catalog());
+  await Promise.allSettled(saveList);
   closeModal();
   showPage('customers');
   DB.deleteCustomer(profileStopId);
@@ -593,7 +611,6 @@ function showAssignModal() {
 async function assignToDay(dayId) {
   S.assign[profileStopId] = dayId;
   await save.assign();
-  DB.setAssignment(profileStopId, dayId);
   closeModal();
   renderProfile();
 }
@@ -601,7 +618,6 @@ async function assignToDay(dayId) {
 async function unassignFromDay() {
   delete S.assign[profileStopId];
   await save.assign();
-  DB.removeAssignment(profileStopId);
   closeModal();
   renderProfile();
 }
