@@ -1102,9 +1102,9 @@ async function removeDebtHistory(stopId, entryId) {
   const h = dh[idx];
   // Reverse the debt effect
   if (h.type === 'add') {
-    S.debts[stopId] = Math.max(0, (S.debts[stopId] || 0) - h.amount);
+    S.debts[stopId] = roundMoney(Math.max(0, (S.debts[stopId] || 0) - h.amount));
   } else {
-    S.debts[stopId] = (S.debts[stopId] || 0) + h.amount;
+    S.debts[stopId] = roundMoney((S.debts[stopId] || 0) + h.amount);
   }
   dh.splice(idx, 1);
   await Promise.allSettled([save.debts(), save.debtHistory([stopId])]);

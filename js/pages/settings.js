@@ -204,9 +204,13 @@ async function importJSON(input) {
   try {
     const text = await file.text();
     const backup = JSON.parse(text);
-    if (!backup.data) { appAlert('Invalid backup file.'); return; }
-    if (!(await appConfirm(`This backup is dated ${backup.exportedAt ? escHtml(formatDate(backup.exportedAt)) : 'unknown'}.<br>Existing data will be overwritten. Continue?`, true))) return;
+    if (!backup.data || typeof backup.data !== 'object') { appAlert('Invalid backup file.'); return; }
     const d = backup.data;
+    // Validate critical data types to prevent crashes from corrupted backups
+    if (d.orders && typeof d.orders !== 'object') { appAlert('Backup corrupted: invalid orders data.'); return; }
+    if (d.stops && !Array.isArray(d.stops)) { appAlert('Backup corrupted: invalid customers data.'); return; }
+    if (d.catalog && !Array.isArray(d.catalog)) { appAlert('Backup corrupted: invalid catalog data.'); return; }
+    if (!(await appConfirm(`This backup is dated ${backup.exportedAt ? escHtml(formatDate(backup.exportedAt)) : 'unknown'}.<br>Existing data will be overwritten. Continue?`, true))) return;
     const importPromises = [];
     if (d.stops) { STOPS = d.stops; importPromises.push(save.stops()); }
     if (d.assign) { S.assign = d.assign; importPromises.push(save.assign()); }

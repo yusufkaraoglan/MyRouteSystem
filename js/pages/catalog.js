@@ -484,7 +484,16 @@ async function removeCatalogItem(idx) {
   if (!(await appConfirm('Remove ' + escHtml(c.name) + '?'))) return;
   const name = c.name;
   S.catalog.splice(idx, 1);
+  // Clean up customer product assignments referencing this product
+  let cpChanged = false;
+  Object.entries(S.customerProducts).forEach(([cid, arr]) => {
+    if (Array.isArray(arr)) {
+      const i = arr.indexOf(name);
+      if (i >= 0) { arr.splice(i, 1); cpChanged = true; }
+    }
+  });
   save.catalog();
+  if (cpChanged) save.customerProducts();
   DB.deleteProduct(name).catch(() => {});
   closeModal();
   if (curPage === 'catalog') renderCatalog();
