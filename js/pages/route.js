@@ -735,11 +735,14 @@ async function confirmDelivery() {
       }
     });
 
-    // Deduct stock on delivery
+    // Deduct stock on delivery (skip if already deducted — prevents double deduction
+    // when an order reverts to pending after a failed sync and is delivered again)
     let stockChanged = false;
     pending.forEach(o => {
+      if (o._stockDeducted) return;
       const sc = applyTrackedStockChange([], o.items || []);
       if (sc.changed) stockChanged = true;
+      o._stockDeducted = true;
     });
 
     // Await all saves to ensure data reaches Supabase before UI closes

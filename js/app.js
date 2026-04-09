@@ -576,7 +576,7 @@ async function init() {
   let _syncInProgress = false;
   let _lastSyncHash = '';
   const doSync = async () => {
-    if (_syncInProgress || _savePending > 0 || offlineQueue.length > 0 || (Date.now() - _lastSaveFailTime < 10 * 60 * 1000)) return;
+    if (_syncInProgress || _savePending > 0 || offlineQueue.length > 0 || (Date.now() - _lastSaveFailTime < 60 * 1000)) return;
     // Re-check DB readiness periodically in case tables were created
     if (!_dbReady) { await checkDbTables(); if (!_dbReady) return; }
     _syncInProgress = true;
@@ -589,6 +589,7 @@ async function init() {
         const assignments = cacheGet('assignments', null);
         const routeOrder = cacheGet('route_order', null);
         const pricing = cacheGet('customer_pricing', null);
+        const products = cacheGet('products', null);
         const newHash = JSON.stringify([
           customers ? customers.length : 0,
           orders ? Object.values(orders).map(o => o.id + ':' + o.status).sort().join(',') : '',
@@ -596,7 +597,8 @@ async function init() {
           customers ? customers.map(c => c.name + c.note + (c.address||'')).join('') : '',
           assignments ? JSON.stringify(assignments) : '{}',
           routeOrder ? JSON.stringify(routeOrder) : '{}',
-          pricing ? JSON.stringify(pricing) : '{}'
+          pricing ? JSON.stringify(pricing) : '{}',
+          products ? products.map(p => p.name + ':' + (p.stock ?? '')).sort().join(',') : ''
         ]);
         if (newHash !== _lastSyncHash) {
           _lastSyncHash = newHash;

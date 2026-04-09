@@ -304,6 +304,27 @@ function dedupeDebtHistory(entries) {
   });
 }
 
+// ── Pending writes check ─────────────────────────────────
+// Maps cache keys to Supabase table names so we can detect if the offline queue
+// has unsynced writes. When writes are pending, sync must NOT overwrite local cache.
+const _cacheToTables = {
+  orders: ['orders', 'order_items'],
+  products: ['products'],
+  debts: ['debts'],
+  debt_history: ['debt_history'],
+  customers: ['customers'],
+  assignments: ['assignments'],
+  route_order: ['route_order'],
+  customer_pricing: ['customer_pricing'],
+  recurring_orders: ['recurring_orders'],
+  app_settings: ['app_settings']
+};
+
+function _hasPendingWrites(cacheKey) {
+  const tables = _cacheToTables[cacheKey] || [];
+  return offlineQueue.some(op => tables.includes(op.table));
+}
+
 // ── Cache-aware fetch helper ─────────────────────────────
 // Fetches from Supabase when cache is stale. When fetch fails (returns null),
 // falls back to cached data. When fetch succeeds with empty results, that is
@@ -312,6 +333,8 @@ function _fetchOrCache(cacheKey, fallback, fetchFn, transformFn) {
   return async function () {
     const cached = cacheGet(cacheKey, null);
     if (cached && cacheIsFresh(cacheKey)) return cached;
+    // Don't overwrite local cache if there are unsynced writes for this data
+    if (cached && _hasPendingWrites(cacheKey)) return cached;
     const rows = await fetchFn();
     if (!rows) return cached || fallback; // fetch failed entirely — keep cached data
     const data = transformFn ? transformFn(rows) : rows;

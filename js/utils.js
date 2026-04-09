@@ -230,14 +230,19 @@ function getStop(id) {
   return STOPS.find(s => Number(s.id) === numId);
 }
 
-// Cached index: customerId -> [orderId, ...]
+// Cached index: customerId -> [order, ...]
 let _ordersByCustomer = null;
 let _ordersByCustomerHash = '';
+let _ordersByCustomerRef = null; // track S.orders object identity to detect wholesale replacement
 
 function _getOrdersByCustomerIndex() {
   const keys = Object.keys(S.orders);
   const hash = keys.length + ':' + (keys[0] || '') + ':' + (keys[keys.length - 1] || '');
-  if (_ordersByCustomer && _ordersByCustomerHash === hash) return _ordersByCustomer;
+  // Invalidate cache if S.orders was replaced (e.g. by loadStateFromDB) or keys changed
+  if (_ordersByCustomer && _ordersByCustomerHash === hash && _ordersByCustomerRef === S.orders) {
+    return _ordersByCustomer;
+  }
+  _ordersByCustomerRef = S.orders;
   _ordersByCustomer = {};
   keys.forEach(id => {
     const o = S.orders[id];
