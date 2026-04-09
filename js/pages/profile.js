@@ -240,11 +240,19 @@ function renderProfile() {
           </div>` : ''}
           ${(() => {
             const payments = a.debtEntries.filter(e => e.type === 'clear').sort((x, y) => new Date(y.date) - new Date(x.date));
-            return payments.length > 0 ? payments.map(e => `
-          <div style="margin-top:4px;padding:4px 8px;background:var(--success-light);border-radius:var(--radius-sm);display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:12px;color:var(--success)">${escHtml(e.note || 'Payment received')}</span>
-            <span style="font-size:12px;font-weight:600;color:var(--success)">-${formatCurrency(e.amount)}</span>
-          </div>`).join('') : '';
+            return payments.length > 0 ? payments.map(e => {
+              const paidDate = e.date ? formatDate(e.date) : '';
+              const delivDate = a.date ? formatDate(a.date) : '';
+              const showPaidDate = paidDate && paidDate !== delivDate;
+              return `
+          <div style="margin-top:4px;padding:4px 8px;background:var(--success-light);border-radius:var(--radius-sm)">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:12px;color:var(--success)">${escHtml(e.note || 'Payment received')}</span>
+              <span style="font-size:12px;font-weight:600;color:var(--success)">-${formatCurrency(e.amount)}</span>
+            </div>${showPaidDate ? `
+            <div style="font-size:11px;color:var(--success);opacity:0.8;margin-top:2px">Paid: ${paidDate}</div>` : ''}
+          </div>`;
+            }).join('') : '';
           })()}
           <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:4px">
             ${!a.isVisit && o.items && o.items.length > 0 ? `<button class="btn-ghost" style="font-size:11px;color:var(--primary);padding:2px 6px" data-id="${escHtml(o.id)}" onclick="openEditOrderPage(this.dataset.id)">Edit Items</button>` : ''}
