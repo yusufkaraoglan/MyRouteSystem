@@ -60,7 +60,7 @@ async function _loadQueueFromIDB() {
     db.close();
     if (items && items.length > 0) {
       items.forEach(item => { delete item._idbId; offlineQueue.push(item); });
-      console.log('Loaded', items.length, 'pending operations from IndexedDB');
+      console.debug('Loaded', items.length, 'pending operations from IndexedDB');
     }
   } catch (e) { console.warn('_loadQueueFromIDB:', e.message); }
 }

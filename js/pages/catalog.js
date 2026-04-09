@@ -384,7 +384,7 @@ function saveCatalogEdit(idx) {
   const price = parseFloat(document.getElementById('cat-edit-price-' + idx).value) || 0;
   if (!name) { appAlert('Product name is required.'); return; }
   const oldName = S.catalog[idx].name;
-  if (name !== oldName && S.catalog.some(c => c.name === name)) { appAlert('This product already exists.'); return; }
+  if (name !== oldName && S.catalog.some(c => c.name.toLowerCase() === name.toLowerCase())) { appAlert('This product already exists.'); return; }
   const noStockChecked = document.getElementById('cat-edit-nostock-' + idx)?.checked || false;
   let stock = S.catalog[idx].stock;
   if (noStockChecked) {
@@ -470,7 +470,7 @@ function addCatalogItem() {
   const stock = stockVal !== '' ? Math.max(0, parseInt(stockVal) || 0) : null;
   const noStock = document.getElementById('cat-nostock')?.checked;
   if (!name) { appAlert('Product name is required.'); return; }
-  if (S.catalog.some(c => c.name === name)) { appAlert('This product already exists.'); return; }
+  if (S.catalog.some(c => c.name.toLowerCase() === name.toLowerCase())) { appAlert('This product already exists.'); return; }
   S.catalog.push({ name, unit, price, stock: noStock ? null : stock, trackStock: noStock ? false : true, sort_order: S.catalog.length });
   save.catalog();
   closeModal();

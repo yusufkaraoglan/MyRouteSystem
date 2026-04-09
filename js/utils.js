@@ -507,7 +507,18 @@ function getPrice(stopId, productName) {
 
 // ── Committed Stock (pending orders) ─────────────────────
 
+let _committedStockCache = null;
+let _committedStockRef = null;
+let _committedStockLen = 0;
+
 function getCommittedStock() {
+  // Memoize: reuse cache if S.orders hasn't been replaced or resized
+  const keys = Object.keys(S.orders);
+  if (_committedStockCache && _committedStockRef === S.orders && _committedStockLen === keys.length) {
+    return _committedStockCache;
+  }
+  _committedStockRef = S.orders;
+  _committedStockLen = keys.length;
   const committed = {};
   Object.values(S.orders).forEach(o => {
     if (o.status !== 'pending') return;
@@ -519,7 +530,12 @@ function getCommittedStock() {
       committed[item.name] = (committed[item.name] || 0) + (parseFloat(item.qty) || 0);
     });
   });
+  _committedStockCache = committed;
   return committed;
+}
+
+function invalidateCommittedStockCache() {
+  _committedStockCache = null;
 }
 
 function getAvailableStock(productName) {
