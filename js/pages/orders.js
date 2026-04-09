@@ -107,10 +107,12 @@ function renderOrderResults() {
             const oos = (o.items || []).filter(i => {
               const cat = getTrackedCatalogItem(i.name);
               if (!cat) return false;
-              const avail = (cat.stock || 0) - (_committed[i.name] || 0);
-              return avail < (i.qty || 0);
+              // Available = stock minus committed from OTHER pending orders (exclude this order)
+              const thisQty = parseFloat(i.qty) || 0;
+              const avail = (cat.stock || 0) - ((_committed[i.name] || 0) - thisQty);
+              return avail < thisQty;
             });
-            return oos.length > 0 ? `<div style="font-size:11px;color:var(--danger);margin-top:2px;padding:0 12px">⚠ ${oos.map(i => { const cat = getTrackedCatalogItem(i.name); const avail = (cat ? cat.stock : 0) - (_committed[i.name] || 0); return escHtml(i.name) + ': ' + Math.max(0, avail) + ' available, ' + i.qty + ' needed'; }).join(' · ')}</div>` : '';
+            return oos.length > 0 ? `<div style="font-size:11px;color:var(--danger);margin-top:2px;padding:0 12px">⚠ ${oos.map(i => { const cat = getTrackedCatalogItem(i.name); return escHtml(i.name) + ': ' + (cat ? cat.stock : 0) + ' in van, ' + i.qty + ' needed'; }).join(' · ')}</div>` : '';
           })() : ''}
           <div class="order-card-v2-footer">
             <span class="order-card-v2-price">${formatCurrency(total)}</span>
